@@ -78,10 +78,14 @@ void EdgeServer::startWorker()
                 while (true)
                 {
                     int client_fd = accept(server_fd, (sockaddr *)&client_addr, &client_len);
-                    if (client_fd == -1) {
-                        if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                    if (client_fd == -1)
+                    {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK)
+                        {
                             break;
-                        } else {
+                        }
+                        else
+                        {
                             perror("accept");
                             break;
                         }
@@ -139,6 +143,8 @@ void EdgeServer::startWorker()
 
                     int bytes = SSL_read(conn.ssl, buffer, sizeof(buffer));
 
+                    std::string domain = SSL_get_servername(conn.ssl, TLSEXT_NAMETYPE_host_name);
+                    
                     if (bytes > 0)
                     {
                         std::string body = "Hello TLS World";
