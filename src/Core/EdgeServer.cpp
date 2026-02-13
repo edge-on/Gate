@@ -37,8 +37,8 @@ void EdgeServer::start()
 
     ctx = SSL_CTX_new(TLS_server_method());
 
-    SSL_CTX_use_certificate_file(ctx, "a.pem", SSL_FILETYPE_PEM);
-    SSL_CTX_use_PrivateKey_file(ctx, "c.pem", SSL_FILETYPE_PEM);
+    SSL_CTX_use_certificate_file(ctx, "SSL/localhost.pem", SSL_FILETYPE_PEM);
+    SSL_CTX_use_PrivateKey_file(ctx, "SSL/localhost-key.pem", SSL_FILETYPE_PEM);
 
     if (listen(server_fd, SOMAXCONN) < 0)
     {
@@ -75,27 +75,36 @@ void EdgeServer::startWorker()
                 sockaddr_in client_addr{};
                 socklen_t client_len = sizeof(client_addr);
 
-                int client_fd = accept(server_fd, (sockaddr *)&client_addr, &client_len);
-                if (client_fd == -1)
-                    break;
+                while (true)
+                {
+                    int client_fd = accept(server_fd, (sockaddr *)&client_addr, &client_len);
+                    if (client_fd == -1) {
+                        if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                            break;
+                        } else {
+                            perror("accept");
+                            break;
+                        }
+                    }
 
-                makeNonBlocking(client_fd);
+                    makeNonBlocking(client_fd);
 
-                SSL *ssl = SSL_new(ctx);
-                SSL_set_fd(ssl, client_fd);
-                SSL_set_accept_state(ssl);
+                    SSL *ssl = SSL_new(ctx);
+                    SSL_set_fd(ssl, client_fd);
+                    SSL_set_accept_state(ssl);
 
-                Connection conn;
-                conn.fd = client_fd;
-                conn.ssl = ssl;
-                conn.handshake_done = false;
+                    Connection conn;
+                    conn.fd = client_fd;
+                    conn.ssl = ssl;
+                    conn.handshake_done = false;
 
-                connections[client_fd] = conn;
+                    connections[client_fd] = conn;
 
-                epoll_event client_event{};
-                client_event.events = EPOLLIN | EPOLLET;
-                client_event.data.fd = client_fd;
-                epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &client_event);
+                    epoll_event client_event{};
+                    client_event.events = EPOLLIN;
+                    client_event.data.fd = client_fd;
+                    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &client_event);
+                }
             }
             else
             {
@@ -137,8 +146,8 @@ void EdgeServer::startWorker()
                         std::string response =
                             "HTTP/1.1 200 OK\r\n"
                             "Connection: keep-alive\r\n"
-                            "Connection-Type: text/plain\r\n" +
-                            ("Connection-Length: " + std::to_string(body.size()) + "\r\n") +
+                            "Content-Type: text/plain\r\n" +
+                            ("Content-Length: " + std::to_string(body.size()) + "\r\n") +
                             "\r\n" +
                             body;
 
@@ -150,7 +159,7 @@ void EdgeServer::startWorker()
 
                         if (err == SSL_ERROR_WANT_READ)
                         {
-                            continue;
+                            break;
                         }
 
                         SSL_shutdown(conn.ssl);
