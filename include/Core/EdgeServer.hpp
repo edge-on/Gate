@@ -33,6 +33,8 @@ private:
 
     int server_fd;
 
+    SSL_CTX* ctx;
+
     std::vector<std::thread> workers;
 
     void startWorker();

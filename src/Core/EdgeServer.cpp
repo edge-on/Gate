@@ -4,7 +4,7 @@ EdgeServer::EdgeServer()
 {
 }
 
-EdgeServer& EdgeServer::setPort(int PORT)
+EdgeServer &EdgeServer::setPort(int PORT)
 {
     this->PORT = PORT;
     return *this;
@@ -35,10 +35,10 @@ void EdgeServer::start()
     OpenSSL_add_ssl_algorithms();
     SSL_load_error_strings();
 
-    SSL_CTX* ctx = SSL_CTX_new(TLS_server_method());
+    ctx = SSL_CTX_new(TLS_server_method());
 
-    SSL_CTX_use_certificate_file(ctx, "", SSL_FILETYPE_PEM);
-    SSL_CTX_use_PrivateKey_file(ctx, "", SSL_FILETYPE_PEM);
+    SSL_CTX_use_certificate_file(ctx, "a.pem", SSL_FILETYPE_PEM);
+    SSL_CTX_use_PrivateKey_file(ctx, "c.pem", SSL_FILETYPE_PEM);
 
     if (listen(server_fd, SOMAXCONN) < 0)
     {
@@ -47,16 +47,7 @@ void EdgeServer::start()
 
     makeNonBlocking(server_fd);
 
-    for (int i = 0; i < 6; i++)
-    {
-        workers.emplace_back(&EdgeServer::startWorker, this);
-    }
-
-    for (auto &t : workers)
-    {
-        if (t.joinable())
-            t.join();
-    }
+    startWorker();
 }
 
 void EdgeServer::startWorker()
@@ -77,7 +68,7 @@ void EdgeServer::startWorker()
     {
         int n = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
 
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < n; ++i)
         {
             if (events[i].data.fd == server_fd)
             {
@@ -90,6 +81,17 @@ void EdgeServer::startWorker()
 
                 makeNonBlocking(client_fd);
 
+                SSL *ssl = SSL_new(ctx);
+                SSL_set_fd(ssl, client_fd);
+                SSL_set_accept_state(ssl);
+
+                Connection conn;
+                conn.fd = client_fd;
+                conn.ssl = ssl;
+                conn.handshake_done = false;
+
+                connections[client_fd] = conn;
+
                 epoll_event client_event{};
                 client_event.events = EPOLLIN | EPOLLET;
                 client_event.data.fd = client_fd;
@@ -97,24 +99,65 @@ void EdgeServer::startWorker()
             }
             else
             {
-                char buffer[1024];
-                int bytes;
+                auto &conn = connections[events[i].data.fd];
 
-                while ((bytes = read(events[i].data.fd, buffer, sizeof(buffer))) > 0)
+                if (!conn.handshake_done)
                 {
-                    std::string body = "Hello World";
+                    int ret = SSL_accept(conn.ssl);
 
-                    std::string response =
-                        "HTTP/1.1 200 OK\r\n"
-                        "Connection: keep-alive\r\n"
-                        "Content-Type: text/plain\r\n" +
-                        ("Content-Length: " + std::to_string(body.size()) + "\r\n") +
-                        "\r\n" +
-                        body;
-                    write(events[i].data.fd, response.c_str(), response.size());
-                    if (bytes == 0 || (bytes == -1 && errno != EAGAIN))
+                    if (ret == 1)
                     {
-                        close(events[i].data.fd);
+                        conn.handshake_done = true;
+                    }
+                    else
+                    {
+                        int err = SSL_get_error(conn.ssl, ret);
+
+                        if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE)
+                        {
+                            continue;
+                        }
+
+                        SSL_free(conn.ssl);
+                        close(conn.fd);
+
+                        connections.erase(conn.fd);
+                    }
+                }
+                else
+                {
+                    char buffer[4096];
+
+                    int bytes = SSL_read(conn.ssl, buffer, sizeof(buffer));
+
+                    if (bytes > 0)
+                    {
+                        std::string body = "Hello TLS World";
+
+                        std::string response =
+                            "HTTP/1.1 200 OK\r\n"
+                            "Connection: keep-alive\r\n"
+                            "Connection-Type: text/plain\r\n" +
+                            ("Connection-Length: " + std::to_string(body.size()) + "\r\n") +
+                            "\r\n" +
+                            body;
+
+                        SSL_write(conn.ssl, response.c_str(), response.size());
+                    }
+                    else
+                    {
+                        int err = SSL_get_error(conn.ssl, bytes);
+
+                        if (err == SSL_ERROR_WANT_READ)
+                        {
+                            continue;
+                        }
+
+                        SSL_shutdown(conn.ssl);
+                        SSL_free(conn.ssl);
+                        close(conn.fd);
+
+                        connections.erase(conn.fd);
                     }
                 }
             }
