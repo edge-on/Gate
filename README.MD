@@ -1,7 +1,7 @@
 <div align = center>
 
 <div style='margin-bottom: 30px; margin-top: 20px;'>
-<img src='https://cdn.vobrow.com/GATE.png' style="width: 300px;">
+<img src='https://cdn.vobrow.com/GATE.png' style="width: 200px;">
 </div>
 
 <img src='https://img.shields.io/badge/Workflow-Gate-blue?style=for-the-badge&logo=git'>
