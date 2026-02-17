@@ -7,4 +7,7 @@ class Atlas
 public:
     Atlas();
     ~Atlas();
+
+private:
+    Cassandra* cas;
 };
