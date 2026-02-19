@@ -10,6 +10,8 @@
 #include <openssl/ssl.h>
 #include <unordered_map>
 
+#include "Commands/Commands.hpp"
+
 class EdgeServer
 {
 public:
@@ -50,8 +52,10 @@ private:
 
     SSL_CTX* ctx;
 
-    int handleBackend(Connection conn);
-    int handleClient(Connection conn);
+    bool read_exact(SSL *ssl, void *buffer, size_t len);
+
+    int handleBackend(Connection &conn);
+    int handleClient(Connection &conn);
 
     void startWorkers();
 

@@ -243,51 +243,32 @@ void EdgeServer::startWorkers()
     close(client_listen);
 }
 
-int EdgeServer::handleBackend(Connection conn)
+int EdgeServer::handleBackend(Connection &conn)
 {
-    int result;
+    uint8_t cmd;
 
-    char buffer[4096];
+    if (!read_exact(conn.ssl, &cmd, 1))
+        return -1;
 
-    int bytes = SSL_read(conn.ssl, buffer, sizeof(buffer));
+    uint32_t net_len;
 
-    // std::string domain = SSL_get_servername(conn.ssl, TLSEXT_NAMETYPE_host_name);
+    if (!read_exact(conn.ssl, &net_len, 4))
+        return -1;
 
-    if (bytes > 0)
-    {
-        buffer[bytes] = '\0';
-        std::cout << buffer << std::endl;
+    uint32_t len = ntohl(net_len);
 
-        std::string body = "Backend";
+    std::string payload(len, '\0');
 
-        std::string response =
-            "HTTP/1.1 200 OK\r\n"
-            "Connection: keep-alive\r\n"
-            "Content-Type: text/plain\r\n" +
-            ("Content-Length: " + std::to_string(body.size()) + "\r\n") +
-            "\r\n" +
-            body;
+    if (!read_exact(conn.ssl, payload.data(), len))
+        return -1;
 
-        SSL_write(conn.ssl, response.c_str(), response.size());
+    std::cout << "CMD: " << (int)cmd << std::endl;
+    std::cout << "Payload: " << payload << std::endl;
 
-        result = 1;
-    }
-    else
-    {
-        int err = SSL_get_error(conn.ssl, bytes);
-        result = err;
-
-        SSL_shutdown(conn.ssl);
-        SSL_free(conn.ssl);
-        close(conn.fd);
-
-        connections.erase(conn.fd);
-    }
-
-    return result;
+    return 1;
 }
 
-int EdgeServer::handleClient(Connection conn)
+int EdgeServer::handleClient(Connection &conn)
 {
     int result;
 
@@ -326,6 +307,25 @@ int EdgeServer::handleClient(Connection conn)
     }
 
     return result;
+}
+
+bool EdgeServer::read_exact(SSL *ssl, void *buffer, size_t len)
+{
+    size_t total = 0;
+
+    while (total < len)
+    {
+        int bytes = SSL_read(ssl,
+                             (char *)buffer + total,
+                             len - total);
+
+        if (bytes <= 0)
+            return false;
+
+        total += bytes;
+    }
+
+    return true;
 }
 
 EdgeServer &EdgeServer::setPort(int PORT)
