@@ -16,28 +16,46 @@ public:
     EdgeServer();
     
     EdgeServer& setPort(int PORT);
+
     void start();
+    
+    void initClientServer();
+    void initBackendServer();
+
+    void initSSL();
+
+    enum ConnType {
+        BACKEND,
+        CLIENT
+    };
 
     struct Connection
     {
         int fd;
         SSL* ssl;
         bool handshake_done;
+
+        ConnType type;
     };
     
     std::unordered_map<int, Connection> connections;
 
 private:
-    int PORT = 8080;
+    int CLIENT_PORT = 8080;
+    int BACKEND_PORT = 9000;
+
     int MAX_EVENTS = 10;
 
-    int server_fd;
+    int client_listen, backend_listen;
 
     SSL_CTX* ctx;
 
     std::vector<std::thread> workers;
 
-    void startWorker();
+    int handleBackend(Connection conn);
+    int handleClient(Connection conn);
+
+    void startWorkers();
 
     int makeNonBlocking(int sfd);
 };
