@@ -89,7 +89,7 @@ void EdgeServer::startWorkers()
     int epoll_fd = epoll_create1(0);
 
     epoll_event client_event{};
-    client_event.events = EPOLLIN;
+    client_event.events = EPOLLIN | EPOLLET;
     client_event.data.fd = client_listen;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_listen, &client_event) < 0)
@@ -98,7 +98,7 @@ void EdgeServer::startWorkers()
     }
 
     epoll_event backend_event{};
-    backend_event.events = EPOLLIN;
+    backend_event.events = EPOLLIN | EPOLLET;
     backend_event.data.fd = backend_listen;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, backend_listen, &backend_event) < 0)
@@ -150,7 +150,7 @@ void EdgeServer::startWorkers()
                     connections[client_fd] = conn;
 
                     epoll_event client_event{};
-                    client_event.events = EPOLLIN;
+                    client_event.events = EPOLLIN | EPOLLET;
                     client_event.data.fd = client_fd;
                     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &client_event);
                 }
@@ -191,7 +191,7 @@ void EdgeServer::startWorkers()
                     connections[backend_fd] = conn;
 
                     epoll_event backend_event{};
-                    backend_event.events = EPOLLIN;
+                    backend_event.events = EPOLLIN | EPOLLET;
                     backend_event.data.fd = backend_fd;
                     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, backend_fd, &backend_event);
                 }
@@ -245,25 +245,71 @@ void EdgeServer::startWorkers()
 
 int EdgeServer::handleBackend(Connection &conn)
 {
-    uint8_t cmd;
+    char temp[4096];
 
-    if (!read_exact(conn.ssl, &cmd, 1))
-        return -1;
+    while (true)
+    {
+        int bytes = SSL_read(conn.ssl, temp, sizeof(temp));
 
-    uint32_t net_len;
+        if (bytes <= 0)
+        {
+            int err = SSL_get_error(conn.ssl, bytes);
 
-    if (!read_exact(conn.ssl, &net_len, 4))
-        return -1;
+            if (err == SSL_ERROR_WANT_READ ||
+                err == SSL_ERROR_WANT_WRITE)
+            {
+                break; // veri bitti
+            }
 
-    uint32_t len = ntohl(net_len);
+            return -1; // gerçek hata
+        }
 
-    std::string payload(len, '\0');
+        conn.buffer.insert(conn.buffer.end(), temp, temp + bytes);
+    }
 
-    if (!read_exact(conn.ssl, payload.data(), len))
-        return -1;
+    // 🔥 Parsing loop
+    while (true)
+    {
+        switch (conn.state)
+        {
+        case ReadState::READ_CMD:
+            if (conn.buffer.size() < 1)
+                return 1;
 
-    std::cout << "CMD: " << (int)cmd << std::endl;
-    std::cout << "Payload: " << payload << std::endl;
+            conn.cmd = conn.buffer[0];
+            conn.buffer.erase(conn.buffer.begin());
+            conn.state = ReadState::READ_LEN;
+            break;
+
+        case ReadState::READ_LEN:
+            if (conn.buffer.size() < 4)
+                return 1;
+
+            uint32_t net_len;
+            memcpy(&net_len, conn.buffer.data(), 4);
+            conn.len = ntohl(net_len);
+
+            conn.buffer.erase(conn.buffer.begin(), conn.buffer.begin() + 4);
+            conn.state = ReadState::READ_PAYLOAD;
+            break;
+
+        case ReadState::READ_PAYLOAD:
+            if (conn.buffer.size() < conn.len)
+                return 1;
+
+            std::string payload(conn.buffer.begin(),
+                                conn.buffer.begin() + conn.len);
+
+            conn.buffer.erase(conn.buffer.begin(),
+                              conn.buffer.begin() + conn.len);
+
+            int command = (int)conn.cmd;
+            handleCommands(conn, command, payload);
+
+            conn.state = ReadState::READ_CMD;
+            break;
+        }
+    }
 
     return 1;
 }
@@ -315,17 +361,49 @@ bool EdgeServer::read_exact(SSL *ssl, void *buffer, size_t len)
 
     while (total < len)
     {
-        int bytes = SSL_read(ssl,
-                             (char *)buffer + total,
-                             len - total);
+        int bytes = SSL_read(ssl, (char *)buffer + total, len - total);
 
         if (bytes <= 0)
+        {
             return false;
+        }
 
         total += bytes;
     }
 
     return true;
+}
+
+int EdgeServer::handleCommands(Connection &conn, int &command, std::string &payload)
+{
+    switch (command)
+    {
+    case static_cast<int>(Commands::SESSION_INIT):
+        if (conn.session_initialized)
+        {
+            conn.session_initialized = true;
+            backends["localhost.com"] = conn.fd;
+            std::cout << "Backend added to trust backend connections" << std::endl;
+        }
+
+        int cmd = static_cast<uint8_t>(Commands::RESPONSE_OK);
+        std::string payload = "Success";
+
+        sendCommand(conn.ssl, cmd, payload);
+        
+        break;
+    }
+
+    return 1;
+}
+
+void EdgeServer::sendCommand(SSL *ssl, int &cmd, std::string &payload)
+{
+    uint32_t net_len = htonl(payload.size());
+
+    SSL_write(ssl, &cmd, sizeof(cmd));
+    SSL_write(ssl, &net_len, sizeof(net_len));
+    SSL_write(ssl, payload.data(), payload.size());
 }
 
 EdgeServer &EdgeServer::setPort(int PORT)

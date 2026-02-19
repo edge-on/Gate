@@ -16,32 +16,50 @@ class EdgeServer
 {
 public:
     EdgeServer();
-    
-    EdgeServer& setPort(int PORT);
+
+    EdgeServer &setPort(int PORT);
 
     void start();
-    
+
     void initClientServer();
     void initBackendServer();
 
     void initSSL();
 
-    enum ConnType {
+    void sendCommand(SSL *ssl, int &cmd, std::string &paylod);
+
+    enum ConnType
+    {
         BACKEND,
         CLIENT
+    };
+
+    enum class ReadState
+    {
+        READ_CMD,
+        READ_LEN,
+        READ_PAYLOAD
     };
 
     struct Connection
     {
         int fd;
-        SSL* ssl;
-        bool handshake_done;
+        SSL *ssl;
+
+        bool handshake_done = false;
+        bool session_initialized = false;
 
         ConnType type;
+
+        ReadState state = ReadState::READ_CMD;
+        uint8_t cmd = 0;
+        uint32_t len = 0;
+        std::vector<char> buffer;
     };
-    
+
     std::unordered_map<int, Connection> connections;
 
+    std::unordered_map<std::string, int> backends;
 private:
     int client_port = 8080;
     int backend_port = 9000;
@@ -50,9 +68,11 @@ private:
 
     int client_listen, backend_listen;
 
-    SSL_CTX* ctx;
+    SSL_CTX *ctx;
 
     bool read_exact(SSL *ssl, void *buffer, size_t len);
+
+    int handleCommands(Connection &conn, int &command, std::string &payload);
 
     int handleBackend(Connection &conn);
     int handleClient(Connection &conn);
