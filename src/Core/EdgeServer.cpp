@@ -25,7 +25,7 @@ void EdgeServer::initClientServer()
     sockaddr_in client_addr;
     client_addr.sin_family = AF_INET;
     client_addr.sin_addr.s_addr = INADDR_ANY;
-    client_addr.sin_port = htons(CLIENT_PORT);
+    client_addr.sin_port = htons(client_port);
 
     int opt = 1;
     setsockopt(client_listen, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -53,8 +53,8 @@ void EdgeServer::initBackendServer()
 
     sockaddr_in backend_addr;
     backend_addr.sin_family = AF_INET;
-    backend_addr.sin_addr.s_addr = INADDR_ANY;
-    backend_addr.sin_port = htons(BACKEND_PORT);
+    backend_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    backend_addr.sin_port = htons(backend_port);
 
     int opt = 1;
     setsockopt(backend_listen, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -225,19 +225,12 @@ void EdgeServer::startWorkers()
                 }
                 else
                 {
-                    if (conn.type == ConnType::BACKEND)
-                    {
-                    }
-                    else
-                    {
-                    }
-
                     switch (conn.type)
                     {
                     case ConnType::BACKEND:
                         handleBackend(conn);
                         break;
-                    
+
                     case ConnType::CLIENT:
                         handleClient(conn);
                         break;
@@ -262,6 +255,9 @@ int EdgeServer::handleBackend(Connection conn)
 
     if (bytes > 0)
     {
+        buffer[bytes] = '\0';
+        std::cout << buffer << std::endl;
+
         std::string body = "Backend";
 
         std::string response =
@@ -334,7 +330,7 @@ int EdgeServer::handleClient(Connection conn)
 
 EdgeServer &EdgeServer::setPort(int PORT)
 {
-    this->CLIENT_PORT = PORT;
+    this->client_port = PORT;
     return *this;
 }
 

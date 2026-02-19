@@ -41,16 +41,14 @@ public:
     std::unordered_map<int, Connection> connections;
 
 private:
-    int CLIENT_PORT = 8080;
-    int BACKEND_PORT = 9000;
+    int client_port = 8080;
+    int backend_port = 9000;
 
     int MAX_EVENTS = 10;
 
     int client_listen, backend_listen;
 
     SSL_CTX* ctx;
-
-    std::vector<std::thread> workers;
 
     int handleBackend(Connection conn);
     int handleClient(Connection conn);
