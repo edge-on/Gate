@@ -60,6 +60,7 @@ public:
     std::unordered_map<int, Connection> connections;
 
     std::unordered_map<std::string, int> backends;
+
 private:
     int client_port = 8080;
     int backend_port = 9000;
@@ -70,9 +71,9 @@ private:
 
     SSL_CTX *ctx;
 
-    bool read_exact(SSL *ssl, void *buffer, size_t len);
-
     int handleCommands(Connection &conn, int &command, std::string &payload);
+
+    bool read_exact(SSL *ssl, void *buffer, size_t len);
 
     int handleBackend(Connection &conn);
     int handleClient(Connection &conn);

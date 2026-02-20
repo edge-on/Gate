@@ -147,7 +147,7 @@ void EdgeServer::startWorkers()
                     conn.type = ConnType::CLIENT;
                     conn.handshake_done = false;
 
-                    connections[client_fd] = conn;
+                    connections.emplace(client_fd, std::move(conn));
 
                     epoll_event client_event{};
                     client_event.events = EPOLLIN | EPOLLET;
@@ -188,7 +188,7 @@ void EdgeServer::startWorkers()
                     conn.type = ConnType::BACKEND;
                     conn.handshake_done = false;
 
-                    connections[backend_fd] = conn;
+                    connections.emplace(backend_fd, std::move(conn));
 
                     epoll_event backend_event{};
                     backend_event.events = EPOLLIN | EPOLLET;
@@ -258,16 +258,15 @@ int EdgeServer::handleBackend(Connection &conn)
             if (err == SSL_ERROR_WANT_READ ||
                 err == SSL_ERROR_WANT_WRITE)
             {
-                break; // veri bitti
+                break;
             }
 
-            return -1; // gerçek hata
+            return -1;
         }
 
         conn.buffer.insert(conn.buffer.end(), temp, temp + bytes);
     }
 
-    // 🔥 Parsing loop
     while (true)
     {
         switch (conn.state)
@@ -314,45 +313,74 @@ int EdgeServer::handleBackend(Connection &conn)
     return 1;
 }
 
-int EdgeServer::handleClient(Connection &conn)
+int EdgeServer::handleClient(Connection &clientConn)
 {
-    int result;
-
     char buffer[4096];
 
-    int bytes = SSL_read(conn.ssl, buffer, sizeof(buffer));
-
-    // std::string domain = SSL_get_servername(conn.ssl, TLSEXT_NAMETYPE_host_name);
-
-    if (bytes > 0)
+    int bytes = SSL_read(clientConn.ssl, buffer, sizeof(buffer));
+    if (bytes <= 0)
     {
-        std::string body = "Client";
+        int err = SSL_get_error(clientConn.ssl, bytes);
 
-        std::string response =
-            "HTTP/1.1 200 OK\r\n"
-            "Connection: keep-alive\r\n"
-            "Content-Type: text/plain\r\n" +
-            ("Content-Length: " + std::to_string(body.size()) + "\r\n") +
-            "\r\n" +
-            body;
+        SSL_shutdown(clientConn.ssl);
+        SSL_free(clientConn.ssl);
+        close(clientConn.fd);
+        connections.erase(clientConn.fd);
 
-        SSL_write(conn.ssl, response.c_str(), response.size());
-
-        result = 1;
-    }
-    else
-    {
-        int err = SSL_get_error(conn.ssl, bytes);
-        result = err;
-
-        SSL_shutdown(conn.ssl);
-        SSL_free(conn.ssl);
-        close(conn.fd);
-
-        connections.erase(conn.fd);
+        return err;
     }
 
-    return result;
+    std::string httpPayload(buffer, bytes);
+
+    auto it = backends.find("localhost.com");
+    if (it == backends.end())
+    {
+        std::cout << "Backend not registered\n";
+        return -1;
+    }
+
+    int backendFd = it->second;
+    Connection &backendConn = connections[backendFd];
+
+    uint8_t cmd = static_cast<uint8_t>(Commands::HTTP_REQUEST);
+    uint32_t net_len = htonl(httpPayload.size());
+
+    SSL_write(backendConn.ssl, &cmd, 1);
+    SSL_write(backendConn.ssl, &net_len, 4);
+    SSL_write(backendConn.ssl, httpPayload.data(), httpPayload.size());
+
+    uint8_t respCmd;
+    uint32_t respNetLen;
+
+    if (!read_exact(backendConn.ssl, &respCmd, 1))
+        return -1;
+
+    if (!read_exact(backendConn.ssl, &respNetLen, 4))
+        return -1;
+
+    uint32_t respLen = ntohl(respNetLen);
+
+    if (respLen > 10 * 1024 * 1024)
+    {
+        std::cout << "Backend payload too large\n";
+        return -1;
+    }
+
+    std::vector<char> respBuf(respLen);
+
+    if (respLen > 0)
+    {
+        if (!read_exact(backendConn.ssl, respBuf.data(), respLen))
+            return -1;
+    }
+
+    std::string backendResponse(respBuf.data(), respBuf.size());
+
+    SSL_write(clientConn.ssl,
+              backendResponse.data(),
+              backendResponse.size());
+
+    return 1;
 }
 
 bool EdgeServer::read_exact(SSL *ssl, void *buffer, size_t len)
@@ -361,10 +389,18 @@ bool EdgeServer::read_exact(SSL *ssl, void *buffer, size_t len)
 
     while (total < len)
     {
-        int bytes = SSL_read(ssl, (char *)buffer + total, len - total);
+        int bytes = SSL_read(ssl,
+                             (char *)buffer + total,
+                             len - total);
 
         if (bytes <= 0)
         {
+            int err = SSL_get_error(ssl, bytes);
+
+            if (err == SSL_ERROR_WANT_READ ||
+                err == SSL_ERROR_WANT_WRITE)
+                continue;
+
             return false;
         }
 
@@ -379,7 +415,7 @@ int EdgeServer::handleCommands(Connection &conn, int &command, std::string &payl
     switch (command)
     {
     case static_cast<int>(Commands::SESSION_INIT):
-        if (conn.session_initialized)
+        if (!conn.session_initialized)
         {
             conn.session_initialized = true;
             backends["localhost.com"] = conn.fd;
@@ -390,7 +426,7 @@ int EdgeServer::handleCommands(Connection &conn, int &command, std::string &payl
         std::string payload = "Success";
 
         sendCommand(conn.ssl, cmd, payload);
-        
+
         break;
     }
 
@@ -399,10 +435,11 @@ int EdgeServer::handleCommands(Connection &conn, int &command, std::string &payl
 
 void EdgeServer::sendCommand(SSL *ssl, int &cmd, std::string &payload)
 {
+    uint8_t c = static_cast<uint8_t>(cmd);
     uint32_t net_len = htonl(payload.size());
 
-    SSL_write(ssl, &cmd, sizeof(cmd));
-    SSL_write(ssl, &net_len, sizeof(net_len));
+    SSL_write(ssl, &c, 1);
+    SSL_write(ssl, &net_len, 4);
     SSL_write(ssl, payload.data(), payload.size());
 }
 
