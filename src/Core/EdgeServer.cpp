@@ -52,11 +52,14 @@ void EdgeServer::initSSL()
 
     SSL_CTX_use_certificate_file(ctx, "SSL/localhost.pem", SSL_FILETYPE_PEM);
     SSL_CTX_use_PrivateKey_file(ctx, "SSL/localhost-key.pem", SSL_FILETYPE_PEM);
+
+    bridge_ctx = SSL_CTX_new(TLS_client_method());
+    SSL_CTX_use_PrivateKey_file(bridge_ctx, "SSL/localhost-key.pem", SSL_FILETYPE_PEM);
 }
 
 void EdgeServer::startWorkers()
 {
-    int epoll_fd = epoll_create1(0);
+    epoll_fd = epoll_create1(0);
 
     epoll_event client_event{};
     client_event.events = EPOLLIN | EPOLLET;
@@ -125,8 +128,9 @@ void EdgeServer::startWorkers()
                         }
                     }
 
-                    SSL *bridge_ssl = SSL_new(ctx);
+                    SSL *bridge_ssl = SSL_new(bridge_ctx);
                     SSL_set_fd(bridge_ssl, bridge_fd);
+                    SSL_set_connect_state(bridge_ssl);
 
                     Bridge bridge;
                     bridge.fd = bridge_fd;
@@ -177,11 +181,39 @@ void EdgeServer::startWorkers()
                         connections.erase(conn.fd);
                     }
                 }
+                else if (!bridges[conn.bridge_fd].handshake_done)
+                {
+                    int ret = SSL_connect(bridges[conn.bridge_fd].ssl);
+
+                    if (ret == 1)
+                    {
+                        bridges[conn.bridge_fd].handshake_done = true;
+                    }
+                    else
+                    {
+                        int err = SSL_get_error(bridges[conn.bridge_fd].ssl, ret);
+
+                        if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE)
+                        {
+                            continue;
+                        }
+
+                        SSL_free(bridges[conn.bridge_fd].ssl);
+                        close(bridges[conn.bridge_fd].fd);
+
+                        bridges.erase(conn.bridge_fd);
+                    }
+                }
                 else
                 {
-                    if (events[i].events & EPOLLIN && conn.type == ConnType::CLIENT)
+                    if (conn.type == ConnType::CLIENT & EPOLLIN)
                     {
-                        handleClient(conn);
+                        handleRead(conn);
+                    }
+
+                    if (conn.type == ConnType::CLIENT & EPOLLOUT)
+                    {
+                        handleWrite(conn);
                     }
                 }
             }
@@ -191,30 +223,28 @@ void EdgeServer::startWorkers()
     close(client_listen);
 }
 
-int EdgeServer::handleClient(Connection &clientConn)
+int EdgeServer::handleRead(Connection &conn)
 {
     char buffer[4096];
 
-    int bytes = SSL_read(clientConn.ssl, buffer, sizeof(buffer));
+    int bytes = SSL_read(conn.ssl, buffer, sizeof(buffer));
     if (bytes <= 0)
     {
-        int err = SSL_get_error(clientConn.ssl, bytes);
+        int err = SSL_get_error(conn.ssl, bytes);
 
-        SSL_shutdown(clientConn.ssl);
-        SSL_free(clientConn.ssl);
-        close(clientConn.fd);
-        connections.erase(clientConn.fd);
+        SSL_shutdown(conn.ssl);
+        SSL_free(conn.ssl);
+        close(conn.fd);
+        connections.erase(conn.fd);
 
         return err;
     }
 
     std::string httpPayload(buffer, bytes);
+}
 
-    int command = static_cast<uint8_t>(Commands::HTTP_REQUEST);
-
-    sendCommand(bridges[clientConn.bridge_fd].ssl, command, httpPayload);
-
-    return 1;
+int EdgeServer::handleWrite(Connection &conn)
+{
 }
 
 void EdgeServer::sendCommand(SSL *ssl, int &cmd, std::string &payload)

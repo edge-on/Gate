@@ -47,14 +47,13 @@ public:
         SSL *ssl;
 
         bool handshake_done = false;
-        bool session_initialized = false;
 
         ConnType type;
 
-        ReadState state = ReadState::READ_CMD;
-        uint8_t cmd = 0;
-        uint32_t len = 0;
-        std::vector<char> buffer;
+        std::string buffer;
+        int cmd;
+
+        bool epollout = false;
     };
 
     struct Bridge {
@@ -74,15 +73,19 @@ private:
     int client_listen;
 
     // Epoll
+    int epoll_fd;
     int MAX_EVENTS = 10;
 
     // SSL
     SSL_CTX *ctx;
+    SSL_CTX *bridge_ctx;
 
     // Bridge 
     int bridge_port = 9001;
 
-    int handleClient(Connection &conn);
+    int handleRead(Connection &conn);
+    int handleWrite(Connection &conn);
+
     int makeNonBlocking(int sfd);
 
     void startWorkers();
