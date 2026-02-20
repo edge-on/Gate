@@ -1,13 +1,16 @@
-#include <sys/epoll.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <openssl/ssl.h>
+#include <sys/epoll.h>
 #include <fcntl.h>
+
 #include <cstring>
 #include <iostream>
 #include <vector>
 #include <thread>
 #include <chrono>
-#include <openssl/ssl.h>
 #include <unordered_map>
 
 #include "Commands/Commands.hpp"
@@ -20,17 +23,12 @@ public:
     EdgeServer &setPort(int PORT);
 
     void start();
-
     void initClientServer();
-    void initBackendServer();
-
     void initSSL();
-
     void sendCommand(SSL *ssl, int &cmd, std::string &paylod);
 
     enum ConnType
     {
-        BACKEND,
         CLIENT
     };
 
@@ -44,6 +42,8 @@ public:
     struct Connection
     {
         int fd;
+        int bridge_fd;
+
         SSL *ssl;
 
         bool handshake_done = false;
@@ -57,28 +57,33 @@ public:
         std::vector<char> buffer;
     };
 
-    std::unordered_map<int, Connection> connections;
+    struct Bridge {
+        int fd;
 
-    std::unordered_map<std::string, int> backends;
+        SSL *ssl;
+
+        bool handshake_done = false;
+    };
+
+    std::unordered_map<int, Connection> connections;
+    std::unordered_map<int, Bridge> bridges;
 
 private:
+    // Client Addr
     int client_port = 8080;
-    int backend_port = 9000;
+    int client_listen;
 
+    // Epoll
     int MAX_EVENTS = 10;
 
-    int client_listen, backend_listen;
-
+    // SSL
     SSL_CTX *ctx;
 
-    int handleCommands(Connection &conn, int &command, std::string &payload);
+    // Bridge 
+    int bridge_port = 9001;
 
-    bool read_exact(SSL *ssl, void *buffer, size_t len);
-
-    int handleBackend(Connection &conn);
     int handleClient(Connection &conn);
+    int makeNonBlocking(int sfd);
 
     void startWorkers();
-
-    int makeNonBlocking(int sfd);
 };
