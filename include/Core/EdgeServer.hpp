@@ -34,13 +34,6 @@ public:
         BRIDGE
     };
 
-    enum class ReadState
-    {
-        READ_CMD,
-        READ_LEN,
-        READ_PAYLOAD
-    };
-
     struct Connection
     {
         int fd;
@@ -70,8 +63,6 @@ public:
         std::string payload;
     };
 
-    Response readCommand(Connection &conn);
-
     void sendCommand(Connection &conn, int &cmd, std::string &paylod);
 
     void closeConnection(Connection &conn);
@@ -93,6 +84,8 @@ private:
 
     // Bridge
     int bridge_port = 9001;
+
+    bool isLogging = false;
 
     int handleRead(Connection &conn);
     int handleWrite(Connection &conn);

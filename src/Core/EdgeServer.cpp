@@ -108,7 +108,7 @@ void EdgeServer::startWorkers()
                     int bridge_fd = socket(AF_INET, SOCK_STREAM, 0);
                     if (bridge_fd == -1)
                     {
-                        perror("bridge bridge");
+                        perror("bridge socket");
                     }
 
                     EpollUtility::makeNonBlocking(bridge_fd);
@@ -256,17 +256,17 @@ int EdgeServer::handleRead(Connection &conn)
             if (it == connections.end())
                 return -1;
 
-            std::cout << head;
-            std::cout.write(buffer, bytes);
-            std::cout << "\n";
+            if (isLogging)
+            {
+                std::cout << head;
+                std::cout.write(buffer, bytes);
+                std::cout << "\n";
+            }
 
             Connection &peer = it->second;
             peer.out_buffer.append(buffer, bytes);
 
-            if (handleWrite(peer) == 0)
-            {
-                EpollUtility::enableWrite(peer.fd, epoll_fd);
-            }
+            EpollUtility::enableWrite(peer.fd, epoll_fd);
         }
         else
         {
@@ -288,8 +288,11 @@ int EdgeServer::handleWrite(Connection &conn)
 {
     std::string head = conn.type == ConnType::BRIDGE ? "Bridge Write: " : "Client Write: ";
 
-    std::cout << head << conn.write_offset << std::endl;
-    std::cout << head << conn.out_buffer.size() << std::endl;
+    if (isLogging)
+    {
+        std::cout << head << conn.write_offset << std::endl;
+        std::cout << head << conn.out_buffer.size() << std::endl;
+    }
 
     while (conn.write_offset < conn.out_buffer.size())
     {
@@ -298,9 +301,12 @@ int EdgeServer::handleWrite(Connection &conn)
             conn.out_buffer.data() + conn.write_offset,
             conn.out_buffer.size() - conn.write_offset);
 
-        std::cout << head;
-        std::cout.write(conn.out_buffer.data(), conn.out_buffer.size());
-        std::cout << "\n";
+        if (isLogging)
+        {
+            std::cout << head;
+            std::cout.write(conn.out_buffer.data(), conn.out_buffer.size());
+            std::cout << "\n";
+        }
 
         if (written > 0)
         {
