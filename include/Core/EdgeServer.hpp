@@ -15,6 +15,8 @@
 
 #include "Commands/Commands.hpp"
 
+#include "Utility/Epoll.hpp"
+
 class EdgeServer
 {
 public:
@@ -25,7 +27,6 @@ public:
     void start();
     void initClientServer();
     void initSSL();
-    void sendCommand(SSL *ssl, int &cmd, std::string &paylod);
 
     enum ConnType
     {
@@ -56,8 +57,22 @@ public:
         std::string buffer;
         int cmd;
 
+        std::string in_buffer;
+        std::string out_buffer;
+        int write_offset = 0;
+
         bool epollout = false;
     };
+
+    struct Response
+    {
+        int command;
+        std::string payload;
+    };
+
+    Response readCommand(Connection &conn);
+
+    void sendCommand(Connection &conn, int &cmd, std::string &paylod);
 
     void closeConnection(Connection &conn);
 
@@ -81,11 +96,6 @@ private:
 
     int handleRead(Connection &conn);
     int handleWrite(Connection &conn);
-
-    void disableWrite(int fd);
-    void enableWrite(int fd);
-
-    int makeNonBlocking(int sfd);
 
     void startWorkers();
 };
