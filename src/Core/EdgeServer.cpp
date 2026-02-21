@@ -111,6 +111,12 @@ void EdgeServer::startWorkers()
                         perror("bridge bridge");
                     }
 
+                    makeNonBlocking(bridge_fd);
+
+                    SSL *bridge_ssl = SSL_new(bridge_ctx);
+                    SSL_set_fd(bridge_ssl, bridge_fd);
+                    SSL_set_connect_state(bridge_ssl);
+
                     sockaddr_in bridge_addr;
                     bridge_addr.sin_family = AF_INET;
                     bridge_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
@@ -128,21 +134,28 @@ void EdgeServer::startWorkers()
                         }
                     }
 
-                    SSL *bridge_ssl = SSL_new(bridge_ctx);
-                    SSL_set_fd(bridge_ssl, bridge_fd);
-                    SSL_set_connect_state(bridge_ssl);
+                    epoll_event bridge_event{};
+                    bridge_event.events = EPOLLOUT | EPOLLET;
+                    bridge_event.data.fd = bridge_fd;
 
-                    Bridge bridge;
+                    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, bridge_fd, &bridge_event) < 0)
+                    {
+                        perror("epoll_ctl");
+                    }
+
+                    Connection bridge;
                     bridge.fd = bridge_fd;
-                    bridge.handshake_done = false;
+                    bridge.peer_fd = client_fd;
                     bridge.ssl = bridge_ssl;
+                    bridge.type = ConnType::BRIDGE;
+                    bridge.handshake_done = false;
 
-                    bridges.emplace(bridge_fd, std::move(bridge));
+                    connections.emplace(bridge_fd, std::move(bridge));
 
                     Connection conn;
                     conn.fd = client_fd;
                     conn.ssl = ssl;
-                    conn.bridge_fd = bridge_fd;
+                    conn.peer_fd = bridge_fd;
                     conn.type = ConnType::CLIENT;
                     conn.handshake_done = false;
 
@@ -156,66 +169,70 @@ void EdgeServer::startWorkers()
             }
             else
             {
-                auto &conn = connections[events[i].data.fd];
+                auto it = connections.find(events[i].data.fd);
+                if (it == connections.end())
+                    continue;
+
+                Connection &conn = it->second;
+
+                if (conn.type == ConnType::BRIDGE && !conn.tcp_connected)
+                {
+                    if (events[i].events & EPOLLOUT)
+                    {
+                        int err = 0;
+                        socklen_t len = sizeof(err);
+
+                        getsockopt(conn.fd, SOL_SOCKET, SO_ERROR, &err, &len);
+
+                        if (err == 0)
+                        {
+                            conn.tcp_connected = true;
+
+                            enableWrite(conn.fd);
+                        }
+                        else
+                        {
+                            closeConnection(conn);
+                        }
+                    }
+
+                    continue;
+                }
 
                 if (!conn.handshake_done)
                 {
-                    int ret = SSL_accept(conn.ssl);
+                    int ret;
+
+                    if (conn.type == ConnType::CLIENT)
+                        ret = SSL_accept(conn.ssl);
+                    else
+                        ret = SSL_connect(conn.ssl);
 
                     if (ret == 1)
                     {
                         conn.handshake_done = true;
+
+                        disableWrite(conn.fd);
                     }
                     else
                     {
                         int err = SSL_get_error(conn.ssl, ret);
 
-                        if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE)
-                        {
+                        if (err == SSL_ERROR_WANT_READ ||
+                            err == SSL_ERROR_WANT_WRITE)
                             continue;
-                        }
 
-                        SSL_free(conn.ssl);
-                        close(conn.fd);
-
-                        connections.erase(conn.fd);
+                        closeConnection(conn);
                     }
+
+                    continue;
                 }
-                else if (!bridges[conn.bridge_fd].handshake_done)
-                {
-                    int ret = SSL_connect(bridges[conn.bridge_fd].ssl);
 
-                    if (ret == 1)
-                    {
-                        bridges[conn.bridge_fd].handshake_done = true;
-                    }
-                    else
-                    {
-                        int err = SSL_get_error(bridges[conn.bridge_fd].ssl, ret);
+                if (events[i].events & EPOLLIN)
+                    handleRead(conn);
 
-                        if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE)
-                        {
-                            continue;
-                        }
-
-                        SSL_free(bridges[conn.bridge_fd].ssl);
-                        close(bridges[conn.bridge_fd].fd);
-
-                        bridges.erase(conn.bridge_fd);
-                    }
-                }
-                else
-                {
-                    if (conn.type == ConnType::CLIENT & EPOLLIN)
-                    {
-                        handleRead(conn);
-                    }
-
-                    if (conn.type == ConnType::CLIENT & EPOLLOUT)
-                    {
-                        handleWrite(conn);
-                    }
-                }
+                if (events[i].events & EPOLLOUT)
+                    handleWrite(conn);
             }
         }
     }
@@ -227,24 +244,105 @@ int EdgeServer::handleRead(Connection &conn)
 {
     char buffer[4096];
 
-    int bytes = SSL_read(conn.ssl, buffer, sizeof(buffer));
-    if (bytes <= 0)
+    while (true)
     {
-        int err = SSL_get_error(conn.ssl, bytes);
+        int bytes = SSL_read(conn.ssl, buffer, sizeof(buffer));
 
-        SSL_shutdown(conn.ssl);
-        SSL_free(conn.ssl);
-        close(conn.fd);
-        connections.erase(conn.fd);
+        if (bytes > 0)
+        {
+            auto it = connections.find(conn.peer_fd);
+            if (it == connections.end())
+                return -1;
 
-        return err;
+            Connection &peer = it->second;
+            peer.buffer.append(buffer, bytes);
+
+            enableWrite(peer.fd);
+        }
+        else
+        {
+            int err = SSL_get_error(conn.ssl, bytes);
+
+            if (err == SSL_ERROR_WANT_READ ||
+                err == SSL_ERROR_WANT_WRITE)
+                break;
+
+            closeConnection(conn);
+            return -1;
+        }
     }
 
-    std::string httpPayload(buffer, bytes);
+    return 1;
 }
 
 int EdgeServer::handleWrite(Connection &conn)
 {
+    while (!conn.buffer.empty())
+    {
+        int written = SSL_write(conn.ssl,
+                                conn.buffer.data(),
+                                conn.buffer.size());
+
+        if (written > 0)
+        {
+            conn.buffer.erase(0, written);
+        }
+        else
+        {
+            int err = SSL_get_error(conn.ssl, written);
+
+            if (err == SSL_ERROR_WANT_WRITE ||
+                err == SSL_ERROR_WANT_READ)
+                return 0;
+
+            closeConnection(conn);
+            return -1;
+        }
+    }
+
+    disableWrite(conn.fd);
+    return 1;
+}
+
+void EdgeServer::closeConnection(Connection &conn)
+{
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, conn.fd, nullptr);
+
+    SSL_shutdown(conn.ssl);
+    SSL_free(conn.ssl);
+    close(conn.fd);
+
+    int peer = conn.peer_fd;
+
+    connections.erase(conn.fd);
+
+    auto it = connections.find(peer);
+    if (it != connections.end())
+    {
+        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, peer, nullptr);
+        SSL_shutdown(it->second.ssl);
+        SSL_free(it->second.ssl);
+        close(it->second.fd);
+        connections.erase(peer);
+    }
+}
+
+void EdgeServer::enableWrite(int fd)
+{
+    epoll_event ev{};
+    ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
+    ev.data.fd = fd;
+
+    epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev);
+}
+
+void EdgeServer::disableWrite(int fd)
+{
+    epoll_event ev{};
+    ev.events = EPOLLIN | EPOLLET;
+    ev.data.fd = fd;
+
+    epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 }
 
 void EdgeServer::sendCommand(SSL *ssl, int &cmd, std::string &payload)

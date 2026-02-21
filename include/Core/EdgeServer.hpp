@@ -29,7 +29,8 @@ public:
 
     enum ConnType
     {
-        CLIENT
+        CLIENT,
+        BRIDGE
     };
 
     enum class ReadState
@@ -42,11 +43,13 @@ public:
     struct Connection
     {
         int fd;
-        int bridge_fd;
+        int peer_fd;
 
         SSL *ssl;
 
         bool handshake_done = false;
+
+        bool tcp_connected = false;
 
         ConnType type;
 
@@ -56,16 +59,9 @@ public:
         bool epollout = false;
     };
 
-    struct Bridge {
-        int fd;
-
-        SSL *ssl;
-
-        bool handshake_done = false;
-    };
+    void closeConnection(Connection &conn);
 
     std::unordered_map<int, Connection> connections;
-    std::unordered_map<int, Bridge> bridges;
 
 private:
     // Client Addr
@@ -80,11 +76,14 @@ private:
     SSL_CTX *ctx;
     SSL_CTX *bridge_ctx;
 
-    // Bridge 
+    // Bridge
     int bridge_port = 9001;
 
     int handleRead(Connection &conn);
     int handleWrite(Connection &conn);
+
+    void disableWrite(int fd);
+    void enableWrite(int fd);
 
     int makeNonBlocking(int sfd);
 
