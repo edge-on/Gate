@@ -9,7 +9,6 @@ void EdgeServer::start()
     initSSL();
 
     initClientServer();
-    initDashboard();
 
     startWorkers();
 }
@@ -43,32 +42,6 @@ void EdgeServer::initClientServer()
     }
 
     EpollUtility::makeNonBlocking(client_fd);
-}
-
-void EdgeServer::initDashboard()
-{
-    dashboard_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if(dashboard_fd == -1) {
-        perror("dashboard socket");
-    }
-
-    sockaddr_in dashboard_addr;
-    dashboard_addr.sin_family = AF_INET;
-    dashboard_addr.sin_addr.s_addr = INADDR_ANY;
-    dashboard_addr.sin_port = htons(dashboard_port);
-
-    int opt = 1;
-    setsockopt(dashboard_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-    if(bind(dashboard_fd, (sockaddr*)&dashboard_addr, sizeof(dashboard_addr)) < 0) {
-        perror("client bind");
-    }
-
-    if(listen(dashboard_fd, SOMAXCONN) < 0) {
-        perror("client listen");
-    }
-
-    EpollUtility::makeNonBlocking(dashboard_fd);
 }
 
 /* ======================= INITS ======================= */
@@ -377,18 +350,6 @@ int EdgeServer::handleWrite(Connection &conn)
 }
 
 /* ======================= READ & WRITE ======================= */
-/* ============================================================ */
-/* ======================= DASHBOARD READ & WRITE ======================= */
-
-void EdgeServer::handleDashboard(Connection &conn)
-{
-}
-
-void EdgeServer::writeDashboard(Connection &conn)
-{
-}
-
-/* ======================= DASHBOARD READ & WRITE ======================= */
 
 void EdgeServer::closeConnection(Connection &conn)
 {

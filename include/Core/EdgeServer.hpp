@@ -73,11 +73,7 @@ private:
     // Client Addr
     int client_port = 8080;
     int client_fd;
-
-    // Dashboard
-    int dashboard_port = 9900;
-    int dashboard_fd;
-
+    
     // Epoll
     int epoll_fd;
     int MAX_EVENTS = 10;
@@ -95,8 +91,4 @@ private:
 
     int handleRead(Connection &conn);
     int handleWrite(Connection &conn);
-
-    void initDashboard();
-    void handleDashboard(Connection &conn);
-    void writeDashboard(Connection &conn);
 };
