@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EdgeOn Bridge · Neural Control Plane</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="header">
+            <div class="logo-group">
+                <div class="logo-mark">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6L12 2z"
+                            fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="1.5" />
+                        <path d="M9 12l2 2 4-4" stroke="white" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <span class="logo-name">EdgeOn Bridge</span>
+                    <span class="logo-sub">Neural Control Plane · v3.0</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="status-pill">
+                    <div class="pulse"></div>
+                    All systems operational
+                </div>
+                <button class="btn-theme" id="themeBtn">
+                    <svg id="themeIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+                    </svg>
+                    <span id="themeLabel">Dark mode</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg>
+                    Avg Health Index
+                </div>
+                <div class="stat-val" id="healthVal">98.4%</div>
+                <div class="stat-delta">↑ 0.3% vs last hour</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 6v6l4 2" />
+                    </svg>
+                    Edge Latency P50
+                </div>
+                <div class="stat-val">14ms</div>
+                <div class="stat-delta">↓ 2ms improvement</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <rect x="2" y="3" width="20" height="14" rx="2" />
+                        <line x1="8" y1="21" x2="16" y2="21" />
+                        <line x1="12" y1="17" x2="12" y2="21" />
+                    </svg>
+                    Active Backends
+                </div>
+                <div class="stat-val">7</div>
+                <div class="stat-delta">All healthy</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                    </svg>
+                    Req/sec
+                </div>
+                <div class="stat-val" id="rpsVal">4.2k</div>
+                <div class="stat-delta">↑ 12% surge absorbed</div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="card">
+                <div class="card-top">
+                    <div class="card-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round">
+                            <circle cx="12" cy="12" r="3" />
+                            <path
+                                d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M20 12h-2M6 12H4M18.66 18.66l-1.41-1.41M6.75 6.75L5.34 5.34M12 18v2M12 4V2" />
+                        </svg>
+                        Control Plane · Modules
+                    </div>
+                    <div class="card-badge" id="activeCount">1 active</div>
+                </div>
+
+                <div class="modules-list" id="accordionRoot">
+                    <div class="module-group open" id="g1">
+                        <div class="mg-header" onclick="toggleGroup('g1')">
+                            <div class="mg-title">
+                                <div class="mg-icon blue">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
+                                        stroke-width="2.5" stroke-linecap="round">
+                                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                                    </svg>
+                                </div>
+                                Health-based routing core
+                            </div>
+                            <span class="mg-count" id="g1count">1 / 3</span>
+                            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </div>
+                        <div class="mg-body">
+                            <div class="checks-wrap">
+                                <div class="check-item" onclick="toggleCheck('opt1')">
+                                    <div class="custom-checkbox checked" id="opt1cb">
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5"
+                                            stroke-linecap="round">
+                                            <polyline points="2 6 5 9 10 3" />
+                                        </svg>
+                                    </div>
+                                    <span class="check-label"><strong>Health Score Reverse Proxy</strong></span>
+                                    <span class="tag-live">live</span>
+                                </div>
+                                <div class="check-item" onclick="toggleCheck('opt2')">
+                                    <div class="custom-checkbox" id="opt2cb">
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5"
+                                            stroke-linecap="round">
+                                            <polyline points="2 6 5 9 10 3" />
+                                        </svg>
+                                    </div>
+                                    <span class="check-label">Adaptive Weight Balancing · latency + error rate</span>
+                                </div>
+                                <div class="check-item" onclick="toggleCheck('opt3')">
+                                    <div class="custom-checkbox" id="opt3cb">
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5"
+                                            stroke-linecap="round">
+                                            <polyline points="2 6 5 9 10 3" />
+                                        </svg>
+                                    </div>
+                                    <span class="check-label">Preemptive Re-routing · health forecast</span>
+                                    <span class="tag-new">new</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-group" id="g2">
+                        <div class="mg-header" onclick="toggleGroup('g2')">
+                            <div class="mg-title">
+                                <div class="mg-icon green">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)"
+                                        stroke-width="2.5" stroke-linecap="round">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                    </svg>
+                                </div>
+                                Resilience &amp; safe rollout
+                            </div>
+                            <span class="mg-count" id="g2count">0 / 3</span>
+                            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </div>
+                        <div class="mg-body">
+                            <div class="checks-wrap">
+                                <div class="check-item" onclick="toggleCheck('opt4')">
+                                    <div class="custom-checkbox" id="opt4cb">
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5"
+                                            stroke-linecap="round">
+                                            <polyline points="2 6 5 9 10 3" />
+                                        </svg>
+                                    </div>
+                                    <span class="check-label">Dynamic Circuit Breaker · health-score aware</span>
+                                </div>
+                                <div class="check-item" onclick="toggleCheck('opt5')">
+                                    <div class="custom-checkbox" id="opt5cb">
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5"
+                                            stroke-linecap="round">
+                                            <polyline points="2 6 5 9 10 3" />
+                                        </svg>
+                                    </div>
+                                    <span class="check-label">Weighted Canary Releases · health gated</span>
+                                </div>
+                                <div class="check-item" onclick="toggleCheck('opt6')">
+                                    <div class="custom-checkbox" id="opt6cb">
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5"
+                                            stroke-linecap="round">
+                                            <polyline points="2 6 5 9 10 3" />
+                                        </svg>
+                                    </div>
+                                    <span class="check-label">Auto Failover &amp; Replica Steering</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-group" id="g3">
+                        <div class="mg-header" onclick="toggleGroup('g3')">
+                            <div class="mg-title">
+                                <div class="mg-icon amber">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)"
+                                        stroke-width="2.5" stroke-linecap="round">
+                                        <line x1="18" y1="20" x2="18" y2="10" />
+                                        <line x1="12" y1="20" x2="12" y2="4" />
+                                        <line x1="6" y1="20" x2="6" y2="14" />
+                                    </svg>
+                                </div>
+                                Observability + AI predictors
+                            </div>
+                            <span class="mg-count" id="g3count">0 / 3</span>
+                            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </div>
+                        <div class="mg-body">
+                            <div class="checks-wrap">
+                                <div class="check-item" onclick="toggleCheck('opt7')">
+                                    <div class="custom-checkbox" id="opt7cb">
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5"
+                                            stroke-linecap="round">
+                                            <polyline points="2 6 5 9 10 3" />
+                                        </svg>
+                                    </div>
+                                    <span class="check-label">Real-time Health Dashboard · WebSocket</span>
+                                </div>
+                                <div class="check-item" onclick="toggleCheck('opt8')">
+                                    <div class="custom-checkbox" id="opt8cb">
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5"
+                                            stroke-linecap="round">
+                                            <polyline points="2 6 5 9 10 3" />
+                                        </svg>
+                                    </div>
+                                    <span class="check-label">Predictive Health Scoring · anomaly detection</span>
+                                    <span class="tag-new">new</span>
+                                </div>
+                                <div class="check-item" onclick="toggleCheck('opt9')">
+                                    <div class="custom-checkbox" id="opt9cb">
+                                        <svg viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2.5"
+                                            stroke-linecap="round">
+                                            <polyline points="2 6 5 9 10 3" />
+                                        </svg>
+                                    </div>
+                                    <span class="check-label">SLO / SLA Tracker · burn rate alerts</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="apply-wrap">
+                    <button class="btn-apply" id="applyBtn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round">
+                            <polyline points="1 4 1 10 7 10" />
+                            <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
+                        </svg>
+                        Synchronize &amp; apply
+                    </button>
+                </div>
+            </div>
+
+            <div class="right-stack">
+                <div class="health-card">
+                    <div class="health-top">
+                        <div class="health-label">Health Score · Proxy Engine</div>
+                        <div class="health-score" id="heroScore">98.4%</div>
+                        <div class="health-desc">Composite: latency · errors · saturation</div>
+                    </div>
+                    <div class="spark-area" style="padding-top:1rem;">
+                        <div class="spark-label">Last 30 min · health index</div>
+                        <div class="sparkline-wrap">
+                            <svg id="sparkSvg" viewBox="0 0 300 50" preserveAspectRatio="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="sg" x1="0" x2="0" y1="0" y2="1">
+                                        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.25" />
+                                        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0" />
+                                    </linearGradient>
+                                </defs>
+                                <path id="sparkFill" fill="url(#sg)" />
+                                <path id="sparkLine" fill="none" stroke="var(--accent)" stroke-width="1.8"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="health-body">
+                        <div class="metric-row">
+                            <div class="metric-key">
+                                <div class="dot green"></div>Decision engine
+                            </div>
+                            <div class="metric-val" id="engineLabel">weighted · active</div>
+                        </div>
+                        <div class="metric-row">
+                            <div class="metric-key">
+                                <div class="dot blue"></div>Active backends
+                            </div>
+                            <div class="metric-val">7 / 7</div>
+                        </div>
+                        <div class="metric-row">
+                            <div class="metric-key">
+                                <div class="dot amber"></div>Edge latency P99
+                            </div>
+                            <div class="metric-val" id="p99Val">38ms</div>
+                        </div>
+                        <div class="metric-row" style="border-bottom:none">
+                            <div class="metric-key">
+                                <div class="dot" style="background:var(--text3)"></div>
+                                Bridge version
+                            </div>
+                            <div class="metric-val">3.0.1</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-top">
+                        <div class="card-title">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <rect x="2" y="3" width="20" height="14" rx="2" />
+                            </svg>
+                            Backend health
+                        </div>
+                        <div class="card-badge">live</div>
+                    </div>
+                    <div style="padding:0.75rem 1.5rem 1rem">
+                        <div id="backendList"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-top">
+                        <div class="card-title">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 11 12 14 22 4" />
+                                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                            </svg>
+                            Active capabilities
+                        </div>
+                    </div>
+                    <div class="active-list" id="activeList">
+                        <div class="active-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                                stroke-linecap="round">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                            </svg>
+                            Health Score Reverse Proxy
+                            <span class="itag">primary</span>
+                        </div>
+                        <div class="active-item empty-note">No extra modules selected</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        (function () {
+            const themeBtn = document.getElementById('themeBtn');
+            const themeIcon = document.getElementById('themeIcon');
+            const themeLabel = document.getElementById('themeLabel');
+
+            const moonSvg = `<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>`;
+            const sunSvg = `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`;
+
+            function setTheme(t) {
+                if (t === 'dark') {
+                    document.body.classList.add('dark');
+                    themeIcon.innerHTML = sunSvg;
+                    themeLabel.textContent = 'Light mode';
+                    localStorage.setItem('eob_theme', 'dark');
+                } else {
+                    document.body.classList.remove('dark');
+                    themeIcon.innerHTML = moonSvg;
+                    themeLabel.textContent = 'Dark mode';
+                    localStorage.setItem('eob_theme', 'light');
+                }
+            }
+
+            const stored = localStorage.getItem('eob_theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+            setTheme(stored || (prefersDark ? 'dark' : 'light'));
+            themeBtn.onclick = () => {
+                const dark = document.body.classList.contains('dark');
+                setTheme(dark ? 'light' : 'dark');
+            };
+
+            let toastTimer;
+            function showToast(msg) {
+                const t = document.getElementById('toast');
+                t.textContent = msg;
+                t.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+            }
+
+            window.toggleGroup = function (id) {
+                document.getElementById(id).classList.toggle('open');
+            };
+
+            const state = {
+                opt1: { checked: true, label: 'Health Score Reverse Proxy', group: 'g1' },
+                opt2: { checked: false, label: 'Adaptive Weight Balancing', group: 'g1' },
+                opt3: { checked: false, label: 'Preemptive Re-routing', group: 'g1' },
+                opt4: { checked: false, label: 'Dynamic Circuit Breaker', group: 'g2' },
+                opt5: { checked: false, label: 'Weighted Canary Releases', group: 'g2' },
+                opt6: { checked: false, label: 'Auto Failover & Replica Steering', group: 'g2' },
+                opt7: { checked: false, label: 'Real-time Health Dashboard', group: 'g3' },
+                opt8: { checked: false, label: 'Predictive Health Scoring', group: 'g3' },
+                opt9: { checked: false, label: 'SLO / SLA Tracker', group: 'g3' },
+            };
+
+            window.toggleCheck = function (id) {
+                state[id].checked = !state[id].checked;
+                const cb = document.getElementById(id + 'cb');
+                if (state[id].checked) cb.classList.add('checked');
+                else cb.classList.remove('checked');
+                updateAll();
+            };
+
+            function countGroup(g) {
+                return Object.values(state).filter(s => s.group === g && s.checked).length;
+            }
+
+            function totalCount() {
+                return Object.values(state).filter(s => s.checked).length;
+            }
+
+            function updateAll() {
+                ['g1', 'g2', 'g3'].forEach(g => {
+                    const total = Object.values(state).filter(s => s.group === g).length;
+                    const checked = countGroup(g);
+                    document.getElementById(g + 'count').textContent = `${checked} / ${total}`;
+                });
+
+                const total = totalCount();
+                document.getElementById('activeCount').textContent = `${total} active`;
+
+                const engineEl = document.getElementById('engineLabel');
+                if (state.opt1.checked) engineEl.textContent = 'weighted · active';
+                else engineEl.textContent = 'standby · disabled';
+
+                const list = document.getElementById('activeList');
+                const checked = Object.entries(state).filter(([, v]) => v.checked);
+                list.innerHTML = '';
+                if (checked.length === 0) {
+                    list.innerHTML = '<div class="active-item empty-note">No modules enabled</div>';
+                    return;
+                }
+                checked.forEach(([, v]) => {
+                    const el = document.createElement('div');
+                    el.className = 'active-item';
+                    el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>${v.label}<span class="itag">on</span>`;
+                    list.appendChild(el);
+                });
+            }
+
+            document.getElementById('applyBtn').addEventListener('click', () => {
+                const btn = document.getElementById('applyBtn');
+                const n = totalCount();
+                showToast(`⚡ ${n} module${n !== 1 ? 's' : ''} synchronized · routing applied`);
+                btn.style.transform = 'scale(0.97)';
+                setTimeout(() => btn.style.transform = '', 180);
+            });
+
+            const sparkData = [];
+            function generateSpark() {
+                for (let i = 0; i < 30; i++) sparkData.push(97 + Math.random() * 2.5);
+            }
+            generateSpark();
+
+            function drawSpark() {
+                const pts = sparkData;
+                const W = 300, H = 50;
+                const min = Math.min(...pts) - 0.5;
+                const max = Math.max(...pts) + 0.5;
+                const px = (i) => i * (W / (pts.length - 1));
+                const py = (v) => H - ((v - min) / (max - min)) * H;
+
+                let lineD = 'M';
+                let fillD = 'M';
+                pts.forEach((v, i) => {
+                    const x = px(i), y = py(v);
+                    lineD += `${i === 0 ? '' : ' L'}${x.toFixed(1)},${y.toFixed(1)}`;
+                    fillD += `${i === 0 ? '' : ' L'}${x.toFixed(1)},${y.toFixed(1)}`;
+                });
+                fillD += ` L${px(pts.length - 1).toFixed(1)},${H} L0,${H} Z`;
+                document.getElementById('sparkLine').setAttribute('d', lineD);
+                document.getElementById('sparkFill').setAttribute('d', fillD);
+            }
+            drawSpark();
+
+            setInterval(() => {
+                const s = (97.2 + Math.random() * 2.3).toFixed(1) + '%';
+                document.getElementById('heroScore').textContent = s;
+                document.getElementById('healthVal').textContent = s;
+                const rps = (3.8 + Math.random() * 1.2).toFixed(1) + 'k';
+                document.getElementById('rpsVal').textContent = rps;
+                const p99 = Math.round(30 + Math.random() * 18) + 'ms';
+                document.getElementById('p99Val').textContent = p99;
+                sparkData.push(97 + Math.random() * 2.5);
+                sparkData.shift();
+                drawSpark();
+            }, 4000);
+
+            const backends = [
+                { name: 'us-east-1a', health: 99.1, load: 62 },
+                { name: 'us-east-1b', health: 98.4, load: 58 },
+                { name: 'eu-west-2', health: 97.8, load: 71 },
+                { name: 'ap-south-1', health: 99.5, load: 44 },
+                { name: 'us-west-2', health: 96.2, load: 83 },
+                { name: 'eu-central-1', health: 99.0, load: 55 },
+                { name: 'ap-northeast-1', health: 98.7, load: 49 },
+            ];
+
+            function renderBackends() {
+                const el = document.getElementById('backendList');
+                el.innerHTML = '';
+                backends.forEach(b => {
+                    const color = b.health >= 99 ? 'var(--success)' : b.health >= 97 ? 'var(--accent)' : 'var(--warn)';
+                    const div = document.createElement('div');
+                    div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.78rem;';
+                    div.innerHTML = `
+      <div style="width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0"></div>
+      <span style="font-family:'DM Mono',monospace;color:var(--text2);flex:1;font-size:0.76rem">${b.name}</span>
+      <div class="backend-track"><div class="backend-fill" style="width:${b.load}%;background:${color}"></div></div>
+      <span style="font-family:'DM Mono',monospace;color:var(--text3);font-size:0.74rem;min-width:36px;text-align:right">${b.health}%</span>
+    `;
+                    el.appendChild(div);
+                });
+                if (el.lastChild) el.lastChild.style.borderBottom = 'none';
+            }
+            renderBackends();
+
+            setInterval(() => {
+                backends.forEach(b => {
+                    b.health = Math.min(99.9, Math.max(95, b.health + (Math.random() - 0.5) * 0.4));
+                    b.health = Math.round(b.health * 10) / 10;
+                    b.load = Math.min(95, Math.max(30, b.load + (Math.random() - 0.5) * 4));
+                    b.load = Math.round(b.load);
+                });
+                renderBackends();
+            }, 5000);
+
+            updateAll();
+        })();
+    </script>
+</body>
+
+</html>
