@@ -9,14 +9,17 @@ void EdgeServer::start()
     initSSL();
 
     initClientServer();
+    initDashboard();
 
     startWorkers();
 }
 
+/* ======================= INITS ======================= */
+
 void EdgeServer::initClientServer()
 {
-    client_listen = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_listen == -1)
+    client_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_fd == -1)
     {
         perror("client socket");
     }
@@ -27,20 +30,50 @@ void EdgeServer::initClientServer()
     client_addr.sin_port = htons(client_port);
 
     int opt = 1;
-    setsockopt(client_listen, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(client_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    if (bind(client_listen, (sockaddr *)&client_addr, sizeof(client_addr)) < 0)
+    if (bind(client_fd, (sockaddr *)&client_addr, sizeof(client_addr)) < 0)
     {
         perror("client bind");
     }
 
-    if (listen(client_listen, SOMAXCONN) < 0)
+    if (listen(client_fd, SOMAXCONN) < 0)
     {
         perror("client listen");
     }
 
-    EpollUtility::makeNonBlocking(client_listen);
+    EpollUtility::makeNonBlocking(client_fd);
 }
+
+void EdgeServer::initDashboard()
+{
+    dashboard_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if(dashboard_fd == -1) {
+        perror("dashboard socket");
+    }
+
+    sockaddr_in dashboard_addr;
+    dashboard_addr.sin_family = AF_INET;
+    dashboard_addr.sin_addr.s_addr = INADDR_ANY;
+    dashboard_addr.sin_port = htons(dashboard_port);
+
+    int opt = 1;
+    setsockopt(dashboard_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    if(bind(dashboard_fd, (sockaddr*)&dashboard_addr, sizeof(dashboard_addr)) < 0) {
+        perror("client bind");
+    }
+
+    if(listen(dashboard_fd, SOMAXCONN) < 0) {
+        perror("client listen");
+    }
+
+    EpollUtility::makeNonBlocking(dashboard_fd);
+}
+
+/* ======================= INITS ======================= */
+/* ============================================================ */
+/* ======================= SSL ======================= */
 
 void EdgeServer::initSSL()
 {
@@ -57,15 +90,19 @@ void EdgeServer::initSSL()
     SSL_CTX_use_PrivateKey_file(bridge_ctx, "SSL/localhost-key.pem", SSL_FILETYPE_PEM);
 }
 
+/* ======================= SSL ======================= */
+/* ============================================================ */
+/* ======================= THREAD WORKERS ======================= */
+
 void EdgeServer::startWorkers()
 {
     epoll_fd = epoll_create1(0);
 
     epoll_event client_event{};
     client_event.events = EPOLLIN | EPOLLET;
-    client_event.data.fd = client_listen;
+    client_event.data.fd = client_fd;
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_listen, &client_event) < 0)
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &client_event) < 0)
     {
         perror("epoll_ctl");
     }
@@ -78,14 +115,14 @@ void EdgeServer::startWorkers()
 
         for (int i = 0; i < n; ++i)
         {
-            if (events[i].data.fd == client_listen)
+            if (events[i].data.fd == client_fd)
             {
                 sockaddr_in client_addr{};
                 socklen_t client_len = sizeof(client_addr);
 
                 while (true)
                 {
-                    int client_fd = accept(client_listen, (sockaddr *)&client_addr, &client_len);
+                    int client_fd = accept(client_fd, (sockaddr *)&client_addr, &client_len);
                     if (client_fd == -1)
                     {
                         if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -237,8 +274,12 @@ void EdgeServer::startWorkers()
         }
     }
 
-    close(client_listen);
+    close(client_fd);
 }
+
+/* ======================= THREAD WORKERS ======================= */
+/* ============================================================ */
+/* ======================= READ & WRITE ======================= */
 
 int EdgeServer::handleRead(Connection &conn)
 {
@@ -334,6 +375,20 @@ int EdgeServer::handleWrite(Connection &conn)
 
     return 1;
 }
+
+/* ======================= READ & WRITE ======================= */
+/* ============================================================ */
+/* ======================= DASHBOARD READ & WRITE ======================= */
+
+void EdgeServer::handleDashboard(Connection &conn)
+{
+}
+
+void EdgeServer::writeDashboard(Connection &conn)
+{
+}
+
+/* ======================= DASHBOARD READ & WRITE ======================= */
 
 void EdgeServer::closeConnection(Connection &conn)
 {

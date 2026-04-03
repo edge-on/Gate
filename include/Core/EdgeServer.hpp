@@ -72,23 +72,31 @@ public:
 private:
     // Client Addr
     int client_port = 8080;
-    int client_listen;
+    int client_fd;
+
+    // Dashboard
+    int dashboard_port = 9900;
+    int dashboard_fd;
 
     // Epoll
     int epoll_fd;
     int MAX_EVENTS = 10;
 
+    // Bridge
+    int bridge_port = 9001;
+
     // SSL
     SSL_CTX *ctx;
     SSL_CTX *bridge_ctx;
 
-    // Bridge
-    int bridge_port = 9001;
-
     bool isLogging = false;
+
+    void startWorkers();
 
     int handleRead(Connection &conn);
     int handleWrite(Connection &conn);
 
-    void startWorkers();
+    void initDashboard();
+    void handleDashboard(Connection &conn);
+    void writeDashboard(Connection &conn);
 };
