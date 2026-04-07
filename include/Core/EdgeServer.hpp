@@ -75,8 +75,8 @@ private:
     int client_port = 8080;
     int client_fd;
 
-    // Backend UDP 
-    int backend_udp_fd;
+    // Backend 
+    int backend_fd;
 
     // Epoll
     int epoll_fd;
@@ -96,7 +96,5 @@ private:
     int handleRead(Connection &conn);
     int handleWrite(Connection &conn);
 
-    void initBackendUDP();
-    int handleReadBackend(Connection &conn);
-    int handleWriteBackend(Connection &conn);
+    void initBackend();
 };

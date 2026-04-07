@@ -9,10 +9,7 @@ void EdgeServer::start()
     initSSL();
 
     initClientServer();
-    initBackendUDP();
-
-    char start_msg[] = "HERE";
-    send(backend_udp_fd, start_msg, strlen(start_msg), 0);
+    initBackend();
 
     startWorkers();
 }
@@ -76,9 +73,9 @@ void EdgeServer::startWorkers()
 
     epoll_event backend_event{};
     backend_event.events = EPOLLIN | EPOLLET;
-    backend_event.data.fd = backend_udp_fd;
+    backend_event.data.fd = backend_fd;
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, backend_udp_fd, &backend_event) < 0)
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, backend_fd, &backend_event) < 0)
     {
         perror("epoll_ctl");
     }
@@ -180,11 +177,11 @@ void EdgeServer::startWorkers()
                     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &client_event);
                 }
             }
-            else if (events[i].data.fd == backend_udp_fd)
+            else if (events[i].data.fd == backend_fd)
             {
                 Connection conn{};
                 conn.type = ConnType::BACKEND;
-                conn.fd = backend_udp_fd;
+                conn.fd = backend_fd;
                 conn.handshake_done = true;
             }
 
@@ -247,20 +244,12 @@ void EdgeServer::startWorkers()
                 continue;
             }
 
-            if (events[i].data.fd == backend_udp_fd)
-            {
-                handleReadBackend(conn);
-            }
-            else if (events[i].events & EPOLLIN)
+            if (events[i].events & EPOLLIN)
             {
                 handleRead(conn);
             }
 
-            if (events[i].data.fd == backend_udp_fd)
-            {
-                handleWriteBackend(conn);
-            }
-            else if (events[i].events & EPOLLOUT)
+            if (events[i].events & EPOLLOUT)
             {
                 handleWrite(conn);
             }
@@ -365,13 +354,13 @@ int EdgeServer::handleWrite(Connection &conn)
     return 1;
 }
 
-void EdgeServer::initBackendUDP()
+void EdgeServer::initBackend()
 {
-    backend_udp_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    backend_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (backend_udp_fd < 0)
+    if (backend_fd < 0)
     {
-        perror("backend_udp_fd socket");
+        perror("backend_fd socket");
     }
 
     sockaddr_in addr;
@@ -381,23 +370,12 @@ void EdgeServer::initBackendUDP()
 
     size_t len = sizeof(addr);
 
-    if (connect(backend_udp_fd, (sockaddr *)&addr, len) < 0)
+    if (connect(backend_fd, (sockaddr *)&addr, len) < 0)
     {
-        perror("backend_udp_fd connect");
+        perror("backend_fd connect");
     }
 
-    EpollUtility::makeNonBlocking(backend_udp_fd);
-}
-
-int EdgeServer::handleReadBackend(Connection &conn)
-{
-}
-
-int EdgeServer::handleWriteBackend(Connection &conn)
-{
-    char *buffer = "Hello world";
-
-    send(backend_udp_fd, buffer, sizeof(buffer), 0);
+    EpollUtility::makeNonBlocking(backend_fd);
 }
 
 void EdgeServer::closeConnection(Connection &conn)
