@@ -9,6 +9,10 @@ void EdgeServer::start()
     initSSL();
 
     initClientServer();
+    initBackendUDP();
+
+    char start_msg[] = "HERE";
+    send(backend_udp_fd, start_msg, strlen(start_msg), 0);
 
     startWorkers();
 }
@@ -66,6 +70,15 @@ void EdgeServer::startWorkers()
     client_event.data.fd = client_fd;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &client_event) < 0)
+    {
+        perror("epoll_ctl");
+    }
+
+    epoll_event backend_event{};
+    backend_event.events = EPOLLIN | EPOLLET;
+    backend_event.data.fd = backend_udp_fd;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, backend_udp_fd, &backend_event) < 0)
     {
         perror("epoll_ctl");
     }
@@ -167,72 +180,89 @@ void EdgeServer::startWorkers()
                     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &client_event);
                 }
             }
-            else
+            else if (events[i].data.fd == backend_udp_fd)
             {
-                auto it = connections.find(events[i].data.fd);
-                if (it == connections.end())
-                    continue;
+                Connection conn{};
+                conn.type = ConnType::BACKEND;
+                conn.fd = backend_udp_fd;
+                conn.handshake_done = true;
+            }
 
-                Connection &conn = it->second;
+            auto it = connections.find(events[i].data.fd);
+            if (it == connections.end())
+                continue;
 
-                if (conn.type == ConnType::BRIDGE && !conn.tcp_connected)
+            Connection &conn = it->second;
+
+            if (conn.type == ConnType::BRIDGE && !conn.tcp_connected)
+            {
+                if (events[i].events & EPOLLOUT)
                 {
-                    if (events[i].events & EPOLLOUT)
+                    int err = 0;
+                    socklen_t len = sizeof(err);
+
+                    getsockopt(conn.fd, SOL_SOCKET, SO_ERROR, &err, &len);
+
+                    if (err == 0)
                     {
-                        int err = 0;
-                        socklen_t len = sizeof(err);
+                        conn.tcp_connected = true;
 
-                        getsockopt(conn.fd, SOL_SOCKET, SO_ERROR, &err, &len);
-
-                        if (err == 0)
-                        {
-                            conn.tcp_connected = true;
-
-                            EpollUtility::enableWrite(conn.fd, epoll_fd);
-                        }
-                        else
-                        {
-                            closeConnection(conn);
-                        }
-                    }
-
-                    continue;
-                }
-
-                if (!conn.handshake_done)
-                {
-                    int ret;
-
-                    if (conn.type == ConnType::CLIENT)
-                        ret = SSL_accept(conn.ssl);
-                    else
-                        ret = SSL_connect(conn.ssl);
-
-                    if (ret == 1)
-                    {
-                        conn.handshake_done = true;
-
-                        EpollUtility::disableWrite(conn.fd, epoll_fd);
+                        EpollUtility::enableWrite(conn.fd, epoll_fd);
                     }
                     else
                     {
-                        int err = SSL_get_error(conn.ssl, ret);
-
-                        if (err == SSL_ERROR_WANT_READ ||
-                            err == SSL_ERROR_WANT_WRITE)
-                            continue;
-
                         closeConnection(conn);
                     }
-
-                    continue;
                 }
 
-                if (events[i].events & EPOLLIN)
-                    handleRead(conn);
+                continue;
+            }
 
-                if (events[i].events & EPOLLOUT)
-                    handleWrite(conn);
+            if (!conn.handshake_done)
+            {
+                int ret;
+
+                if (conn.type == ConnType::CLIENT)
+                    ret = SSL_accept(conn.ssl);
+                else
+                    ret = SSL_connect(conn.ssl);
+
+                if (ret == 1)
+                {
+                    conn.handshake_done = true;
+
+                    EpollUtility::disableWrite(conn.fd, epoll_fd);
+                }
+                else
+                {
+                    int err = SSL_get_error(conn.ssl, ret);
+
+                    if (err == SSL_ERROR_WANT_READ ||
+                        err == SSL_ERROR_WANT_WRITE)
+                        continue;
+
+                    closeConnection(conn);
+                }
+
+                continue;
+            }
+
+            if (events[i].data.fd == backend_udp_fd)
+            {
+                handleReadBackend(conn);
+            }
+            else if (events[i].events & EPOLLIN)
+            {
+                handleRead(conn);
+            }
+
+            if (events[i].data.fd == backend_udp_fd)
+            {
+                handleWriteBackend(conn);
+            }
+            else if (events[i].events & EPOLLOUT)
+            {
+                handleWrite(conn);
             }
         }
     }
@@ -335,10 +365,12 @@ int EdgeServer::handleWrite(Connection &conn)
     return 1;
 }
 
-void EdgeServer::initBackendUDP() {
+void EdgeServer::initBackendUDP()
+{
     backend_udp_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
-    if(backend_udp_fd < 0) {
+    if (backend_udp_fd < 0)
+    {
         perror("backend_udp_fd socket");
     }
 
@@ -349,11 +381,23 @@ void EdgeServer::initBackendUDP() {
 
     size_t len = sizeof(addr);
 
-    if(connect(backend_udp_fd, (sockaddr*)&addr, len) < 0) {
+    if (connect(backend_udp_fd, (sockaddr *)&addr, len) < 0)
+    {
         perror("backend_udp_fd connect");
     }
 
     EpollUtility::makeNonBlocking(backend_udp_fd);
+}
+
+int EdgeServer::handleReadBackend(Connection &conn)
+{
+}
+
+int EdgeServer::handleWriteBackend(Connection &conn)
+{
+    char *buffer = "Hello world";
+
+    send(backend_udp_fd, buffer, sizeof(buffer), 0);
 }
 
 void EdgeServer::closeConnection(Connection &conn)

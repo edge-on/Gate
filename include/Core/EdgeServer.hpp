@@ -31,7 +31,8 @@ public:
     enum ConnType
     {
         CLIENT,
-        BRIDGE
+        BRIDGE,
+        BACKEND
     };
 
     struct Connection
@@ -96,6 +97,6 @@ private:
     int handleWrite(Connection &conn);
 
     void initBackendUDP();
-    int backendHandle(Connection &conn);
-    int backendWrite(Connection &conn);
+    int handleReadBackend(Connection &conn);
+    int handleWriteBackend(Connection &conn);
 };
