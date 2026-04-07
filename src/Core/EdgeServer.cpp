@@ -13,8 +13,6 @@ void EdgeServer::start()
     startWorkers();
 }
 
-/* ======================= INITS ======================= */
-
 void EdgeServer::initClientServer()
 {
     client_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -44,10 +42,6 @@ void EdgeServer::initClientServer()
     EpollUtility::makeNonBlocking(client_fd);
 }
 
-/* ======================= INITS ======================= */
-/* ============================================================ */
-/* ======================= SSL ======================= */
-
 void EdgeServer::initSSL()
 {
     SSL_library_init();
@@ -62,10 +56,6 @@ void EdgeServer::initSSL()
     bridge_ctx = SSL_CTX_new(TLS_client_method());
     SSL_CTX_use_PrivateKey_file(bridge_ctx, "SSL/localhost-key.pem", SSL_FILETYPE_PEM);
 }
-
-/* ======================= SSL ======================= */
-/* ============================================================ */
-/* ======================= THREAD WORKERS ======================= */
 
 void EdgeServer::startWorkers()
 {
@@ -250,10 +240,6 @@ void EdgeServer::startWorkers()
     close(client_fd);
 }
 
-/* ======================= THREAD WORKERS ======================= */
-/* ============================================================ */
-/* ======================= READ & WRITE ======================= */
-
 int EdgeServer::handleRead(Connection &conn)
 {
     char buffer[4096];
@@ -349,7 +335,26 @@ int EdgeServer::handleWrite(Connection &conn)
     return 1;
 }
 
-/* ======================= READ & WRITE ======================= */
+void EdgeServer::initBackendUDP() {
+    backend_udp_fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if(backend_udp_fd < 0) {
+        perror("backend_udp_fd socket");
+    }
+
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    addr.sin_port = htons(41234);
+
+    size_t len = sizeof(addr);
+
+    if(connect(backend_udp_fd, (sockaddr*)&addr, len) < 0) {
+        perror("backend_udp_fd connect");
+    }
+
+    EpollUtility::makeNonBlocking(backend_udp_fd);
+}
 
 void EdgeServer::closeConnection(Connection &conn)
 {

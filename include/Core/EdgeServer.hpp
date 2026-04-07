@@ -73,7 +73,10 @@ private:
     // Client Addr
     int client_port = 8080;
     int client_fd;
-    
+
+    // Backend UDP 
+    int backend_udp_fd;
+
     // Epoll
     int epoll_fd;
     int MAX_EVENTS = 10;
@@ -91,4 +94,8 @@ private:
 
     int handleRead(Connection &conn);
     int handleWrite(Connection &conn);
+
+    void initBackendUDP();
+    int backendHandle(Connection &conn);
+    int backendWrite(Connection &conn);
 };
