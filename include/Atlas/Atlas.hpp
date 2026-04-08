@@ -22,10 +22,6 @@ public:
     Atlas();
     ~Atlas();
 
-    bool connectToAtlas();
-    
-    std::string sendToAtlas();
-
 private:
     Cassandra* cas;
 

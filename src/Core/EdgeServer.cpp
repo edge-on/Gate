@@ -12,7 +12,7 @@ void EdgeServer::start()
     initBackend();
 
     // In Here We Will Send GATE Informations to Backend
-    std::string buffer = "AA";
+    std::string buffer = generateBackendRequest();
     send(backend_fd, buffer.data(), buffer.size(), 0);
 
     startWorkers();
@@ -389,7 +389,7 @@ std::string EdgeServer::generateBackendRequest()
         }
     }
 
-    return ip_addr + "-";
+    return ip_addr + "\n" + Main::dotenv->map["name"] + "\n" + Main::dotenv->map["region"];
 }
 
 void EdgeServer::initBackend()

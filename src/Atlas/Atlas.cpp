@@ -27,11 +27,3 @@ Atlas::Atlas() {
 Atlas::~Atlas() {
 
 }
-
-bool Atlas::connectToAtlas() {
-
-}
-
-std::string Atlas::sendToAtlas() {
-
-}

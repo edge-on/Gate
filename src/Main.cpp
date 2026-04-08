@@ -1,5 +1,7 @@
 #include "Main.hpp"
 
+Dotenv *Main::dotenv;
+
 int main(int argc, char *argv[])
 {
     Main::dotenv = new Dotenv();

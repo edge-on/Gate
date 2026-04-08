@@ -1,3 +1,5 @@
+#pragma once
+
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -17,6 +19,8 @@
 #include "Commands/Commands.hpp"
 
 #include "Utility/Epoll.hpp"
+
+#include "Main.hpp"
 
 class EdgeServer
 {
