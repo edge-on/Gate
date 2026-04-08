@@ -3,7 +3,7 @@
 #include <cassandra.h>
 #include <string>
 
-#include "Dotenv/Dotenv.hpp"
+#include "Main.hpp"
 
 class Cassandra
 {
@@ -20,6 +20,4 @@ private:
     CassFuture* connect_future = NULL;
     CassCluster* cluster = cass_cluster_new();
     CassSession* session = cass_session_new();
-
-    Dotenv *dotenv;
 };

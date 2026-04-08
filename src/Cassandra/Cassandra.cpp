@@ -2,8 +2,6 @@
 
 Cassandra::Cassandra()
 {
-    dotenv = new Dotenv();
-    dotenv->config(".env");
 }
 
 Cassandra::~Cassandra()
@@ -12,10 +10,10 @@ Cassandra::~Cassandra()
 
 bool Cassandra::connect()
 {
-    const std::string ip = dotenv->map["scylla_host"];
+    const std::string ip = Main::dotenv->map["scylla_host"];
     cass_cluster_set_contact_points(cluster, ip.c_str());
 
-    cass_cluster_set_credentials(cluster, dotenv->map["scylla_username"].c_str(), dotenv->map["scylla_password"].c_str());
+    cass_cluster_set_credentials(cluster, Main::dotenv->map["scylla_username"].c_str(), Main::dotenv->map["scylla_password"].c_str());
 
     connect_future = cass_session_connect(session, cluster);
 

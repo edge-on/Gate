@@ -11,6 +11,10 @@ void EdgeServer::start()
     initClientServer();
     initBackend();
 
+    // In Here We Will Send GATE Informations to Backend
+    std::string buffer = "AA";
+    send(backend_fd, buffer.data(), buffer.size(), 0);
+
     startWorkers();
 }
 
@@ -352,6 +356,40 @@ int EdgeServer::handleWrite(Connection &conn)
     }
 
     return 1;
+}
+
+std::string EdgeServer::generateBackendRequest()
+{
+    std::string ip_addr;
+
+    struct ifaddrs *ifaddr, *ifa;
+
+    if (getifaddrs(&ifaddr) == -1)
+    {
+        perror("getifaddrs");
+        return "";
+    }
+
+    for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next)
+    {
+        if (ifa->ifa_addr == nullptr)
+        {
+            continue;
+        }
+
+        if (ifa->ifa_addr->sa_family == AF_INET)
+        {
+            char ip[INET_ADDRSTRLEN];
+
+            void *addr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+
+            inet_ntop(AF_INET, addr, ip, INET_ADDRSTRLEN);
+
+            ip_addr = ip;
+        }
+    }
+
+    return ip_addr + "-";
 }
 
 void EdgeServer::initBackend()

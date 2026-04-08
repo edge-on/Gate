@@ -1,10 +1,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <unistd.h>
 #include <sys/socket.h>
 #include <openssl/ssl.h>
 #include <sys/epoll.h>
+#include <unistd.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
 
 #include <cstring>
 #include <iostream>
@@ -95,6 +96,8 @@ private:
 
     int handleRead(Connection &conn);
     int handleWrite(Connection &conn);
+
+    std::string generateBackendRequest();
 
     void initBackend();
 };
