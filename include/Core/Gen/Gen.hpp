@@ -12,11 +12,6 @@ public:
     typedef struct
     {
         int fd;
-    } Connection;
-
-    typedef struct
-    {
-        std::thread::id id;
 
         char in_raw_buffer[BUFFER_SIZE];
         char in_plain_buffer[BUFFER_SIZE];
@@ -25,7 +20,11 @@ public:
         char out_raw_buffer[BUFFER_SIZE];
         char out_plain_buffer[BUFFER_SIZE];
         ssize_t out_len = 0;
+    } Connection;
 
+    typedef struct
+    {
+        std::thread::id id;
         std::unordered_map<int, Connection> connections;
     } Thread;
 
