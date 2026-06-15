@@ -2,9 +2,6 @@
 
 #include <signal.h>
 
-#include "Core/EdgeServer.hpp"
-#include "Atlas/Atlas.hpp"
-
 #include "Dotenv/Dotenv.hpp"
 
 class Main {
