@@ -2,6 +2,8 @@
 
 Dotenv *Main::dotenv;
 
+std::vector<int> Main::listeners;
+
 int main(int argc, char *argv[])
 {
     Main::dotenv = new Dotenv();

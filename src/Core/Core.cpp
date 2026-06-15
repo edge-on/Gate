@@ -30,7 +30,7 @@ void Core::start()
 
 void Core::worker(int thread)
 {
-    struct io_uring *ring = Gen::activeThreads[thread].ring;
+    struct io_uring *ring = &Gen::activeThreads[thread].ring;
     if (io_uring_queue_init(QUEUE_DEPTH, ring, 0) < 0)
     {
         perror("uring queue init failed.");
@@ -42,8 +42,11 @@ void Core::worker(int thread)
     // Port inits
     for (int port : Main::listeners)
     {
-        pipeline->queueMultishotAccept(port);
+        int fd = Proxy::initServer(port);
+        pipeline->queueMultishotAccept(fd);
     }
+
+    io_uring_submit(ring);
 
     while (!Gen::activeThreads[thread].isShutdown)
     {
@@ -56,9 +59,11 @@ void Core::worker(int thread)
         int fd = (int)(data & 0xFFFFFFFF);
         int opType = (int)(data >> 32);
 
+        int res = cqe->res;
+
         switch (opType)
         {
-        case Gen::STATE_ACCEPT_MULTSHOT:
+        case Gen::STATE_ACCEPT_MULTISHOT:
         {
             break;
         }

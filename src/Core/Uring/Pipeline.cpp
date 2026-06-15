@@ -8,6 +8,13 @@ Pipeline::Pipeline(struct io_uring *ring, int thread)
 
 void Pipeline::queueMultishotAccept(int serverFd)
 {
+    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    if (!sqe)
+        return;
+        
+    uint64_t data = ((uint64_t)Gen::STATE_ACCEPT_MULTISHOT << 32) | (uint32_t)serverFd;
+    io_uring_prep_multishot_accept(sqe, serverFd, nullptr, nullptr, 0);
+    io_uring_sqe_set_data(sqe, (void *)data);
 }
 
 void Pipeline::queueReadClient(Gen::Connection &conn)

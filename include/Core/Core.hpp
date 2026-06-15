@@ -4,6 +4,7 @@
 
 #include "Core/Gen/Gen.hpp"
 #include "Core/Uring/Pipeline.hpp"
+#include "Core/Proxy/Proxy.hpp"
 
 #include "Main.hpp"
 
