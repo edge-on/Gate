@@ -9,6 +9,11 @@ void Core::start()
         Gen::threads.emplace_back(&Core::worker, this, i);
         Gen::activeThreads[i].id = Gen::threads[i].get_id();
     }
+
+    for (auto &thread : Gen::threads)
+    {
+        thread.join();
+    }
 }
 
 void Core::worker(int thread)
@@ -17,5 +22,4 @@ void Core::worker(int thread)
     {
         /* code */
     }
-    
 }

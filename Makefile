@@ -7,8 +7,8 @@ CC       := gcc
 # =========================
 # FLAGS
 # =========================
-CXXFLAGS := -std=c++20 -O2 -Wall -Wextra -Iinclude
-CFLAGS   := -O2 -Wall -Wextra -Iinclude 
+CXXFLAGS := -std=c++20 -O0 -g3 -g -Wall -Wextra -Iinclude
+CFLAGS   := -Wall -Wextra -Iinclude 
 LDFLAGS  := -lxxhash -lssl -lcassandra -lDotenv -luring -lcrypto
 
 # =========================
