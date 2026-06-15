@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <signal.h>
 
@@ -6,7 +6,10 @@
 
 #include "Dotenv/Dotenv.hpp"
 
-class Main {
+class Main
+{
 public:
     static Dotenv *dotenv;
+
+    static std::vector<int> listeners;
 };

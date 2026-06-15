@@ -5,10 +5,19 @@
 #include <vector>
 
 #define BUFFER_SIZE (1024 * 16)
+#define QUEUE_DEPTH 8192
 
 class Gen
 {
 public:
+    typedef enum
+    {
+        STATE_ACCEPT_MULTSHOT,
+        STATE_READ_CLIENT,
+        STATE_WRITE_CLIENT,
+        STATE_POLL_ADD
+    } State;
+
     typedef struct
     {
         int fd;
@@ -26,6 +35,10 @@ public:
     {
         std::thread::id id;
         std::unordered_map<int, Connection> connections;
+
+        struct io_uring *ring;
+
+        bool isShutdown = false;
     } Thread;
 
     static std::vector<std::thread> threads;
