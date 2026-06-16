@@ -60,10 +60,65 @@ void Core::worker(int thread)
         int opType = (int)(data >> 32);
 
         int res = cqe->res;
+        bool hasMore = cqe->flags & IORING_CQE_F_MORE;
+        io_uring_cqe_seen(ring, cqe);
+
+        if (res < 0)
+        {
+            auto it = Gen::activeThreads[thread].connections.find(fd);
+            if (it != Gen::activeThreads[thread].connections.end())
+            {
+                
+            }
+
+            if (opType == Gen::STATE_ACCEPT_MULTISHOT)
+            {
+                pipeline->queueMultishotAccept(fd);
+                io_uring_submit(ring);
+            }
+        }
+
+        if (opType == Gen::STATE_ACCEPT_MULTISHOT)
+        {
+            int clientFd = res;
+
+            Gen::Connection tempConn;
+            tempConn.fd = clientFd;
+            Gen::activeThreads[thread].connections.emplace(clientFd, std::move(tempConn));
+
+            auto &conn = Gen::activeThreads[thread].connections[clientFd];
+
+            pipeline->queueReadClient(conn);
+            io_uring_submit(ring);
+
+            if (!hasMore)
+            {
+                pipeline->queueMultishotAccept(fd);
+                io_uring_submit(ring);
+            }
+
+            continue;
+        }
+
+        auto it = Gen::activeThreads[thread].connections.find(fd);
+        if (it == Gen::activeThreads[thread].connections.end())
+            continue;
+
+        Gen::Connection &conn = it->second;
 
         switch (opType)
         {
-        case Gen::STATE_ACCEPT_MULTISHOT:
+        case Gen::STATE_READ_CLIENT:
+        {
+            std::string a = "HTTP/1.1 200 OK\r\nContent-Length: 14\r\n\r\n<h1>Hello</h1>";
+            memcpy(conn.out_raw_buffer, a.data(), a.size());
+            conn.out_len = a.size();
+
+            pipeline->queueWriteClient(conn);
+            io_uring_submit(ring);
+        }
+
+        case Gen::STATE_WRITE_CLIENT:
         {
             break;
         }

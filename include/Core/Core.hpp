@@ -1,6 +1,7 @@
 #pragma once
 
 #include <liburing.h>
+#include <string.h>
 
 #include "Core/Gen/Gen.hpp"
 #include "Core/Uring/Pipeline.hpp"

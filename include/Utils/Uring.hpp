@@ -3,6 +3,8 @@
 #include <liburing.h>
 #include <stdio.h>
 
+#include "Core/Gen/Gen.hpp"
+
 namespace Utils
 {
     class Uring
@@ -11,5 +13,6 @@ namespace Utils
         static struct io_uring_sqe *getSqe(struct io_uring *ring);
 
         static void makeNonBlocking(int fd);
+        static void closeConn(Gen::Connection &conn);
     };
 } // namespace Utils

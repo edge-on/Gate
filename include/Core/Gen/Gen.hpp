@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-#define BUFFER_SIZE (1024 * 16)
+#define BUFFER_SIZE 16384
 #define QUEUE_DEPTH 4096
 
 class Gen
