@@ -28,3 +28,9 @@ void Utils::Uring::makeNonBlocking(int fd)
         perror("fcntl F_SETFL");
     }
 }
+
+void Utils::Uring::closeConn(int thread, Gen::Connection &conn)
+{
+    close(conn.fd);
+    Gen::activeThreads[thread].connections.erase(conn.fd);
+}

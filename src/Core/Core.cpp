@@ -68,7 +68,7 @@ void Core::worker(int thread)
             auto it = Gen::activeThreads[thread].connections.find(fd);
             if (it != Gen::activeThreads[thread].connections.end())
             {
-                
+                Utils::Uring::closeConn(thread, it->second);
             }
 
             if (opType == Gen::STATE_ACCEPT_MULTISHOT)
@@ -76,6 +76,8 @@ void Core::worker(int thread)
                 pipeline->queueMultishotAccept(fd);
                 io_uring_submit(ring);
             }
+
+            continue;
         }
 
         if (opType == Gen::STATE_ACCEPT_MULTISHOT)
@@ -106,24 +108,26 @@ void Core::worker(int thread)
 
         Gen::Connection &conn = it->second;
 
+        std::string a = "HTTP/1.1 200 OK\r\nContent-Length: 14\r\n\r\n<h1>Hello</h1>";
+        
         switch (opType)
         {
         case Gen::STATE_READ_CLIENT:
         {
-            std::string a = "HTTP/1.1 200 OK\r\nContent-Length: 14\r\n\r\n<h1>Hello</h1>";
             memcpy(conn.out_raw_buffer, a.data(), a.size());
             conn.out_len = a.size();
 
             pipeline->queueWriteClient(conn);
             io_uring_submit(ring);
+            break;
         }
 
         case Gen::STATE_WRITE_CLIENT:
         {
+            pipeline->queueReadClient(conn);
+            io_uring_submit(ring);
             break;
         }
         }
     }
-
-    Gen::activeThreads.erase(thread);
 }

@@ -13,6 +13,6 @@ namespace Utils
         static struct io_uring_sqe *getSqe(struct io_uring *ring);
 
         static void makeNonBlocking(int fd);
-        static void closeConn(Gen::Connection &conn);
+        static void closeConn(int thread, Gen::Connection &conn);
     };
 } // namespace Utils
