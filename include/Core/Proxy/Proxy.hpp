@@ -13,4 +13,6 @@ class Proxy
 {
 public:
     static int initServer(int port);
+
+    static int createOriginSocket(char *ip, int port);
 };

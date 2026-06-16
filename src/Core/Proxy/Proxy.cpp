@@ -30,3 +30,19 @@ int Proxy::initServer(int port)
 
     return sockFd;
 }
+
+int Proxy::createOriginSocket(char *ip, int port)
+{
+    int sockFd = socket(AF_INET, SOCK_STREAM, 0);
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(ip);
+    addr.sin_port = port;
+
+    if (connect(sockFd, (sockaddr *)&addr, sizeof(addr)) < 0)
+    {
+        perror("connect");
+        return -1;
+    }
+}

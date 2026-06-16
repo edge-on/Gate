@@ -16,13 +16,23 @@ public:
     {
         STATE_ACCEPT_MULTISHOT,
         STATE_READ_CLIENT,
+        STATE_WRITE_ORIGIN,
+        STATE_READ_ORIGIN,
         STATE_WRITE_CLIENT,
         STATE_POLL_ADD
     } State;
 
+    typedef enum
+    {
+        TYPE_CLIENT,
+        TYPE_ORIGIN
+    } Type;
+
     typedef struct
     {
         int fd;
+
+        Type type;
 
         char in_raw_buffer[BUFFER_SIZE];
         char in_plain_buffer[BUFFER_SIZE];

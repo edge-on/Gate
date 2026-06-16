@@ -108,17 +108,22 @@ void Core::worker(int thread)
 
         Gen::Connection &conn = it->second;
 
-        std::string a = "HTTP/1.1 200 OK\r\nContent-Length: 14\r\n\r\n<h1>Hello</h1>";
-        
         switch (opType)
         {
         case Gen::STATE_READ_CLIENT:
         {
-            memcpy(conn.out_raw_buffer, a.data(), a.size());
-            conn.out_len = a.size();
-
             pipeline->queueWriteClient(conn);
             io_uring_submit(ring);
+            break;
+        }
+
+        case Gen::STATE_WRITE_ORIGIN:
+        {
+            break;
+        }
+
+        case Gen::STATE_READ_ORIGIN:
+        {
             break;
         }
 
@@ -126,6 +131,11 @@ void Core::worker(int thread)
         {
             pipeline->queueReadClient(conn);
             io_uring_submit(ring);
+            break;
+        }
+
+        case Gen::STATE_POLL_ADD:
+        {
             break;
         }
         }
