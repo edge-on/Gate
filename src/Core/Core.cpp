@@ -102,6 +102,11 @@ void Core::worker(int thread)
             }
             else if (fd == 443)
             {
+                auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+
+                ssl.ssl = SSL_new(ctx);
+                ssl.rbio = BIO_new(BIO_s_mem());
+                ssl.wbio = BIO_new(BIO_s_mem());
             }
 
             if (!hasMore)
@@ -125,6 +130,51 @@ void Core::worker(int thread)
         {
         case Gen::STATE_TLS_CONNECTING:
         {
+            auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+
+            BIO_write(ssl.rbio, conn.in_raw_buffer, res);
+
+            if (SSL_accept(ssl.ssl) > 0)
+            {
+                ssl.handshakeDone = true;
+
+                const unsigned char *alpn_proto;
+                unsigned int alpn_len;
+                SSL_get0_alpn_selected(ssl.ssl, &alpn_proto, &alpn_len);
+
+                if (alpn_len > 0)
+                {
+                    std::string selected_proto((char *)alpn_proto, alpn_len);
+
+                    if (selected_proto == "h2")
+                    {
+                        conn.protocol = Gen::H2;
+                    }
+                    else
+                    {
+                        conn.protocol = Gen::H1;
+                    }
+                }
+                else
+                {
+                    conn.protocol = Gen::H1;
+                }
+            }
+            else
+            {
+            }
+
+            if (BIO_pending(ssl.wbio) > 0)
+            {
+                int bytes = BIO_read(ssl.wbio, conn.out_plain_buffer, BUFFER_SIZE);
+
+                if (bytes > 0)
+                {
+                    pipeline->queueWriteClient(conn);
+                }
+            }
+
+            io_uring_submit(ring);
 
             conn.lastOpType = Gen::STATE_TLS_CONNECTING;
             break;

@@ -17,6 +17,17 @@ void Pipeline::queueMultishotAccept(int serverFd)
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
+void Pipeline::queueTlsConnecting(Gen::Connection &conn)
+{
+    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    if (!sqe)
+        return;
+
+    uint64_t data = ((uint64_t)Gen::STATE_TLS_CONNECTING << 32) | (uint32_t)conn.fd;
+    io_uring_prep_read(sqe, conn.fd, conn.in_raw_buffer, BUFFER_SIZE, 0);
+    io_uring_sqe_set_data(sqe, (void *)data);
+}
+
 void Pipeline::queueReadClient(Gen::Connection &conn)
 {
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);

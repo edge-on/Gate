@@ -15,6 +15,8 @@ public:
 
     void queueMultishotAccept(int serverFd);
 
+    void queueTlsConnecting(Gen::Connection &conn);
+
     void queueReadClient(Gen::Connection &conn);
     void queueWriteOrigin(Gen::Connection &conn);
     void queueReadOrigin(Gen::Connection &conn);

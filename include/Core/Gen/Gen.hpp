@@ -25,6 +25,12 @@ public:
 
     typedef enum
     {
+        H2,
+        H1
+    } Protocol;
+
+    typedef enum
+    {
         TYPE_CLIENT,
         TYPE_ORIGIN
     } Type;
@@ -35,6 +41,7 @@ public:
         int peerFd = -1;
 
         Type type;
+        Protocol protocol;
         State lastOpType;
 
         char in_raw_buffer[BUFFER_SIZE];
@@ -51,6 +58,8 @@ public:
         SSL *ssl;
         BIO *rbio;
         BIO *wbio;
+
+        bool handshakeDone = false;
     } SslStructure;
 
     typedef struct
