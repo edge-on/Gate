@@ -86,6 +86,7 @@ void Core::worker(int thread)
 
             Gen::Connection tempConn;
             tempConn.fd = clientFd;
+            tempConn.type == Gen::TYPE_CLIENT;
             Gen::activeThreads[thread].connections.emplace(clientFd, std::move(tempConn));
 
             auto &conn = Gen::activeThreads[thread].connections[clientFd];
@@ -112,7 +113,26 @@ void Core::worker(int thread)
         {
         case Gen::STATE_READ_CLIENT:
         {
-            pipeline->queueWriteClient(conn);
+            if (conn.peerFd == -1)
+            {
+                int peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
+                if (peerFd == -1)
+                    break;
+
+                Gen::Connection peerConn{};
+                peerConn.fd = peerFd;
+                peerConn.peerFd = conn.fd;
+                conn.peerFd = peerFd;
+                peerConn.type = Gen::TYPE_ORIGIN;
+
+                Gen::activeThreads[thread].connections.emplace(peerFd, std::move(peerConn));
+
+                pipeline->queueReadOrigin(conn);
+            }
+
+            conn.in_len = res;
+
+            pipeline->queueWriteOrigin(conn);
             io_uring_submit(ring);
             break;
         }
@@ -124,12 +144,17 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_ORIGIN:
         {
+            conn.out_len = res;
+            
+            pipeline->queueWriteClient(conn);
+            io_uring_submit(ring);
             break;
         }
 
         case Gen::STATE_WRITE_CLIENT:
         {
             pipeline->queueReadClient(conn);
+            pipeline->queueReadOrigin(conn);
             io_uring_submit(ring);
             break;
         }

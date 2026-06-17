@@ -30,7 +30,8 @@ public:
 
     typedef struct
     {
-        int fd;
+        int fd = -1;
+        int peerFd = -1;
 
         Type type;
 

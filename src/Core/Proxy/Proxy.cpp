@@ -38,11 +38,13 @@ int Proxy::createOriginSocket(char *ip, int port)
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr(ip);
-    addr.sin_port = port;
+    addr.sin_port = htons(port);
 
     if (connect(sockFd, (sockaddr *)&addr, sizeof(addr)) < 0)
     {
         perror("connect");
         return -1;
     }
+
+    return sockFd;
 }

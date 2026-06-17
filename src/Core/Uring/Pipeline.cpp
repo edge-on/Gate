@@ -35,7 +35,7 @@ void Pipeline::queueWriteOrigin(Gen::Connection &conn)
         return;
 
     uint64_t data = ((uint64_t)Gen::STATE_WRITE_ORIGIN << 32) | (uint32_t)conn.fd;
-    io_uring_prep_write(sqe, conn.fd, conn.in_plain_buffer, conn.in_len, 0);
+    io_uring_prep_write(sqe, conn.peerFd, conn.in_raw_buffer, conn.in_len, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
@@ -46,7 +46,7 @@ void Pipeline::queueReadOrigin(Gen::Connection &conn)
         return;
 
     uint64_t data = ((uint64_t)Gen::STATE_READ_ORIGIN << 32) | (uint32_t)conn.fd;
-    io_uring_prep_read(sqe, conn.fd, conn.in_plain_buffer, BUFFER_SIZE, 0);
+    io_uring_prep_read(sqe, conn.peerFd, conn.out_raw_buffer, BUFFER_SIZE, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
