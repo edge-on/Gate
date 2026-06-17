@@ -15,6 +15,7 @@ public:
     typedef enum
     {
         STATE_ACCEPT_MULTISHOT,
+        STATE_TLS_CONNECTING,
         STATE_READ_CLIENT,
         STATE_WRITE_ORIGIN,
         STATE_READ_ORIGIN,
@@ -34,6 +35,7 @@ public:
         int peerFd = -1;
 
         Type type;
+        State lastOpType;
 
         char in_raw_buffer[BUFFER_SIZE];
         char in_plain_buffer[BUFFER_SIZE];
@@ -46,10 +48,24 @@ public:
 
     typedef struct
     {
+        SSL *ssl;
+        BIO *rbio;
+        BIO *wbio;
+    } SslStructure;
+
+    typedef struct
+    {
         std::thread::id id;
+
+        // FD -> Connection
         std::unordered_map<int, Connection> connections;
+        // FD -> SSL
+        std::unordered_map<int, SslStructure> ssl;
 
         struct io_uring ring;
+
+        // Port -> FD
+        std::unordered_map<int, int> listeners;
 
         bool isShutdown = false;
     } Thread;

@@ -1,8 +1,9 @@
 #pragma once
 
-#include <liburing.h>
 #include <string.h>
+#include <liburing.h>
 
+#include "Core/Ssl/Ssl.hpp"
 #include "Core/Gen/Gen.hpp"
 #include "Core/Uring/Pipeline.hpp"
 #include "Core/Proxy/Proxy.hpp"
@@ -18,5 +19,7 @@ public:
     void start();
 
 private:
+    SSL_CTX *ctx;
+
     void worker(int thread);
 };

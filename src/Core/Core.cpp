@@ -14,6 +14,9 @@ Core::~Core()
 
 void Core::start()
 {
+    Ssl ssl;
+    ssl.initSSL(ctx);
+
     int threadCount = std::stoi(Main::dotenv->map["concurrency"]);
 
     for (int i = 0; i < threadCount; ++i)
@@ -43,6 +46,7 @@ void Core::worker(int thread)
     for (int port : Main::listeners)
     {
         int fd = Proxy::initServer(port);
+        Gen::activeThreads[thread].listeners.emplace(port, fd);
         pipeline->queueMultishotAccept(fd);
     }
 
@@ -91,14 +95,22 @@ void Core::worker(int thread)
 
             auto &conn = Gen::activeThreads[thread].connections[clientFd];
 
-            pipeline->queueReadClient(conn);
-            io_uring_submit(ring);
+            if (fd == Gen::activeThreads[thread].listeners[80])
+            {
+                pipeline->queueReadClient(conn);
+                io_uring_submit(ring);
+            }
+            else if (fd == 443)
+            {
+            }
 
             if (!hasMore)
             {
                 pipeline->queueMultishotAccept(fd);
                 io_uring_submit(ring);
             }
+
+            conn.lastOpType = Gen::STATE_ACCEPT_MULTISHOT;
 
             continue;
         }
@@ -111,8 +123,20 @@ void Core::worker(int thread)
 
         switch (opType)
         {
+        case Gen::STATE_TLS_CONNECTING:
+        {
+
+            conn.lastOpType = Gen::STATE_TLS_CONNECTING;
+            break;
+        }
+
         case Gen::STATE_READ_CLIENT:
         {
+            if (conn.lastOpType == Gen::STATE_TLS_CONNECTING)
+            {
+                break;
+            }
+
             if (conn.peerFd == -1)
             {
                 int peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
@@ -134,20 +158,27 @@ void Core::worker(int thread)
 
             pipeline->queueWriteOrigin(conn);
             io_uring_submit(ring);
+
+            conn.lastOpType = Gen::STATE_READ_CLIENT;
+
             break;
         }
 
         case Gen::STATE_WRITE_ORIGIN:
         {
+
+            conn.lastOpType = Gen::STATE_WRITE_ORIGIN;
             break;
         }
 
         case Gen::STATE_READ_ORIGIN:
         {
             conn.out_len = res;
-            
+
             pipeline->queueWriteClient(conn);
             io_uring_submit(ring);
+
+            conn.lastOpType = Gen::STATE_READ_ORIGIN;
             break;
         }
 
@@ -156,11 +187,14 @@ void Core::worker(int thread)
             pipeline->queueReadClient(conn);
             pipeline->queueReadOrigin(conn);
             io_uring_submit(ring);
+
+            conn.lastOpType = Gen::STATE_WRITE_CLIENT;
             break;
         }
 
         case Gen::STATE_POLL_ADD:
         {
+            conn.lastOpType = Gen::STATE_POLL_ADD;
             break;
         }
         }
