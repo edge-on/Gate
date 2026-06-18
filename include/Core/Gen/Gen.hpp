@@ -37,14 +37,21 @@ public:
         TYPE_ORIGIN
     } Type;
 
+    typedef enum
+    {
+        TCP_RAW,
+        TCP_TLS
+    } ProtocolState;
+
     typedef struct
     {
         int fd = -1;
         int peerFd = -1;
 
         Type type;
-        Protocol protocol;
         State lastOpType;
+        Protocol protocol;
+        ProtocolState protocolState;
 
         char in_raw_buffer[BUFFER_SIZE];
         char in_plain_buffer[BUFFER_SIZE];

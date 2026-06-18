@@ -96,6 +96,8 @@ void Core::worker(int thread)
 
             if (fd == Gen::activeThreads[thread].listeners[80])
             {
+                conn.protocolState = Gen::TCP_RAW;
+
                 pipeline->queueReadClient(conn);
                 io_uring_submit(ring);
             }
@@ -106,6 +108,8 @@ void Core::worker(int thread)
                 ssl.ssl = SSL_new(ctx);
                 ssl.rbio = BIO_new(BIO_s_mem());
                 ssl.wbio = BIO_new(BIO_s_mem());
+
+                conn.protocolState = Gen::TCP_TLS;
 
                 SSL_set_bio(ssl.ssl, ssl.rbio, ssl.wbio);
                 SSL_set_accept_state(ssl.ssl);
@@ -183,7 +187,6 @@ void Core::worker(int thread)
                 if (bytes > 0)
                 {
                     conn.out_len = bytes;
-
                     pipeline->queueWriteClient(conn);
                 }
             }
@@ -257,15 +260,10 @@ void Core::worker(int thread)
                     int bytes = BIO_read(ssl.wbio, conn.out_raw_buffer, BUFFER_SIZE);
 
                     conn.out_len = bytes;
-
-                    pipeline->queueWriteClient(conn);
                 }
             }
-            else
-            {
-                pipeline->queueWriteClient(conn);
-            }
 
+            pipeline->queueWriteClient(conn);
             io_uring_submit(ring);
 
             conn.lastOpType = Gen::STATE_READ_ORIGIN;
