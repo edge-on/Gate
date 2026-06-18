@@ -14,8 +14,7 @@ Core::~Core()
 
 void Core::start()
 {
-    Ssl ssl;
-    ssl.initSSL(ctx);
+    ctx = Ssl::initSSL();
 
     int threadCount = std::stoi(Main::dotenv->map["concurrency"]);
 
@@ -100,13 +99,16 @@ void Core::worker(int thread)
                 pipeline->queueReadClient(conn);
                 io_uring_submit(ring);
             }
-            else if (fd == 443)
+            else if (fd == Gen::activeThreads[thread].listeners[443])
             {
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
 
                 ssl.ssl = SSL_new(ctx);
                 ssl.rbio = BIO_new(BIO_s_mem());
                 ssl.wbio = BIO_new(BIO_s_mem());
+
+                SSL_set_bio(ssl.ssl, ssl.rbio, ssl.wbio);
+                SSL_set_accept_state(ssl.ssl);
 
                 pipeline->queueTlsConnecting(conn);
                 io_uring_submit(ring);
@@ -171,10 +173,13 @@ void Core::worker(int thread)
 
             if (BIO_pending(ssl.wbio) > 0)
             {
-                int bytes = BIO_read(ssl.wbio, conn.out_plain_buffer, BUFFER_SIZE);
+                int bytes = BIO_read(ssl.wbio, conn.out_raw_buffer, BUFFER_SIZE);
 
+                std::cout << "here works - bytes: " << bytes << std::endl;
                 if (bytes > 0)
                 {
+                    conn.out_len = bytes;
+
                     pipeline->queueWriteClient(conn);
                 }
             }
@@ -200,7 +205,7 @@ void Core::worker(int thread)
                     if (bytes > 0)
                     {
                         conn.in_len = bytes;
-                        
+
                         pipeline->queueWriteOrigin(conn);
                     }
                 }

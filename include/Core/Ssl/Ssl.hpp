@@ -9,7 +9,7 @@
 class Ssl
 {
 public:
-    void initSSL(SSL_CTX *ctx);
+    static SSL_CTX *initSSL();
 
 private:
     static int alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg);

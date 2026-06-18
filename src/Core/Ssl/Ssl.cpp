@@ -1,23 +1,27 @@
 #include "Core/Ssl/Ssl.hpp"
 
-void Ssl::initSSL(SSL_CTX *ctx)
+SSL_CTX *Ssl::initSSL()
 {
+    SSL_CTX *ctx;
+
     SSL_library_init();
     OpenSSL_add_ssl_algorithms();
     SSL_load_error_strings();
 
     ctx = SSL_CTX_new(TLS_server_method());
-    SSL_CTX_use_certificate_chain_file(ctx, "");
-    SSL_CTX_use_PrivateKey_file(ctx, "", SSL_FILETYPE_PEM);
+    SSL_CTX_use_certificate_chain_file(ctx, "SSL/localhost.pem");
+    SSL_CTX_use_PrivateKey_file(ctx, "SSL/localhost-key.pem", SSL_FILETYPE_PEM);
 
     SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
     // We should add callback !!!
 
     // Here is for HTTP2
-    SSL_CTX_set_cipher_list(ctx, "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384");
-    SSL_CTX_set_ecdh_auto(ctx, 1);
-    SSL_CTX_set_alpn_select_cb(ctx, Ssl::alpn_cb, NULL);
+    // SSL_CTX_set_cipher_list(ctx, "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384");
+    // SSL_CTX_set_ecdh_auto(ctx, 1);
+    // SSL_CTX_set_alpn_select_cb(ctx, Ssl::alpn_cb, NULL);
+
+    return ctx;
 }
 
 int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg)
