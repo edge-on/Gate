@@ -164,9 +164,14 @@ void Core::worker(int thread)
                 {
                     conn.protocol = Gen::H1;
                 }
+            }
 
+            if (ssl.handshakeDone)
+            {
                 pipeline->queueReadClient(conn);
                 io_uring_submit(ring);
+
+                conn.lastOpType = Gen::STATE_TLS_CONNECTING;
 
                 break;
             }
@@ -175,7 +180,6 @@ void Core::worker(int thread)
             {
                 int bytes = BIO_read(ssl.wbio, conn.out_raw_buffer, BUFFER_SIZE);
 
-                std::cout << "here works - bytes: " << bytes << std::endl;
                 if (bytes > 0)
                 {
                     conn.out_len = bytes;
@@ -192,30 +196,21 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_CLIENT:
         {
-            // TCP Tls Side
+            conn.in_len = res;
+
+            // TCP TLS
             if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
                 BIO_write(ssl.rbio, conn.in_raw_buffer, res);
 
-                if (BIO_pending(ssl.wbio) > 0)
+                int bytes = SSL_read(ssl.ssl, conn.in_plain_buffer, BUFFER_SIZE);
+                if (bytes > 0)
                 {
-                    int bytes = BIO_read(ssl.wbio, conn.in_plain_buffer, BUFFER_SIZE);
-
-                    if (bytes > 0)
-                    {
-                        conn.in_len = bytes;
-
-                        pipeline->queueWriteOrigin(conn);
-                    }
+                    conn.in_len = bytes;
                 }
-
-                io_uring_submit(ring);
-
-                break;
             }
 
-            // TCP Raw Side
             if (conn.peerFd == -1)
             {
                 int peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
@@ -232,8 +227,6 @@ void Core::worker(int thread)
 
                 pipeline->queueReadOrigin(conn);
             }
-
-            conn.in_len = res;
 
             pipeline->queueWriteOrigin(conn);
             io_uring_submit(ring);
@@ -254,7 +247,25 @@ void Core::worker(int thread)
         {
             conn.out_len = res;
 
-            pipeline->queueWriteClient(conn);
+            if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+            {
+                auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+
+                SSL_write(ssl.ssl, conn.out_plain_buffer, res);
+                if (BIO_pending(ssl.wbio) > 0)
+                {
+                    int bytes = BIO_read(ssl.wbio, conn.out_raw_buffer, BUFFER_SIZE);
+
+                    conn.out_len = bytes;
+
+                    pipeline->queueWriteClient(conn);
+                }
+            }
+            else
+            {
+                pipeline->queueWriteClient(conn);
+            }
+
             io_uring_submit(ring);
 
             conn.lastOpType = Gen::STATE_READ_ORIGIN;

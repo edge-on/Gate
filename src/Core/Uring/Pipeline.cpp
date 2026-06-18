@@ -61,7 +61,7 @@ void Pipeline::queueReadOrigin(Gen::Connection &conn)
         return;
 
     uint64_t data = ((uint64_t)Gen::STATE_READ_ORIGIN << 32) | (uint32_t)conn.fd;
-    io_uring_prep_read(sqe, conn.peerFd, conn.out_raw_buffer, BUFFER_SIZE, 0);
+    io_uring_prep_read(sqe, conn.peerFd, conn.out_plain_buffer, BUFFER_SIZE, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
