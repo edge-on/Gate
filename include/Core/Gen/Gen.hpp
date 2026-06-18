@@ -2,6 +2,8 @@
 
 #include <liburing.h>
 
+#include "Core/Ssl/Ssl.hpp"
+
 #include <thread>
 #include <unordered_map>
 #include <vector>
