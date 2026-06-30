@@ -8,6 +8,8 @@
 #include "Core/Uring/Pipeline.hpp"
 #include "Core/Proxy/Proxy.hpp"
 
+#include "Utils/Http.hpp"
+
 #include "Main.hpp"
 
 class Core

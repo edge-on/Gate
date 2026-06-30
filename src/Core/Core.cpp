@@ -216,6 +216,8 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
+                std::string host = Utils::Http::getHost(conn.in_plain_buffer, res);
+
                 int peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
                 if (peerFd == -1)
                     break;
