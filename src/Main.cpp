@@ -2,6 +2,8 @@
 
 Dotenv *Main::dotenv;
 
+Cassandra *Main::cas;
+
 std::vector<int> Main::listeners;
 
 int main(int argc, char *argv[])
@@ -16,7 +18,8 @@ int main(int argc, char *argv[])
 
     Main::cas = new Cassandra();
 
-    if(Main::cas->connect()) {
+    if (Main::cas->connect())
+    {
         std::cout << "ScyllaDB Connected" << std::endl;
     }
 
