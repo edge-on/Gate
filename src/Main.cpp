@@ -14,6 +14,12 @@ int main(int argc, char *argv[])
     Main::listeners.emplace_back(80);  // HTTP
     Main::listeners.emplace_back(443); // HTTPS
 
+    Main::cas = new Cassandra();
+
+    if(Main::cas->connect()) {
+        std::cout << "ScyllaDB Connected" << std::endl;
+    }
+
     Core core;
     core.start();
 }
