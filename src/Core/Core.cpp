@@ -217,12 +217,13 @@ void Core::worker(int thread)
             if (conn.peerFd == -1)
             {
                 std::string host = Utils::Http::getHost(conn.in_plain_buffer, res);
-
                 std::string ip = Origin::getOrigin(host);
 
-                int peerFd = Proxy::createOriginSocket((char*)ip.c_str(), 80);
+                int peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
                 if (peerFd == -1)
+                {
                     break;
+                }
 
                 Gen::Connection peerConn{};
                 peerConn.fd = peerFd;

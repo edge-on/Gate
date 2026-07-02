@@ -42,7 +42,6 @@ int Proxy::createOriginSocket(char *ip, int port)
 
     if (connect(sockFd, (sockaddr *)&addr, sizeof(addr)) < 0)
     {
-        perror("connect");
         return -1;
     }
 
