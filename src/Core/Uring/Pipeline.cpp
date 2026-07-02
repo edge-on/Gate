@@ -71,10 +71,16 @@ void Pipeline::queueWriteClient(Gen::Connection &conn)
     if (!sqe)
         return;
 
-    auto *src = (conn.protocolState == Gen::TCP_TLS ? conn.out_raw_buffer : conn.out_plain_buffer);
+    if (conn.writeQueue.empty())
+        return;
+
+    auto &front = conn.writeQueue.front();
+
+    char *src = front.first.data();
+    ssize_t len = front.second;
 
     uint64_t data = ((uint64_t)Gen::STATE_WRITE_CLIENT << 32) | (uint32_t)conn.fd;
-    io_uring_prep_write(sqe, conn.fd, src, conn.out_len, 0);
+    io_uring_prep_write(sqe, conn.fd, src, len, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 

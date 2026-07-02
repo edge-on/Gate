@@ -7,6 +7,9 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <array>
+#include <list>
+#include <utility>
 
 #define BUFFER_SIZE 16384
 #define QUEUE_DEPTH 4096
@@ -53,6 +56,10 @@ public:
         Protocol protocol;
         ProtocolState protocolState;
 
+        int writeOffset = 0;
+
+        bool backendIsUnreachable = false;
+
         char in_raw_buffer[BUFFER_SIZE];
         char in_plain_buffer[BUFFER_SIZE];
         ssize_t in_len = 0;
@@ -60,6 +67,8 @@ public:
         char out_raw_buffer[BUFFER_SIZE];
         char out_plain_buffer[BUFFER_SIZE];
         ssize_t out_len = 0;
+
+        std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeQueue;
     } Connection;
 
     typedef struct

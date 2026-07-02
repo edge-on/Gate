@@ -3,6 +3,9 @@
 #include <string.h>
 #include <liburing.h>
 
+#include <array>
+#include <utility>
+
 #include "Core/Ssl/Ssl.hpp"
 #include "Core/Gen/Gen.hpp"
 #include "Core/Uring/Pipeline.hpp"
@@ -10,6 +13,7 @@
 
 #include "Cassandra/Scylla/Origin.hpp"
 
+#include "Utils/Pages.hpp"
 #include "Utils/Http.hpp"
 
 #include "Main.hpp"

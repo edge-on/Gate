@@ -182,11 +182,13 @@ void Core::worker(int thread)
 
             if (BIO_pending(ssl.wbio) > 0)
             {
-                int bytes = BIO_read(ssl.wbio, conn.out_raw_buffer, BUFFER_SIZE);
+                std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
+                int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
 
                 if (bytes > 0)
                 {
-                    conn.out_len = bytes;
+                    chunk.second = bytes;
+                    conn.writeQueue.push_back(std::move(chunk));
                     pipeline->queueWriteClient(conn);
                 }
             }
@@ -222,6 +224,19 @@ void Core::worker(int thread)
                 int peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
                 if (peerFd == -1)
                 {
+                    conn.backendIsUnreachable = true;
+
+                    std::string page = Pages::getPage("pages/502.html");
+
+                    int offset = 0;
+                    while (offset < page.size())
+                    {
+                        offset += BUFFER_SIZE;
+                    }
+
+                    pipeline->queueWriteClient(conn);
+                    io_uring_submit(ring);
+
                     break;
                 }
 
@@ -253,8 +268,6 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_ORIGIN:
         {
-            conn.out_len = res;
-
             if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
@@ -262,9 +275,11 @@ void Core::worker(int thread)
                 SSL_write(ssl.ssl, conn.out_plain_buffer, res);
                 if (BIO_pending(ssl.wbio) > 0)
                 {
-                    int bytes = BIO_read(ssl.wbio, conn.out_raw_buffer, BUFFER_SIZE);
+                    std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
+                    int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
+                    chunk.second = bytes;
 
-                    conn.out_len = bytes;
+                    conn.writeQueue.push_back(std::move(chunk));
                 }
             }
 
@@ -277,6 +292,9 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_CLIENT:
         {
+            if (!conn.writeQueue.empty())
+                conn.writeQueue.pop_front();
+
             if (conn.lastOpType == Gen::STATE_TLS_CONNECTING)
             {
                 // If this write request come from tls connecting, we will back to tls connecting state
