@@ -228,10 +228,30 @@ void Core::worker(int thread)
 
                     std::string page = Pages::getPage("pages/502.html");
 
+                    std::string req =
+                        "HTTP/1.1 502 Bad Gateway\r\n"
+                        "Content-Type: text/html; charset=UTF-8\r\n"
+                        "Content-Length: " +
+                        std::to_string(page.size()) + "\r\n"
+                                                      "Connection: close\r\n"
+                                                      "Server: EdgeOn-Proxy/1.0\r\n"
+                                                      "\r\n" +
+                        page;
+
                     int offset = 0;
-                    while (offset < page.size())
+                    while (offset < req.size())
                     {
-                        offset += BUFFER_SIZE;
+                        ssize_t len = std::min(BUFFER_SIZE - 256, int(req.size() - offset));
+
+                        SSL_write(Gen::activeThreads[thread].ssl[conn.fd].ssl, req.data() + offset, len);
+
+                        std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
+                        int bytes = BIO_read(Gen::activeThreads[thread].ssl[conn.fd].wbio, chunk.first.data(), BUFFER_SIZE);
+                        chunk.second = bytes;
+
+                        conn.writeQueue.push_back(std::move(chunk));
+
+                        offset += len;
                     }
 
                     pipeline->queueWriteClient(conn);
@@ -293,7 +313,15 @@ void Core::worker(int thread)
         case Gen::STATE_WRITE_CLIENT:
         {
             if (!conn.writeQueue.empty())
+            {
                 conn.writeQueue.pop_front();
+
+                if (!conn.writeQueue.empty())
+                {
+                    pipeline->queueWriteClient(conn);
+                    break;
+                }
+            }
 
             if (conn.lastOpType == Gen::STATE_TLS_CONNECTING)
             {
