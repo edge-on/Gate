@@ -8,6 +8,8 @@
 #include "Core/Uring/Pipeline.hpp"
 #include "Core/Proxy/Proxy.hpp"
 
+#include "Cassandra/Scylla/Origin.hpp"
+
 #include "Utils/Http.hpp"
 
 #include "Main.hpp"

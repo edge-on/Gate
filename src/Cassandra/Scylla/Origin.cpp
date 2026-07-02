@@ -2,7 +2,7 @@
 
 std::string Origin::getOrigin(std::string host)
 {
-    CassStatement *statement = cass_statement_new("SELECT * FROM edgeon.records WHERE name = ? AND type = 1;", 1);
+    CassStatement *statement = cass_statement_new("SELECT * FROM edgeon.records WHERE name = ? AND type = 1 ALLOW FILTERING;", 1);
     cass_statement_bind_string(statement, 0, host.data());
 
     CassFuture *future = cass_session_execute(Main::cas->session, statement);
