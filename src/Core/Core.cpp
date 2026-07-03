@@ -319,6 +319,7 @@ void Core::worker(int thread)
                 if (!conn.writeQueue.empty())
                 {
                     pipeline->queueWriteClient(conn);
+                    io_uring_submit(ring);
                     break;
                 }
             }
