@@ -219,9 +219,13 @@ void Core::worker(int thread)
             if (conn.peerFd == -1)
             {
                 std::string host = Utils::Http::getHost(conn.in_plain_buffer, res);
-                std::string ip = Origin::getOrigin(host);
+                std::string ip = Main::dns->getRandomIP(host);
 
-                int peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
+                int peerFd = -1;
+
+                if (!ip.empty())
+                    peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
+
                 if (peerFd == -1)
                 {
                     conn.backendIsUnreachable = true;

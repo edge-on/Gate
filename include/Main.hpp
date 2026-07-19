@@ -7,10 +7,13 @@
 #include "Dotenv/Dotenv.hpp"
 #include "Cassandra/Cassandra.hpp"
 
+#include "DNS/DNSClient.hpp"
+
 class Main
 {
 public:
     static Dotenv *dotenv;
+    static DNSClient *dns;
 
     static std::vector<int> listeners;
 
