@@ -218,8 +218,20 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                std::string host = Utils::Http::getHost(conn.in_plain_buffer, res);
+                std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
                 std::string ip = Main::dns->getRandomIP(host);
+
+                if (!Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+                {
+                    std::string path = Utils::Http::getPath(conn.in_raw_buffer, res);
+
+                    if (memcmp(path.data(), "/.well-known/acme-challenge/", 28) == 0)
+                    {
+                        std::string token = path.data() + 28;
+
+                        
+                    }
+                }
 
                 int peerFd = -1;
 
@@ -247,11 +259,19 @@ void Core::worker(int thread)
                     {
                         ssize_t len = std::min(BUFFER_SIZE - 256, int(req.size() - offset));
 
-                        SSL_write(Gen::activeThreads[thread].ssl[conn.fd].ssl, req.data() + offset, len);
-
                         std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
-                        int bytes = BIO_read(Gen::activeThreads[thread].ssl[conn.fd].wbio, chunk.first.data(), BUFFER_SIZE);
-                        chunk.second = bytes;
+
+                        if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+                        {
+                            SSL_write(Gen::activeThreads[thread].ssl[conn.fd].ssl, req.data() + offset, len);
+                            int bytes = BIO_read(Gen::activeThreads[thread].ssl[conn.fd].wbio, chunk.first.data(), BUFFER_SIZE);
+                            chunk.second = bytes;
+                        }
+                        else
+                        {
+                            memcpy(chunk.first.data(), req.data() + offset, len);
+                            chunk.second = chunk.first.size();
+                        }
 
                         conn.writeQueue.push_back(std::move(chunk));
 
