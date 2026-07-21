@@ -230,15 +230,17 @@ void Core::worker(int thread)
                         std::string token = path.data() + 28;
 
                         std::string authorizationKey = Origin::getAcmeToken(host, token);
+                        if (authorizationKey.empty())
+                            authorizationKey = "UNAUTHORIZED";
 
                         std::string res =
                             "HTTP/1.1 502 Bad Gateway\r\n"
                             "Content-Type: text/plain; charset=UTF-8\r\n"
                             "Content-Length: " +
                             std::to_string(authorizationKey.size()) + "\r\n"
-                                                           "Connection: close\r\n"
-                                                           "Server: EdgeOn-Proxy/1.0\r\n"
-                                                           "\r\n" +
+                                                                      "Connection: close\r\n"
+                                                                      "Server: EdgeOn-Proxy/1.0\r\n"
+                                                                      "\r\n" +
                             authorizationKey.data();
 
                         std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
