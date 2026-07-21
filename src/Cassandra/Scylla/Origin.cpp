@@ -34,7 +34,7 @@ std::string Origin::getOrigin(std::string host)
 
 std::string Origin::getAcmeToken(std::string host, std::string token)
 {
-    CassStatement *statement = cass_statement_new("SELECT * FROM edgeon.acme WHERE host = ? AND token = ?;", 2);
+    CassStatement *statement = cass_statement_new("SELECT * FROM edgeon.acme WHERE host = ? AND \"token\" = ?;", 2);
     cass_statement_bind_string(statement, 0, host.data());
     cass_statement_bind_string(statement, 1, token.data());
 
