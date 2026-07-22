@@ -221,7 +221,7 @@ void Core::worker(int thread)
                 std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
                 std::string ip = Main::dns->getRandomIP(host);
 
-                if (!Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+                /*if (!Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
                 {
                     std::string path = Utils::Http::getPath(conn.in_raw_buffer, res);
 
@@ -254,7 +254,7 @@ void Core::worker(int thread)
 
                         break;
                     }
-                }
+                }*/
 
                 int peerFd = -1;
 

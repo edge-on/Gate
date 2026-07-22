@@ -32,7 +32,8 @@ std::string Origin::getOrigin(std::string host)
     return "";
 }
 
-std::string Origin::getAcmeToken(std::string host, std::string token)
+// We remove HTTP-01 ACME Verification because we cannot get ssl's that support wildcard with HTTP-01 ACME
+/*std::string Origin::getAcmeToken(std::string host, std::string token)
 {
     CassStatement *statement = cass_statement_new("SELECT * FROM edgeon.acme WHERE host = ? AND \"token\" = ?;", 2);
     cass_statement_bind_string(statement, 0, host.data());
@@ -62,4 +63,4 @@ std::string Origin::getAcmeToken(std::string host, std::string token)
     }
 
     return "";
-}
+}*/
