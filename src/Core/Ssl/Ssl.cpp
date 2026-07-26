@@ -14,7 +14,7 @@ SSL_CTX *Ssl::initSSL()
 
     SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
-    // We should add callback !!!
+    SSL_CTX_callback_ctrl(ctx, SSL_CTRL_SET_TLSEXT_SERVERNAME_CB, reinterpret_cast<void (*)()>(Ssl::sni_callback));
 
     // Here is for HTTP2
     // SSL_CTX_set_cipher_list(ctx, "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384");
@@ -43,4 +43,19 @@ int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, con
     }
 
     return SSL_TLSEXT_ERR_NOACK;
+}
+
+int Ssl::sni_callback(SSL *ssl, int *ad, void *arg)
+{
+    const char *domain = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+    if (!domain)
+        return SSL_TLSEXT_ERR_NOACK;
+
+    auto it = Gen::zones.find(std::string_view(domain).data());
+
+    if (it == Gen::zones.end() || it->second.ctx == nullptr)
+        return SSL_TLSEXT_ERR_NOACK;
+
+    SSL_set_SSL_CTX(ssl, it->second.ctx);
+    return SSL_TLSEXT_ERR_OK;
 }

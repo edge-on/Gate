@@ -25,6 +25,8 @@ int main(int argc, char *argv[])
         std::cout << "ScyllaDB Connected" << std::endl;
     }
 
+    Origin::getSSLCerts();
+
     Core core;
     core.start();
 }

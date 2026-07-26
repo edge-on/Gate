@@ -99,4 +99,13 @@ public:
 
     static std::vector<std::thread> threads;
     static std::unordered_map<int, Thread> activeThreads;
+
+    typedef struct
+    {
+        std::string domain;
+
+        SSL_CTX *ctx;
+    } Zone;
+
+    static std::unordered_map<std::string, Zone> zones;
 };

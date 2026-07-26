@@ -6,6 +6,10 @@
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 
+#include <string>
+
+#include "Core/Gen/Gen.hpp"
+
 class Ssl
 {
 public:
@@ -13,4 +17,5 @@ public:
 
 private:
     static int alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg);
+    static int sni_callback(SSL *ssl, int *ad, void *arg);
 };
