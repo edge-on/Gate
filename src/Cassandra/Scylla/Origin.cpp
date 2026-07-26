@@ -124,8 +124,53 @@ bool Origin::getSSLCerts()
             }
 
             std::string tlsPrivateKeyPem(tlsPrivateKeyRaw.begin(), tlsPrivateKeyRaw.end());
-            std::cout << "PEM:\n"
-                      << tlsPrivateKeyPem << std::endl;
+
+            Gen::zones[domain].domain = domain;
+            Gen::zones[domain].ctx = SSL_CTX_new(TLS_server_method());
+
+            BIO *cert_bio = BIO_new_mem_buf(certificate, certLen);
+            X509 *cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr);
+            if (!cert || SSL_CTX_use_certificate(Gen::zones[domain].ctx, cert) <= 0)
+            {
+                if (cert)
+                    X509_free(cert);
+                BIO_free(cert_bio);
+            }
+            X509_free(cert);
+
+            X509 *extra_cert = nullptr;
+            while ((extra_cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr)) != nullptr)
+            {
+                SSL_CTX_add1_chain_cert(Gen::zones[domain].ctx, extra_cert);
+                X509_free(extra_cert);
+            }
+            BIO_free(cert_bio);
+
+            BIO *key_bio = BIO_new_mem_buf(tlsPrivateKeyRaw.data(), static_cast<int>(tlsPrivateKeyRaw.size()));
+            if (!key_bio)
+            {
+                return false;
+            }
+
+            EVP_PKEY *pkey = PEM_read_bio_PrivateKey(key_bio, nullptr, nullptr, nullptr);
+            BIO_free(key_bio);
+
+            if (!pkey)
+            {
+                return false;
+            }
+
+            if (SSL_CTX_use_PrivateKey(Gen::zones[domain].ctx, pkey) <= 0)
+            {
+                EVP_PKEY_free(pkey);
+                return false;
+            }
+            EVP_PKEY_free(pkey);
+
+            if (!SSL_CTX_check_private_key(Gen::zones[domain].ctx))
+            {
+                return false;
+            }
         }
 
         cass_iterator_free(iterator);

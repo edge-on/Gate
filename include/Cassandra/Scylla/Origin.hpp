@@ -3,6 +3,10 @@
 #include <string>
 #include <string_view>
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/pem.h>
+
 #include "Utils/Crypto/Aes.hpp"
 #include "Utils/Crypto/Kyber.hpp"
 
