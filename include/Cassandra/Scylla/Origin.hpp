@@ -3,7 +3,8 @@
 #include <string>
 #include <string_view>
 
-#include "Utils/Crypto.hpp"
+#include "Utils/Crypto/Aes.hpp"
+#include "Utils/Crypto/Kyber.hpp"
 
 #include "Main.hpp"
 

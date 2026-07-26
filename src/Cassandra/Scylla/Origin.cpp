@@ -69,7 +69,7 @@ bool Origin::getSSLCerts()
             cass_value_get_string(privateKeyVal, &privateKey, &privateKeyLen);
 
             std::string secretKey = Main::dotenv->map["ssl_private_key"];
-            std::string decryptedText = decryptWithKey(std::string(privateKey, privateKeyLen), secretKey);
+            std::string decryptedText = Aes::decryptWithKey(std::string(privateKey, privateKeyLen), secretKey);
 
             if (decryptedText.empty())
             {
@@ -80,7 +80,7 @@ bool Origin::getSSLCerts()
                 return false;
             }
 
-            std::vector<unsigned char> rawPrivateKey = base64_decode(decryptedText);
+            std::vector<unsigned char> rawPrivateKey = Aes::base64_decode(decryptedText);
             if (rawPrivateKey.empty())
             {
                 cass_iterator_free(iterator);
@@ -90,7 +90,7 @@ bool Origin::getSSLCerts()
                 return false;
             }
 
-            KyberPayload payload = parseKyberPayload(std::string(privCert, privCertLen));
+            Kyber::KyberPayload payload = Kyber::parseKyberPayload(std::string(privCert, privCertLen));
             if (!payload.success)
             {
                 cass_iterator_free(iterator);
@@ -100,7 +100,7 @@ bool Origin::getSSLCerts()
                 return false;
             }
 
-            std::vector<unsigned char> finalSharedSecret = kyberDecrypt(payload.kyberCiphertext, rawPrivateKey);
+            std::vector<unsigned char> finalSharedSecret = Kyber::kyberDecrypt(payload.kyberCiphertext, rawPrivateKey);
             if (finalSharedSecret.empty())
             {
                 return false;
@@ -108,7 +108,7 @@ bool Origin::getSSLCerts()
 
             std::string sharedSecretStr(finalSharedSecret.begin(), finalSharedSecret.end());
 
-            std::vector<unsigned char> tlsPrivateKeyRaw = decryptPrivateKey(
+            std::vector<unsigned char> tlsPrivateKeyRaw = Kyber::decryptPrivateKey(
                 payload.aesCiphertext,
                 payload.iv,
                 payload.authTag,
