@@ -361,7 +361,12 @@ void Core::worker(int thread)
         {
             if (!conn.writeQueue.empty())
             {
-                conn.writeQueue.pop_front();
+                conn.writeOffset += res;
+
+                if (conn.writeOffset >= conn.writeQueue.front().second)
+                {
+                    conn.writeQueue.pop_front();
+                }
 
                 if (!conn.writeQueue.empty())
                 {
