@@ -99,7 +99,6 @@ void Core::worker(int thread)
                 conn.protocolState = Gen::TCP_RAW;
 
                 pipeline->queueReadClient(conn);
-                io_uring_submit(ring);
             }
             else if (fd == Gen::activeThreads[thread].listeners[443])
             {
@@ -115,15 +114,14 @@ void Core::worker(int thread)
                 SSL_set_accept_state(ssl.ssl);
 
                 pipeline->queueTlsConnecting(conn);
-                io_uring_submit(ring);
             }
 
             if (!hasMore)
             {
                 pipeline->queueMultishotAccept(fd);
-                io_uring_submit(ring);
             }
 
+            io_uring_submit(ring);
             conn.lastOpType = Gen::STATE_ACCEPT_MULTISHOT;
 
             continue;
@@ -139,19 +137,22 @@ void Core::worker(int thread)
         {
         case Gen::STATE_TLS_CONNECTING:
         {
-            if (res == 0)
-            {
-                Utils::Uring::closeConn(thread, it->second);
-                io_uring_submit(ring);
-                break;
-            }
-
             auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
 
             BIO_write(ssl.rbio, conn.in_raw_buffer, res);
 
-            int ret = SSL_accept(ssl.ssl);
-            if (ret > 0)
+            int r = SSL_accept(ssl.ssl);
+
+            if (r <= 0)
+            {
+                int err = SSL_get_error(ssl.ssl, r);
+                if (err == SSL_ERROR_WANT_READ)
+                {
+                    pipeline->queueTlsConnecting(conn);
+                }
+            }
+
+            if (r > 0)
             {
                 ssl.handshakeDone = true;
 
@@ -177,16 +178,8 @@ void Core::worker(int thread)
                     conn.protocol = Gen::H1;
                 }
             }
-            else
-            {
-                int err = SSL_get_error(ssl.ssl, ret);
-                if (err == SSL_ERROR_WANT_READ)
-                {
-                    pipeline->queueTlsConnecting(conn);
-                }
-            }
 
-            while (BIO_pending(ssl.wbio) > 0)
+            if (BIO_pending(ssl.wbio) > 0)
             {
                 std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
                 int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
@@ -195,18 +188,9 @@ void Core::worker(int thread)
                 {
                     chunk.second = bytes;
                     conn.writeQueue.push_back(std::move(chunk));
+
                     pipeline->queueWriteClient(conn);
                 }
-            }
-
-            if (ssl.handshakeDone)
-            {
-                pipeline->queueReadClient(conn);
-                io_uring_submit(ring);
-
-                conn.lastOpType = Gen::STATE_TLS_CONNECTING;
-
-                break;
             }
 
             io_uring_submit(ring);
@@ -223,14 +207,24 @@ void Core::worker(int thread)
             if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
-                int n = BIO_write(ssl.rbio, conn.in_raw_buffer, res);
+                BIO_write(ssl.rbio, conn.in_raw_buffer, res);
 
                 int bytes = SSL_read(ssl.ssl, conn.in_plain_buffer, BUFFER_SIZE);
+
                 if (bytes > 0)
                 {
                     conn.in_len = bytes;
                 }
+                else
+                {
+                    pipeline->queueReadClient(conn);
+                    io_uring_submit(ring);
+
+                    break;
+                }
             }
+
+            std::cout << conn.in_plain_buffer << std::endl;
 
             if (conn.peerFd == -1)
             {
@@ -379,20 +373,21 @@ void Core::worker(int thread)
         {
             if (!conn.writeQueue.empty())
             {
-                conn.writeOffset += res;
+                if (res > 0)
+                    conn.writeOffset += res;
 
                 if (conn.writeOffset >= conn.writeQueue.front().second)
                 {
                     conn.writeQueue.pop_front();
                     conn.writeOffset = 0;
                 }
+            }
 
-                if (!conn.writeQueue.empty())
-                {
-                    pipeline->queueWriteClient(conn);
-                    io_uring_submit(ring);
-                    break;
-                }
+            if (!conn.writeQueue.empty())
+            {
+                pipeline->queueWriteClient(conn);
+                io_uring_submit(ring);
+                break;
             }
 
             if (conn.lastOpType == Gen::STATE_TLS_CONNECTING && Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
