@@ -139,11 +139,19 @@ void Core::worker(int thread)
         {
         case Gen::STATE_TLS_CONNECTING:
         {
+            if (res == 0)
+            {
+                Utils::Uring::closeConn(thread, it->second);
+                io_uring_submit(ring);
+                break;
+            }
+
             auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
 
             BIO_write(ssl.rbio, conn.in_raw_buffer, res);
 
-            if (SSL_accept(ssl.ssl) > 0)
+            int ret = SSL_accept(ssl.ssl);
+            if (ret > 0)
             {
                 ssl.handshakeDone = true;
 
@@ -169,15 +177,13 @@ void Core::worker(int thread)
                     conn.protocol = Gen::H1;
                 }
             }
-
-            if (ssl.handshakeDone)
+            else
             {
-                pipeline->queueReadClient(conn);
-                io_uring_submit(ring);
-
-                conn.lastOpType = Gen::STATE_TLS_CONNECTING;
-
-                break;
+                int err = SSL_get_error(ssl.ssl, ret);
+                if (err == SSL_ERROR_WANT_READ)
+                {
+                    pipeline->queueTlsConnecting(conn);
+                }
             }
 
             while (BIO_pending(ssl.wbio) > 0)
@@ -191,6 +197,16 @@ void Core::worker(int thread)
                     conn.writeQueue.push_back(std::move(chunk));
                     pipeline->queueWriteClient(conn);
                 }
+            }
+
+            if (ssl.handshakeDone)
+            {
+                pipeline->queueReadClient(conn);
+                io_uring_submit(ring);
+
+                conn.lastOpType = Gen::STATE_TLS_CONNECTING;
+
+                break;
             }
 
             io_uring_submit(ring);
@@ -218,8 +234,8 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                // std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
-                // std::string ip = Main::dns->getRandomIP(host);
+                std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
+                std::string ip = Main::dns->getRandomIP(host);
 
                 /*if (!Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
                 {
@@ -258,10 +274,10 @@ void Core::worker(int thread)
 
                 int peerFd = -1;
 
-                peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
+                // peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
 
-                // if (!ip.empty())
-                // peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
+                if (!ip.empty())
+                    peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
 
                 if (peerFd == -1)
                 {
@@ -379,19 +395,22 @@ void Core::worker(int thread)
                 }
             }
 
-            if (conn.lastOpType == Gen::STATE_TLS_CONNECTING)
+            if (conn.lastOpType == Gen::STATE_TLS_CONNECTING && Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+            {
+                pipeline->queueReadClient(conn);
+            }
+            else if (conn.lastOpType == Gen::STATE_TLS_CONNECTING)
             {
                 // If this write request come from tls connecting, we will back to tls connecting state
                 pipeline->queueTlsConnecting(conn);
-                io_uring_submit(ring);
             }
             else
             {
                 pipeline->queueReadClient(conn);
                 pipeline->queueReadOrigin(conn);
-                io_uring_submit(ring);
             }
 
+            io_uring_submit(ring);
             conn.lastOpType = Gen::STATE_WRITE_CLIENT;
             break;
         }
