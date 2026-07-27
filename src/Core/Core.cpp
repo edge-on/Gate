@@ -180,7 +180,7 @@ void Core::worker(int thread)
                 break;
             }
 
-            if (BIO_pending(ssl.wbio) > 0)
+            while (BIO_pending(ssl.wbio) > 0)
             {
                 std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
                 int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
@@ -207,7 +207,7 @@ void Core::worker(int thread)
             if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
-                BIO_write(ssl.rbio, conn.in_raw_buffer, res);
+                int n = BIO_write(ssl.rbio, conn.in_raw_buffer, res);
 
                 int bytes = SSL_read(ssl.ssl, conn.in_plain_buffer, BUFFER_SIZE);
                 if (bytes > 0)
@@ -218,8 +218,8 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
-                std::string ip = Main::dns->getRandomIP(host);
+                // std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
+                // std::string ip = Main::dns->getRandomIP(host);
 
                 /*if (!Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
                 {
@@ -258,8 +258,10 @@ void Core::worker(int thread)
 
                 int peerFd = -1;
 
-                if (!ip.empty())
-                    peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
+                peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
+
+                // if (!ip.empty())
+                // peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
 
                 if (peerFd == -1)
                 {
@@ -340,7 +342,7 @@ void Core::worker(int thread)
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
 
                 SSL_write(ssl.ssl, conn.out_plain_buffer, res);
-                if (BIO_pending(ssl.wbio) > 0)
+                while (BIO_pending(ssl.wbio) > 0)
                 {
                     std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
                     int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
@@ -366,6 +368,7 @@ void Core::worker(int thread)
                 if (conn.writeOffset >= conn.writeQueue.front().second)
                 {
                     conn.writeQueue.pop_front();
+                    conn.writeOffset = 0;
                 }
 
                 if (!conn.writeQueue.empty())

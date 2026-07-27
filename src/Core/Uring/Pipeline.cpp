@@ -80,7 +80,7 @@ void Pipeline::queueWriteClient(Gen::Connection &conn)
     ssize_t len = front.second;
 
     uint64_t data = ((uint64_t)Gen::STATE_WRITE_CLIENT << 32) | (uint32_t)conn.fd;
-    io_uring_prep_write(sqe, conn.fd, src, len, 0);
+    io_uring_prep_write(sqe, conn.fd, src + conn.writeOffset, len - conn.writeOffset, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 

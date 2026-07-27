@@ -78,8 +78,6 @@ public:
         BIO *wbio;
 
         bool handshakeDone = false;
-
-        size_t writeOffset;
     } SslStructure;
 
     typedef struct
