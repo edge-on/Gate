@@ -201,6 +201,8 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_CLIENT:
         {
+            conn.isReadClient = false;
+
             conn.in_len = res;
 
             // TCP TLS
@@ -223,8 +225,6 @@ void Core::worker(int thread)
                     break;
                 }
             }
-
-            std::cout << conn.in_plain_buffer << std::endl;
 
             if (conn.peerFd == -1)
             {
@@ -268,10 +268,10 @@ void Core::worker(int thread)
 
                 int peerFd = -1;
 
-                // peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
+                peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
 
-                if (!ip.empty())
-                    peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
+                // if (!ip.empty())
+                //     peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
 
                 if (peerFd == -1)
                 {
@@ -347,6 +347,8 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_ORIGIN:
         {
+            conn.isReadOrigin = false;
+
             if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];

@@ -29,7 +29,12 @@ void Pipeline::queueTlsConnecting(Gen::Connection &conn)
 }
 
 void Pipeline::queueReadClient(Gen::Connection &conn)
-{
+{ 
+    if (conn.isReadClient)
+        return;
+
+    conn.isReadClient = true;
+
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
@@ -56,6 +61,11 @@ void Pipeline::queueWriteOrigin(Gen::Connection &conn)
 
 void Pipeline::queueReadOrigin(Gen::Connection &conn)
 {
+    if (conn.isReadOrigin)
+        return;
+
+    conn.isReadOrigin = true;
+
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
