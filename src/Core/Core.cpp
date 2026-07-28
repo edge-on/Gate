@@ -142,7 +142,6 @@ void Core::worker(int thread)
             BIO_write(ssl.rbio, conn.in_raw_buffer, res);
 
             int r = SSL_accept(ssl.ssl);
-
             if (r > 0)
             {
                 ssl.handshakeDone = true;
@@ -168,6 +167,13 @@ void Core::worker(int thread)
                 {
                     conn.protocol = Gen::H1;
                 }
+            }
+            else
+            {
+                int err = SSL_get_error(ssl.ssl, r);
+
+                if (err == SSL_ERROR_WANT_READ)
+                    pipeline->queueTlsConnecting(conn);
             }
 
             if (BIO_pending(ssl.wbio) > 0)
@@ -336,7 +342,6 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_ORIGIN:
         {
-
             conn.lastOpType = Gen::STATE_WRITE_ORIGIN;
             break;
         }
