@@ -58,9 +58,6 @@ public:
 
         int writeOffset = 0;
 
-        bool isReadClient = false;
-        bool isReadOrigin = false;
-
         bool backendIsUnreachable = false;
 
         char in_raw_buffer[BUFFER_SIZE];

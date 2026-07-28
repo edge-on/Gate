@@ -143,15 +143,6 @@ void Core::worker(int thread)
 
             int r = SSL_accept(ssl.ssl);
 
-            if (r <= 0)
-            {
-                int err = SSL_get_error(ssl.ssl, r);
-                if (err == SSL_ERROR_WANT_READ)
-                {
-                    pipeline->queueTlsConnecting(conn);
-                }
-            }
-
             if (r > 0)
             {
                 ssl.handshakeDone = true;
@@ -201,7 +192,12 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_CLIENT:
         {
-            conn.isReadClient = false;
+            if (res == 0)
+            {
+                Utils::Uring::closeConn(thread, conn);
+                io_uring_submit(ring);
+                break;
+            }
 
             conn.in_len = res;
 
@@ -268,10 +264,10 @@ void Core::worker(int thread)
 
                 int peerFd = -1;
 
-                peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
+                // peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
 
-                // if (!ip.empty())
-                //     peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
+                if (!ip.empty())
+                    peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
 
                 if (peerFd == -1)
                 {
@@ -347,7 +343,12 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_ORIGIN:
         {
-            conn.isReadOrigin = false;
+            if (res == 0)
+            {
+                Utils::Uring::closeConn(thread, Gen::activeThreads[thread].connections[conn.fd]);
+                io_uring_submit(ring);
+                break;
+            }
 
             if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
