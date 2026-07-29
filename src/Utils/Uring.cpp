@@ -31,6 +31,25 @@ void Utils::Uring::makeNonBlocking(int fd)
 
 void Utils::Uring::closeConn(int thread, Gen::Connection &conn)
 {
-    close(conn.fd);
-    Gen::activeThreads[thread].connections.erase(conn.fd);
+    auto sslIt = Gen::activeThreads[thread].ssl.find(conn.fd);
+    if (sslIt != Gen::activeThreads[thread].ssl.end())
+    {
+        if (sslIt->second.ssl)
+            SSL_free(sslIt->second.ssl);
+        Gen::activeThreads[thread].ssl.erase(sslIt);
+    }
+
+    if (conn.peerFd != -1)
+    {
+        auto peerIt = Gen::activeThreads[thread].connections.find(conn.peerFd);
+        if (peerIt != Gen::activeThreads[thread].connections.end())
+        {
+            close(peerIt->second.fd);
+            Gen::activeThreads[thread].connections.erase(peerIt);
+        }
+    }
+
+    int fd = conn.fd;
+    close(fd);
+    Gen::activeThreads[thread].connections.erase(fd);
 }

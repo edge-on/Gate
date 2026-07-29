@@ -60,7 +60,8 @@ public:
 
         bool backendIsUnreachable = false;
 
-        bool writeOnFlight = true;
+        bool isWritingClient = false;
+
         bool isReadingClient = false;
         bool isReadingOrigin = false;
 

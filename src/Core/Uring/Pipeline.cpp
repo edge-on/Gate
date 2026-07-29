@@ -19,6 +19,9 @@ void Pipeline::queueMultishotAccept(int serverFd)
 
 void Pipeline::queueTlsConnecting(Gen::Connection &conn)
 {
+    if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+        return;
+
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;

@@ -87,9 +87,11 @@ void Core::worker(int thread)
         {
             int clientFd = res;
 
-            Gen::Connection tempConn;
+            Gen::Connection tempConn{};
             tempConn.fd = clientFd;
             tempConn.type = Gen::TYPE_CLIENT;
+
+            Gen::activeThreads[thread].connections.erase(clientFd); // varsa eskiyi temizle
             Gen::activeThreads[thread].connections.emplace(clientFd, std::move(tempConn));
 
             auto &conn = Gen::activeThreads[thread].connections[clientFd];
@@ -137,6 +139,14 @@ void Core::worker(int thread)
         {
         case Gen::STATE_TLS_CONNECTING:
         {
+            if (res == 0)
+            {
+                std::cout << "CLOSED" << std::endl;
+                Utils::Uring::closeConn(thread, conn);
+                io_uring_submit(ring);
+                break;
+            }
+
             auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
 
             BIO_write(ssl.rbio, conn.in_raw_buffer, res);
@@ -176,7 +186,7 @@ void Core::worker(int thread)
                     pipeline->queueTlsConnecting(conn);
             }
 
-            if (BIO_pending(ssl.wbio) > 0)
+            while (BIO_pending(ssl.wbio) > 0)
             {
                 std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
                 int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
@@ -185,15 +195,12 @@ void Core::worker(int thread)
                 {
                     chunk.second = bytes;
                     conn.writeQueue.push_back(std::move(chunk));
-
-                    if (!conn.writeQueue.empty() && conn.writeOnFlight)
-                    {
-                        pipeline->queueWriteClient(conn);
-                        io_uring_submit(ring);
-
-                        conn.writeOnFlight = false;
-                    }
                 }
+            }
+
+            if (!conn.writeQueue.empty() && !conn.isWritingClient)
+            {
+                pipeline->queueWriteClient(conn);
             }
 
             io_uring_submit(ring);
@@ -208,6 +215,7 @@ void Core::worker(int thread)
 
             if (res == 0)
             {
+                std::cout << "CLOSED" << std::endl;
                 Utils::Uring::closeConn(thread, conn);
                 io_uring_submit(ring);
                 break;
@@ -344,14 +352,20 @@ void Core::worker(int thread)
                     conn.writeQueue.push_back(std::move(chunk));
                 }
             }
+            else
+            {
+                std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
+                memcpy(chunk.first.data(), conn.out_plain_buffer, res);
+                chunk.second = res;
+                conn.writeQueue.push_back(std::move(chunk));
+            }
 
-            if (!conn.writeQueue.empty() && conn.writeOnFlight)
+            if (!conn.writeQueue.empty() && !conn.isWritingClient)
             {
                 pipeline->queueWriteClient(conn);
-                io_uring_submit(ring);
-
-                conn.writeOnFlight = false;
             }
+
+            io_uring_submit(ring);
 
             conn.lastOpType = Gen::STATE_READ_ORIGIN;
             break;
@@ -373,12 +387,15 @@ void Core::worker(int thread)
 
             if (!conn.writeQueue.empty())
             {
+                conn.isWritingClient = true;
+
                 pipeline->queueWriteClient(conn);
                 io_uring_submit(ring);
                 break;
             }
 
-            conn.writeOnFlight = true;
+            conn.isWritingClient = false;
+            conn.writeOffset = 0;
 
             if (conn.lastOpType == Gen::STATE_TLS_CONNECTING && Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
