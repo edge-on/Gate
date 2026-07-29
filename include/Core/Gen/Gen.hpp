@@ -60,6 +60,10 @@ public:
 
         bool backendIsUnreachable = false;
 
+        bool writeOnFlight = true;
+        bool isReadingClient = false;
+        bool isReadingOrigin = false;
+
         char in_raw_buffer[BUFFER_SIZE];
         char in_plain_buffer[BUFFER_SIZE];
         ssize_t in_len = 0;

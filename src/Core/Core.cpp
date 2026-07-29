@@ -89,7 +89,7 @@ void Core::worker(int thread)
 
             Gen::Connection tempConn;
             tempConn.fd = clientFd;
-            tempConn.type == Gen::TYPE_CLIENT;
+            tempConn.type = Gen::TYPE_CLIENT;
             Gen::activeThreads[thread].connections.emplace(clientFd, std::move(tempConn));
 
             auto &conn = Gen::activeThreads[thread].connections[clientFd];
@@ -186,7 +186,13 @@ void Core::worker(int thread)
                     chunk.second = bytes;
                     conn.writeQueue.push_back(std::move(chunk));
 
-                    pipeline->queueWriteClient(conn);
+                    if (!conn.writeQueue.empty() && conn.writeOnFlight)
+                    {
+                        pipeline->queueWriteClient(conn);
+                        io_uring_submit(ring);
+
+                        conn.writeOnFlight = false;
+                    }
                 }
             }
 
@@ -198,6 +204,8 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_CLIENT:
         {
+            conn.isReadingClient = false;
+
             if (res == 0)
             {
                 Utils::Uring::closeConn(thread, conn);
@@ -230,50 +238,15 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
-                std::string ip = Main::dns->getRandomIP(host);
-
-                /*if (!Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
-                {
-                    std::string path = Utils::Http::getPath(conn.in_raw_buffer, res);
-
-                    if (memcmp(path.data(), "/.well-known/acme-challenge/", 28) == 0)
-                    {
-                        std::string token = path.data() + 28;
-
-                        std::string authorizationKey = Origin::getAcmeToken(host, token);
-                        if (authorizationKey.empty())
-                            authorizationKey = "UNAUTHORIZED";
-
-                        std::string res =
-                            "HTTP/1.1 502 Bad Gateway\r\n"
-                            "Content-Type: text/plain; charset=UTF-8\r\n"
-                            "Content-Length: " +
-                            std::to_string(authorizationKey.size()) + "\r\n"
-                                                                      "Connection: close\r\n"
-                                                                      "Server: EdgeOn-Proxy/1.0\r\n"
-                                                                      "\r\n" +
-                            authorizationKey.data();
-
-                        std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
-                        memcpy(chunk.first.data(), res.data(), res.size());
-                        chunk.second = chunk.first.size();
-
-                        conn.writeQueue.push_back(std::move(chunk));
-
-                        pipeline->queueWriteClient(conn);
-                        io_uring_submit(ring);
-
-                        break;
-                    }
-                }*/
+                // std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
+                // std::string ip = Main::dns->getRandomIP(host);
 
                 int peerFd = -1;
 
-                // peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
+                peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
 
-                if (!ip.empty())
-                    peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
+                // if (!ip.empty())
+                //     peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
 
                 if (peerFd == -1)
                 {
@@ -348,6 +321,8 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_ORIGIN:
         {
+            conn.isReadingOrigin = false;
+
             if (res == 0)
             {
                 Utils::Uring::closeConn(thread, Gen::activeThreads[thread].connections[conn.fd]);
@@ -370,8 +345,13 @@ void Core::worker(int thread)
                 }
             }
 
-            pipeline->queueWriteClient(conn);
-            io_uring_submit(ring);
+            if (!conn.writeQueue.empty() && conn.writeOnFlight)
+            {
+                pipeline->queueWriteClient(conn);
+                io_uring_submit(ring);
+
+                conn.writeOnFlight = false;
+            }
 
             conn.lastOpType = Gen::STATE_READ_ORIGIN;
             break;
@@ -397,6 +377,8 @@ void Core::worker(int thread)
                 io_uring_submit(ring);
                 break;
             }
+
+            conn.writeOnFlight = true;
 
             if (conn.lastOpType == Gen::STATE_TLS_CONNECTING && Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
