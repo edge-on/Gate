@@ -139,9 +139,10 @@ void Core::worker(int thread)
         {
         case Gen::STATE_TLS_CONNECTING:
         {
+            conn.isReadingClient = false;
+
             if (res == 0)
             {
-                std::cout << "CLOSED" << std::endl;
                 Utils::Uring::closeConn(thread, conn);
                 io_uring_submit(ring);
                 break;
@@ -215,7 +216,6 @@ void Core::worker(int thread)
 
             if (res == 0)
             {
-                std::cout << "CLOSED" << std::endl;
                 Utils::Uring::closeConn(thread, conn);
                 io_uring_submit(ring);
                 break;
@@ -397,14 +397,10 @@ void Core::worker(int thread)
             conn.isWritingClient = false;
             conn.writeOffset = 0;
 
-            if (conn.lastOpType == Gen::STATE_TLS_CONNECTING && Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
-            {
-                pipeline->queueReadClient(conn);
-            }
-            else if (conn.lastOpType == Gen::STATE_TLS_CONNECTING)
+            if (conn.lastOpType == Gen::STATE_TLS_CONNECTING)
             {
                 // If this write request come from tls connecting, we will back to tls connecting state
-                pipeline->queueTlsConnecting(conn);
+                pipeline->queueReadClient(conn);
             }
             else
             {

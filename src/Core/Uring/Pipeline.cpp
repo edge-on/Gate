@@ -19,6 +19,11 @@ void Pipeline::queueMultishotAccept(int serverFd)
 
 void Pipeline::queueTlsConnecting(Gen::Connection &conn)
 {
+    if (conn.isReadingClient)
+        return;
+
+    conn.isReadingClient = true;
+
     if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
         return;
 
