@@ -51,7 +51,9 @@ int Ssl::sni_callback(SSL *ssl, int *ad, void *arg)
     if (!domain)
         return SSL_TLSEXT_ERR_NOACK;
 
-    auto it = Gen::zones.find(std::string_view(domain).data());
+    std::string host = Utils::Http::getHost(domain, sizeof(domain));
+
+    auto it = Gen::zones.find(host.data());
 
     if (it == Gen::zones.end() || it->second.ctx == nullptr)
         return SSL_TLSEXT_ERR_NOACK;

@@ -10,6 +10,8 @@
 
 #include "Core/Gen/Gen.hpp"
 
+#include "Utils/Http.hpp"
+
 class Ssl
 {
 public:

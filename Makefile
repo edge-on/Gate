@@ -7,7 +7,7 @@ CC       := gcc
 # =========================
 # FLAGS
 # =========================
-CXXFLAGS := -std=c++20 -O0 -g3 -g -Wall -Wextra -Iinclude
+CXXFLAGS := -std=c++20 -O0 -g3 -g -Wall -Wextra -Iinclude -I/usr/include/cassandra
 CFLAGS   := -Wall -Wextra -Iinclude 
 LDFLAGS  := -lxxhash -lssl -lcassandra -lDotenv -luring -lcrypto -loqs
 
