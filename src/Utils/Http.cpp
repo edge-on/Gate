@@ -1,5 +1,29 @@
 #include "Utils/Http.hpp"
 
+const char *Utils::Http::getRootDomainPtr(const char *host, size_t len)
+{
+    if (!host || len == 0)
+        return host;
+
+    int dotCount = 0;
+    const char *p = host + len;
+
+    while (p > host)
+    {
+        --p;
+        if (*p == '.')
+        {
+            dotCount++;
+            if (dotCount == 2)
+            {
+                return p + 1;
+            }
+        }
+    }
+
+    return host;
+}
+
 std::string Utils::Http::getHost(const char *buffer, size_t buffer_len)
 {
     std::string_view data(buffer, buffer_len);
