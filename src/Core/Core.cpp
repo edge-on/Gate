@@ -14,13 +14,19 @@ Core::~Core()
 
 void Core::start()
 {
+    std::vector<char> memory_hog((1.5 * 1024 * 1024 * 1024), 1);
+
     ctx = Ssl::initSSL();
 
-    int threadCount = std::stoi(Main::dotenv->map["concurrency"]);
+    int threadCount = std::stoi(Main::dotenv->map["concurrency"]) + 1;
 
     for (int i = 0; i < threadCount; ++i)
     {
-        Gen::threads.emplace_back(&Core::worker, this, i);
+        if (i + 1 == threadCount)
+            Gen::threads.emplace_back(&Core::memoryWorker, this, i);
+        else
+            Gen::threads.emplace_back(&Core::worker, this, i);
+
         Gen::activeThreads[i].id = Gen::threads[i].get_id();
     }
 
@@ -246,15 +252,15 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                // std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
-                // std::string ip = Main::dns->getRandomIP(host);
+                std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
+                std::string ip = Main::dns->getRandomIP(host);
 
                 int peerFd = -1;
 
-                peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
+                // peerFd = Proxy::createOriginSocket("127.0.0.1", 3000);
 
-                // if (!ip.empty())
-                //     peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
+                if (!ip.empty())
+                    peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80);
 
                 if (peerFd == -1)
                 {
@@ -419,5 +425,19 @@ void Core::worker(int thread)
             break;
         }
         }
+    }
+}
+
+void Core::memoryWorker(int thread)
+{
+    while (true)
+    {
+        volatile unsigned long long val = 0;
+        for (int i = 0; i < 50; i++)
+        {
+            val += i * i;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 }

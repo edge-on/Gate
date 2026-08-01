@@ -29,5 +29,6 @@ public:
 private:
     SSL_CTX *ctx;
 
+    void memoryWorker(int thread);
     void worker(int thread);
 };
