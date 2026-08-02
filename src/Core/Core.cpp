@@ -433,7 +433,7 @@ void Core::memoryWorker(int thread)
     while (true)
     {
         volatile unsigned long long val = 0;
-        for (int i = 0; i < 50; i++)
+        for (int i = 0; i < 5000000; i++)
         {
             val += i * i;
         }
