@@ -2,6 +2,9 @@
 
 #include <liburing.h>
 
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
 #include "Core/Ssl/Ssl.hpp"
 
 #include <thread>
@@ -21,6 +24,7 @@ public:
     {
         STATE_ACCEPT_MULTISHOT,
         STATE_TLS_CONNECTING,
+        STATE_ORIGIN_CONNECTING,
         STATE_READ_CLIENT,
         STATE_WRITE_ORIGIN,
         STATE_READ_ORIGIN,
@@ -50,6 +54,8 @@ public:
     {
         int fd = -1;
         int peerFd = -1;
+
+        sockaddr_in originAddr{};
 
         Type type;
         State lastOpType;

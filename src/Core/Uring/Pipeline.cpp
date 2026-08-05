@@ -22,14 +22,14 @@ void Pipeline::queueTlsConnecting(Gen::Connection &conn)
     if (conn.isReadingClient)
         return;
 
-    conn.isReadingClient = true;
-
     if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
         return;
 
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
+
+    conn.isReadingClient = true;
 
     uint64_t data = ((uint64_t)Gen::STATE_TLS_CONNECTING << 32) | (uint32_t)conn.fd;
     io_uring_prep_recv(sqe, conn.fd, conn.in_raw_buffer, BUFFER_SIZE, 0);
@@ -41,14 +41,27 @@ void Pipeline::queueReadClient(Gen::Connection &conn)
     if (conn.isReadingClient)
         return;
 
-    conn.isReadingClient = true;
-
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
 
+    conn.isReadingClient = true;
+
     uint64_t data = ((uint64_t)Gen::STATE_READ_CLIENT << 32) | (uint32_t)conn.fd;
     io_uring_prep_recv(sqe, conn.fd, conn.in_raw_buffer, BUFFER_SIZE, 0);
+    io_uring_sqe_set_data(sqe, (void *)data);
+}
+
+void Pipeline::queueConnectOrigin(Gen::Connection &originConn)
+{
+    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    if (!sqe)
+        return;
+
+    uint64_t data = ((uint64_t)Gen::STATE_ORIGIN_CONNECTING << 32) | (uint32_t)originConn.fd;
+    io_uring_prep_connect(sqe, originConn.fd,
+                          (struct sockaddr *)&originConn.originAddr,
+                          sizeof(originConn.originAddr));
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
@@ -72,11 +85,11 @@ void Pipeline::queueReadOrigin(Gen::Connection &conn)
     if (conn.isReadingOrigin)
         return;
 
-    conn.isReadingOrigin = true;
-
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
+
+    conn.isReadingOrigin = true;
 
     uint64_t data = ((uint64_t)Gen::STATE_READ_ORIGIN << 32) | (uint32_t)conn.fd;
     io_uring_prep_recv(sqe, conn.peerFd, conn.out_plain_buffer, BUFFER_SIZE, 0);

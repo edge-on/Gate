@@ -22,6 +22,8 @@ public:
     void queueReadOrigin(Gen::Connection &conn);
     void queueWriteClient(Gen::Connection &conn);
 
+    void queueConnectOrigin(Gen::Connection &originConn);
+
     void queuePollAdd(Gen::Connection &conn);
 
 private:
