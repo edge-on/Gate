@@ -13,9 +13,9 @@ class Main
 {
 public:
     static Dotenv *dotenv;
-    static DNSClient *dns;
+    static Cassandra *cas;
 
     static std::vector<int> listeners;
 
-    static Cassandra *cas;
+    static char* resolverIp;
 };

@@ -22,14 +22,23 @@ class Gen
 public:
     typedef enum
     {
+        // Socket
         STATE_ACCEPT_MULTISHOT,
+
+        // Client
         STATE_TLS_CONNECTING,
-        STATE_ORIGIN_CONNECTING,
         STATE_READ_CLIENT,
+        STATE_WRITE_CLIENT,
+
+        // Origin
+        STATE_ORIGIN_CONNECTING,
         STATE_WRITE_ORIGIN,
         STATE_READ_ORIGIN,
-        STATE_WRITE_CLIENT,
-        STATE_POLL_ADD
+
+        // DNS
+        STATE_CONNECT_DNS,
+        STATE_WRITE_DNS,
+        STATE_READ_DNS
     } State;
 
     typedef enum
@@ -53,6 +62,8 @@ public:
     typedef struct
     {
         int fd = -1;
+        int resolverFd = -1;
+
         int peerFd = -1;
 
         sockaddr_in originAddr{};

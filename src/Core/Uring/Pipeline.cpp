@@ -115,6 +115,14 @@ void Pipeline::queueWriteClient(Gen::Connection &conn)
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
-void Pipeline::queuePollAdd(Gen::Connection &conn)
+void Pipeline::queueConnectDNS(Gen::Connection &conn)
+{
+}
+
+void Pipeline::queueWriteDNS(Gen::Connection &conn)
+{
+}
+
+void Pipeline::queueReadDNS(Gen::Connection &conn)
 {
 }

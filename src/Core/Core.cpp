@@ -95,6 +95,9 @@ void Core::worker(int thread)
             continue;
         }
 
+        // ===========================================
+        //                SOCKET
+        // ===========================================
         if (opType == Gen::STATE_ACCEPT_MULTISHOT)
         {
             int clientFd = res;
@@ -149,6 +152,9 @@ void Core::worker(int thread)
 
         switch (opType)
         {
+        // ===========================================
+        //                CLIENT
+        // ===========================================
         case Gen::STATE_TLS_CONNECTING:
         {
             conn.isReadingClient = false;
@@ -261,7 +267,7 @@ void Core::worker(int thread)
             if (conn.peerFd == -1)
             {
                 std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
-                std::string ip = Main::dns->getRandomIP(host);
+                std::string ip = ""; // Main::dns->getRandomIP(host);
 
                 sockaddr_in originAddr{};
                 int peerFd = -1;
@@ -343,6 +349,41 @@ void Core::worker(int thread)
             break;
         }
 
+        case Gen::STATE_WRITE_CLIENT:
+        {
+            if (!conn.writeQueue.empty())
+            {
+                if (res > 0)
+                    conn.writeOffset += res;
+
+                if (conn.writeOffset >= conn.writeQueue.front().second)
+                {
+                    conn.writeQueue.pop_front();
+                    conn.writeOffset = 0;
+                }
+            }
+
+            if (!conn.writeQueue.empty())
+            {
+                conn.isWritingClient = true;
+
+                pipeline->queueWriteClient(conn);
+                io_uring_submit(ring);
+                break;
+            }
+
+            conn.isWritingClient = false;
+            conn.writeOffset = 0;
+
+            pipeline->queueReadClient(conn);
+            io_uring_submit(ring);
+            conn.lastOpType = Gen::STATE_WRITE_CLIENT;
+            break;
+        }
+
+        // ===========================================
+        //                ORIGIN
+        // ===========================================
         case Gen::STATE_ORIGIN_CONNECTING:
         {
             auto clientIt = Gen::activeThreads[thread].connections.find(conn.peerFd);
@@ -418,41 +459,22 @@ void Core::worker(int thread)
             break;
         }
 
-        case Gen::STATE_WRITE_CLIENT:
+        // ===========================================
+        //                DNS
+        // ===========================================
+        case Gen::STATE_CONNECT_DNS:
         {
-            if (!conn.writeQueue.empty())
-            {
-                if (res > 0)
-                    conn.writeOffset += res;
-
-                if (conn.writeOffset >= conn.writeQueue.front().second)
-                {
-                    conn.writeQueue.pop_front();
-                    conn.writeOffset = 0;
-                }
-            }
-
-            if (!conn.writeQueue.empty())
-            {
-                conn.isWritingClient = true;
-
-                pipeline->queueWriteClient(conn);
-                io_uring_submit(ring);
-                break;
-            }
-
-            conn.isWritingClient = false;
-            conn.writeOffset = 0;
-
-            pipeline->queueReadClient(conn);
-            io_uring_submit(ring);
-            conn.lastOpType = Gen::STATE_WRITE_CLIENT;
+            
             break;
         }
 
-        case Gen::STATE_POLL_ADD:
+        case Gen::STATE_WRITE_DNS:
         {
-            conn.lastOpType = Gen::STATE_POLL_ADD;
+            break;
+        }
+
+        case Gen::STATE_READ_DNS:
+        {
             break;
         }
         }

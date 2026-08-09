@@ -46,3 +46,8 @@ int Proxy::createOriginSocket(char *ip, int port, sockaddr_in &outAddr)
 
     return sockFd;
 }
+
+int Proxy::createResolverSocket()
+{
+    
+}

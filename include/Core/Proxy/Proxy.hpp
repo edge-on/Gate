@@ -15,4 +15,5 @@ public:
     static int initServer(int port);
 
     static int createOriginSocket(char *ip, int port, sockaddr_in &outAddr);
+    static int createResolverSocket();
 };
