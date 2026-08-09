@@ -301,61 +301,6 @@ void Core::worker(int thread)
 
             if (conn.resolverFd == -1)
             {
-                std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
-
-                auto it = caches.find(host);
-                if (it != caches.end())
-                {
-                    if (conn.peerFd == -1)
-                    {
-                        std::string ip = it->second;
-
-                        sockaddr_in originAddr{};
-                        int peerFd = -1;
-
-                        if (!ip.empty())
-                            peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80, originAddr);
-
-                        if (peerFd == -1)
-                        {
-                            conn.backendIsUnreachable = true;
-
-                            pipeline->write502Page(conn);
-
-                            if (!conn.isWritingClient)
-                            {
-                                conn.isWritingClient = true;
-                                pipeline->queueWriteClient(conn);
-                            }
-                            io_uring_submit(ring);
-
-                            break;
-                        }
-
-                        Gen::Connection peerConn{};
-                        peerConn.fd = peerFd;
-                        peerConn.peerFd = conn.fd;
-                        peerConn.type = Gen::TYPE_ORIGIN;
-                        peerConn.originAddr = originAddr;
-                        conn.peerFd = peerFd;
-
-                        Gen::activeThreads[thread].connections.emplace(peerFd, std::move(peerConn));
-
-                        pipeline->queueConnectOrigin(Gen::activeThreads[thread].connections.at(peerFd));
-                        io_uring_submit(ring);
-
-                        conn.lastOpType = Gen::STATE_READ_CLIENT;
-                        break;
-                    }
-
-                    pipeline->queueWriteOrigin(conn);
-                    io_uring_submit(ring);
-
-                    conn.lastOpType = Gen::STATE_READ_CLIENT;
-
-                    break;
-                }
-
                 int resolverFd = Proxy::createResolverSocket();
                 if (resolverFd == -1)
                 {
@@ -374,7 +319,6 @@ void Core::worker(int thread)
                 }
 
                 conn.resolverFd = resolverFd;
-                conn.in_len = res;
 
                 pipeline->queueConnectResolver(conn);
                 io_uring_submit(ring);
@@ -493,9 +437,8 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_CONNECT_RESOLVER:
         {
-            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, conn.in_len);
-
-            memset(conn.resolverPacket, 0, sizeof(conn.resolverPacket));
+            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
+            
             conn.resolverPacket[0] = 0x12;
             conn.resolverPacket[1] = 0x34;
             conn.resolverPacket[2] = 0x01;
@@ -514,6 +457,7 @@ void Core::worker(int thread)
             io_uring_submit(ring);
 
             conn.lastOpType = Gen::STATE_CONNECT_RESOLVER;
+
             break;
         }
 
@@ -558,13 +502,10 @@ void Core::worker(int thread)
             {
                 std::string ip = DNSClient::getRandomIP(ips);
 
-                caches[conn.host] = ip.data();
-
                 sockaddr_in originAddr{};
                 int peerFd = -1;
 
-                if (!ip.empty())
-                    peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80, originAddr);
+                    peerFd = Proxy::createOriginSocket((char *)"13.140.157.112", 80, originAddr);
 
                 if (peerFd == -1)
                 {

@@ -28,8 +28,6 @@ public:
 
     void start();
 
-    std::unordered_map<std::string, char *> caches;
-
 private:
     SSL_CTX *ctx;
 
