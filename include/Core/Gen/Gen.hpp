@@ -36,9 +36,9 @@ public:
         STATE_READ_ORIGIN,
 
         // DNS
-        STATE_CONNECT_DNS,
-        STATE_WRITE_DNS,
-        STATE_READ_DNS
+        STATE_CONNECT_RESOLVER,
+        STATE_WRITE_RESOLVER,
+        STATE_READ_RESOLVER
     } State;
 
     typedef enum
@@ -89,6 +89,8 @@ public:
         char out_raw_buffer[BUFFER_SIZE];
         char out_plain_buffer[BUFFER_SIZE];
         ssize_t out_len = 0;
+
+        std::string host;
 
         std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeQueue;
     } Connection;

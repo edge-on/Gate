@@ -115,14 +115,40 @@ void Pipeline::queueWriteClient(Gen::Connection &conn)
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
-void Pipeline::queueConnectDNS(Gen::Connection &conn)
+void Pipeline::queueConnectResolver(Gen::Connection &conn)
 {
+    io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    if (!sqe)
+        return;
+
+    sockaddr_in addr{};
+    addr.sin_addr.s_addr = inet_addr(Main::resolverIp);
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(53);
+
+    uint64_t data = ((uint64_t)Gen::STATE_CONNECT_RESOLVER << 32) | (uint32_t)conn.fd;
+    io_uring_prep_connect(sqe, conn.resolverFd, (sockaddr *)&addr, sizeof(addr));
+    io_uring_sqe_set_data(sqe, (void *)data);
 }
 
-void Pipeline::queueWriteDNS(Gen::Connection &conn)
+void Pipeline::queueWriteResolver(Gen::Connection &conn, char packet[512])
 {
+    io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    if (!sqe)
+        return;
+
+    uint64_t data = ((uint64_t)Gen::STATE_WRITE_RESOLVER << 32) | (uint32_t)conn.fd;
+    io_uring_prep_write(sqe, conn.resolverFd, packet, conn.out_len, 0);
+    io_uring_sqe_set_data(sqe, (void *)data);
 }
 
-void Pipeline::queueReadDNS(Gen::Connection &conn)
+void Pipeline::queueReadResolver(Gen::Connection &conn)
 {
+    io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    if (!sqe)
+        return;
+
+    uint64_t data = ((uint64_t)Gen::STATE_READ_RESOLVER << 32) | (uint32_t)conn.fd;
+    io_uring_prep_recv(sqe, conn.resolverFd, conn.in_raw_buffer, BUFFER_SIZE, 0);
+    io_uring_sqe_set_data(sqe, (void *)data);
 }

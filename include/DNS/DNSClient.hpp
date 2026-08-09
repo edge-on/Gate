@@ -14,11 +14,9 @@ private:
     std::string server_ip;
     int port;
 
-    void formatName(unsigned char *dns, const std::string &host);
-
 public:
     DNSClient(std::string ip, int p);
 
-    std::vector<std::string> resolve(const std::string &hostname);
-    std::string getRandomIP(const std::string &hostname);
+    static void formatName(char *dns, const std::string &host);
+    static std::string getRandomIP(std::vector<std::string> ips);
 };

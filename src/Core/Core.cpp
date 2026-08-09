@@ -264,18 +264,10 @@ void Core::worker(int thread)
                 }
             }
 
-            if (conn.peerFd == -1)
+            if (conn.resolverFd == -1)
             {
-                std::string host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
-                std::string ip = ""; // Main::dns->getRandomIP(host);
-
-                sockaddr_in originAddr{};
-                int peerFd = -1;
-
-                if (!ip.empty())
-                    peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80, originAddr);
-
-                if (peerFd == -1)
+                int resolverFd = Proxy::createResolverSocket();
+                if (resolverFd == -1)
                 {
                     conn.backendIsUnreachable = true;
 
@@ -325,27 +317,17 @@ void Core::worker(int thread)
                     break;
                 }
 
-                Gen::Connection peerConn{};
-                peerConn.fd = peerFd;
-                peerConn.peerFd = conn.fd;
-                peerConn.type = Gen::TYPE_ORIGIN;
-                peerConn.originAddr = originAddr;
-                conn.peerFd = peerFd;
+                conn.resolverFd = resolverFd;
 
-                Gen::activeThreads[thread].connections.emplace(peerFd, std::move(peerConn));
-
-                pipeline->queueConnectOrigin(Gen::activeThreads[thread].connections.at(peerFd));
+                pipeline->queueConnectResolver(conn);
                 io_uring_submit(ring);
-
                 conn.lastOpType = Gen::STATE_READ_CLIENT;
                 break;
             }
 
             pipeline->queueWriteOrigin(conn);
             io_uring_submit(ring);
-
             conn.lastOpType = Gen::STATE_READ_CLIENT;
-
             break;
         }
 
@@ -460,21 +442,154 @@ void Core::worker(int thread)
         }
 
         // ===========================================
-        //                DNS
+        //                RESOLVER
         // ===========================================
-        case Gen::STATE_CONNECT_DNS:
+        case Gen::STATE_CONNECT_RESOLVER:
         {
+            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
+
+            char packet[512] = {0};
+
+            packet[0] = 0x12;
+            packet[1] = 0x34;
+            packet[2] = 0x01;
+            packet[3] = 0x00;
+            packet[5] = 1;
+
+            char *qname = &packet[12];
+            DNSClient::formatName(qname, conn.host);
+            int qlen = strlen((char *)qname) + 1;
+            packet[12 + qlen + 1] = 1;
+            packet[12 + qlen + 3] = 1;
+
+            conn.out_len = 12 + qlen + 4;
             
+            pipeline->queueWriteResolver(conn, packet);
+            io_uring_submit(ring);
+
+            conn.lastOpType = Gen::STATE_CONNECT_RESOLVER;
+
             break;
         }
 
-        case Gen::STATE_WRITE_DNS:
+        case Gen::STATE_WRITE_RESOLVER:
         {
+            pipeline->queueReadResolver(conn);
+            io_uring_submit(ring);
+
+            conn.lastOpType = Gen::STATE_WRITE_RESOLVER;
+
             break;
         }
 
-        case Gen::STATE_READ_DNS:
+        case Gen::STATE_READ_RESOLVER:
         {
+            char qname[256];
+            DNSClient::formatName(qname, conn.host);
+            int qlen = strlen((char *)qname) + 1;
+
+            std::vector<std::string> ips;
+            int count = ntohs(*(uint16_t *)&conn.in_raw_buffer[6]);
+            char *p = &conn.in_raw_buffer[12 + qlen + 4];
+
+            for (int i = 0; i < count; i++)
+            {
+                p += 2;
+                uint16_t type = ntohs(*(uint16_t *)p);
+                p += 8;
+                uint16_t len = ntohs(*(uint16_t *)p);
+                p += 2;
+
+                if (type == 1)
+                {
+                    char ip_str[INET_ADDRSTRLEN];
+                    inet_ntop(AF_INET, p, ip_str, INET_ADDRSTRLEN);
+                    ips.push_back(std::string(ip_str));
+                }
+                p += len;
+            }
+
+            if (conn.peerFd == -1)
+            {
+                std::string ip = DNSClient::getRandomIP(ips);
+
+                sockaddr_in originAddr{};
+                int peerFd = -1;
+
+                if (!ip.empty())
+                    peerFd = Proxy::createOriginSocket((char *)ip.c_str(), 80, originAddr);
+
+                if (peerFd == -1)
+                {
+                    conn.backendIsUnreachable = true;
+
+                    std::string page = Pages::getPage("pages/502.html");
+
+                    std::string req =
+                        "HTTP/1.1 502 Bad Gateway\r\n"
+                        "Content-Type: text/html; charset=UTF-8\r\n"
+                        "Content-Length: " +
+                        std::to_string(page.size()) + "\r\n"
+                                                      "Connection: close\r\n"
+                                                      "Server: EdgeOn-Proxy/1.0\r\n"
+                                                      "\r\n" +
+                        page;
+
+                    int offset = 0;
+                    while (offset < (int)req.size())
+                    {
+                        ssize_t len = std::min(BUFFER_SIZE - 256, int(req.size() - offset));
+
+                        std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
+
+                        if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+                        {
+                            SSL_write(Gen::activeThreads[thread].ssl[conn.fd].ssl, req.data() + offset, len);
+                            int bytes = BIO_read(Gen::activeThreads[thread].ssl[conn.fd].wbio, chunk.first.data(), BUFFER_SIZE);
+                            chunk.second = bytes;
+                        }
+                        else
+                        {
+                            memcpy(chunk.first.data(), req.data() + offset, len);
+                            chunk.second = len;
+                        }
+
+                        conn.writeQueue.push_back(std::move(chunk));
+
+                        offset += len;
+                    }
+
+                    if (!conn.isWritingClient)
+                    {
+                        conn.isWritingClient = true;
+                        pipeline->queueWriteClient(conn);
+                    }
+                    io_uring_submit(ring);
+
+                    break;
+                }
+
+                Gen::Connection peerConn{};
+                peerConn.fd = peerFd;
+                peerConn.peerFd = conn.fd;
+                peerConn.type = Gen::TYPE_ORIGIN;
+                peerConn.originAddr = originAddr;
+                conn.peerFd = peerFd;
+
+                Gen::activeThreads[thread].connections.emplace(peerFd, std::move(peerConn));
+
+                pipeline->queueConnectOrigin(Gen::activeThreads[thread].connections.at(peerFd));
+                io_uring_submit(ring);
+
+                conn.lastOpType = Gen::STATE_READ_RESOLVER;
+                break;
+            }
+
+            pipeline->queueWriteOrigin(conn);
+            io_uring_submit(ring);
+
+            conn.lastOpType = Gen::STATE_READ_RESOLVER;
+
             break;
         }
         }

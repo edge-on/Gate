@@ -2,7 +2,7 @@
 
 DNSClient::DNSClient(std::string ip, int p = 53) : server_ip(ip), port(p) {}
 
-void DNSClient::formatName(unsigned char *dns, const std::string &host)
+void DNSClient::formatName(char *dns, const std::string &host)
 {
     int lock = 0;
     for (int i = 0; i < host.length(); i++)
@@ -21,7 +21,17 @@ void DNSClient::formatName(unsigned char *dns, const std::string &host)
     *dns++ = 0;
 }
 
-std::vector<std::string> DNSClient::resolve(const std::string &hostname)
+std::string DNSClient::getRandomIP(std::vector<std::string> ips)
+{
+    if (ips.empty())
+        return "";
+
+    static std::mt19937 rng(time(0));
+    std::uniform_int_distribution<size_t> dist(0, ips.size() - 1);
+    return ips[dist(rng)];
+}
+
+/* std::vector<std::string> DNSClient::resolve(const std::string &hostname)
 {
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     struct sockaddr_in dest;
@@ -39,7 +49,6 @@ std::vector<std::string> DNSClient::resolve(const std::string &hostname)
 
     unsigned char *qname = &packet[12];
     formatName(qname, hostname);
-
     int qlen = strlen((char *)qname) + 1;
     packet[12 + qlen + 1] = 1;
     packet[12 + qlen + 3] = 1;
@@ -71,15 +80,4 @@ std::vector<std::string> DNSClient::resolve(const std::string &hostname)
         p += len;
     }
     return ips;
-}
-
-std::string DNSClient::getRandomIP(const std::string &hostname)
-{
-    std::vector<std::string> ips = resolve(hostname);
-    if (ips.empty())
-        return "";
-
-    static std::mt19937 rng(time(0));
-    std::uniform_int_distribution<size_t> dist(0, ips.size() - 1);
-    return ips[dist(rng)];
-}
+} */
