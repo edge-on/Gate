@@ -74,6 +74,41 @@ void Core::worker(int thread)
 
         if (res < 0)
         {
+            if (opType == Gen::STATE_CONNECT_RESOLVER || opType == Gen::STATE_WRITE_RESOLVER || opType == Gen::STATE_READ_RESOLVER)
+            {
+                Gen::Connection &conn = Gen::activeThreads[thread].connections[fd];
+                close(conn.resolverFd);
+                pipeline->write502Page(conn);
+
+                if (!conn.isWritingClient)
+                {
+                    conn.isWritingClient = true;
+                    pipeline->queueWriteClient(conn);
+                }
+                io_uring_submit(ring);
+
+                continue;
+            }
+
+            if (opType == Gen::STATE_ORIGIN_CONNECTING)
+            {
+                Gen::Connection &conn = Gen::activeThreads[thread].connections[fd];
+                Gen::Connection &originConn = Gen::activeThreads[thread].connections[conn.peerFd];
+                pipeline->write502Page(conn);
+
+                Utils::Uring::closeConn(thread, originConn);
+                conn.peerFd = -1;
+
+                if (!conn.isWritingClient)
+                {
+                    conn.isWritingClient = true;
+                    pipeline->queueWriteClient(conn);
+                }
+                io_uring_submit(ring);
+
+                continue;
+            }
+
             auto it = Gen::activeThreads[thread].connections.find(fd);
             if (it != Gen::activeThreads[thread].connections.end())
             {
@@ -271,41 +306,7 @@ void Core::worker(int thread)
                 {
                     conn.backendIsUnreachable = true;
 
-                    std::string page = Pages::getPage("pages/502.html");
-
-                    std::string req =
-                        "HTTP/1.1 502 Bad Gateway\r\n"
-                        "Content-Type: text/html; charset=UTF-8\r\n"
-                        "Content-Length: " +
-                        std::to_string(page.size()) + "\r\n"
-                                                      "Connection: close\r\n"
-                                                      "Server: EdgeOn-Proxy/1.0\r\n"
-                                                      "\r\n" +
-                        page;
-
-                    int offset = 0;
-                    while (offset < (int)req.size())
-                    {
-                        ssize_t len = std::min(BUFFER_SIZE - 256, int(req.size() - offset));
-
-                        std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
-
-                        if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
-                        {
-                            SSL_write(Gen::activeThreads[thread].ssl[conn.fd].ssl, req.data() + offset, len);
-                            int bytes = BIO_read(Gen::activeThreads[thread].ssl[conn.fd].wbio, chunk.first.data(), BUFFER_SIZE);
-                            chunk.second = bytes;
-                        }
-                        else
-                        {
-                            memcpy(chunk.first.data(), req.data() + offset, len);
-                            chunk.second = len;
-                        }
-
-                        conn.writeQueue.push_back(std::move(chunk));
-
-                        offset += len;
-                    }
+                    pipeline->write502Page(conn);
 
                     if (!conn.isWritingClient)
                     {
@@ -368,18 +369,8 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_ORIGIN_CONNECTING:
         {
-            auto clientIt = Gen::activeThreads[thread].connections.find(conn.peerFd);
-            if (clientIt == Gen::activeThreads[thread].connections.end())
-            {
-                Utils::Uring::closeConn(thread, conn);
-                io_uring_submit(ring);
-                break;
-            }
-
-            Gen::Connection &clientConn = clientIt->second;
-
-            pipeline->queueReadOrigin(clientConn);
-            pipeline->queueWriteOrigin(clientConn);
+            pipeline->queueReadOrigin(conn);
+            pipeline->queueWriteOrigin(conn);
             io_uring_submit(ring);
 
             conn.lastOpType = Gen::STATE_ORIGIN_CONNECTING;
@@ -398,7 +389,7 @@ void Core::worker(int thread)
 
             if (res == 0)
             {
-                Utils::Uring::closeConn(thread, conn);
+                Utils::Uring::closeConn(thread, Gen::activeThreads[thread].connections[conn.peerFd]);
                 io_uring_submit(ring);
                 break;
             }
@@ -446,7 +437,7 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_CONNECT_RESOLVER:
         {
-            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
+            conn.host = "edgeon.io"; // Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
 
             char packet[512] = {0};
 
@@ -463,7 +454,7 @@ void Core::worker(int thread)
             packet[12 + qlen + 3] = 1;
 
             conn.out_len = 12 + qlen + 4;
-            
+
             pipeline->queueWriteResolver(conn, packet);
             io_uring_submit(ring);
 
@@ -523,41 +514,7 @@ void Core::worker(int thread)
                 {
                     conn.backendIsUnreachable = true;
 
-                    std::string page = Pages::getPage("pages/502.html");
-
-                    std::string req =
-                        "HTTP/1.1 502 Bad Gateway\r\n"
-                        "Content-Type: text/html; charset=UTF-8\r\n"
-                        "Content-Length: " +
-                        std::to_string(page.size()) + "\r\n"
-                                                      "Connection: close\r\n"
-                                                      "Server: EdgeOn-Proxy/1.0\r\n"
-                                                      "\r\n" +
-                        page;
-
-                    int offset = 0;
-                    while (offset < (int)req.size())
-                    {
-                        ssize_t len = std::min(BUFFER_SIZE - 256, int(req.size() - offset));
-
-                        std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
-
-                        if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
-                        {
-                            SSL_write(Gen::activeThreads[thread].ssl[conn.fd].ssl, req.data() + offset, len);
-                            int bytes = BIO_read(Gen::activeThreads[thread].ssl[conn.fd].wbio, chunk.first.data(), BUFFER_SIZE);
-                            chunk.second = bytes;
-                        }
-                        else
-                        {
-                            memcpy(chunk.first.data(), req.data() + offset, len);
-                            chunk.second = len;
-                        }
-
-                        conn.writeQueue.push_back(std::move(chunk));
-
-                        offset += len;
-                    }
+                    pipeline->write502Page(conn);
 
                     if (!conn.isWritingClient)
                     {

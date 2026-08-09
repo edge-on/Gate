@@ -53,7 +53,5 @@ int Proxy::createResolverSocket()
     if(sockFd < 0)
         return -1;
 
-    Utils::Uring::makeNonBlocking(sockFd);
-
     return sockFd;
 }

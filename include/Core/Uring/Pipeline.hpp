@@ -26,6 +26,8 @@ public:
     void queueWriteResolver(Gen::Connection &conn, char packet[512]);
     void queueReadResolver(Gen::Connection &conn);
 
+    void write502Page(Gen::Connection &conn);
+
 private:
     struct io_uring *ring;
     int thread;

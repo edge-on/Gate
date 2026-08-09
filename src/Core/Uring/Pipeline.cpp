@@ -58,7 +58,7 @@ void Pipeline::queueConnectOrigin(Gen::Connection &originConn)
     if (!sqe)
         return;
 
-    uint64_t data = ((uint64_t)Gen::STATE_ORIGIN_CONNECTING << 32) | (uint32_t)originConn.fd;
+    uint64_t data = ((uint64_t)Gen::STATE_ORIGIN_CONNECTING << 32) | (uint32_t)originConn.peerFd;
     io_uring_prep_connect(sqe, originConn.fd,
                           (struct sockaddr *)&originConn.originAddr,
                           sizeof(originConn.originAddr));
@@ -151,4 +151,43 @@ void Pipeline::queueReadResolver(Gen::Connection &conn)
     uint64_t data = ((uint64_t)Gen::STATE_READ_RESOLVER << 32) | (uint32_t)conn.fd;
     io_uring_prep_recv(sqe, conn.resolverFd, conn.in_raw_buffer, BUFFER_SIZE, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
+}
+
+void Pipeline::write502Page(Gen::Connection &conn)
+{
+    std::string page = Pages::getPage("pages/502.html");
+
+    std::string req =
+        "HTTP/1.1 502 Bad Gateway\r\n"
+        "Content-Type: text/html; charset=UTF-8\r\n"
+        "Content-Length: " +
+        std::to_string(page.size()) + "\r\n"
+                                      "Connection: close\r\n"
+                                      "Server: EdgeOn-Proxy/1.0\r\n"
+                                      "\r\n" +
+        page;
+
+    int offset = 0;
+    while (offset < (int)req.size())
+    {
+        ssize_t len = std::min(BUFFER_SIZE - 256, int(req.size() - offset));
+
+        std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
+
+        if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+        {
+            SSL_write(Gen::activeThreads[thread].ssl[conn.fd].ssl, req.data() + offset, len);
+            int bytes = BIO_read(Gen::activeThreads[thread].ssl[conn.fd].wbio, chunk.first.data(), BUFFER_SIZE);
+            chunk.second = bytes;
+        }
+        else
+        {
+            memcpy(chunk.first.data(), req.data() + offset, len);
+            chunk.second = len;
+        }
+
+        conn.writeQueue.push_back(std::move(chunk));
+
+        offset += len;
+    }
 }

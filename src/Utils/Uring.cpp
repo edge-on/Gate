@@ -39,16 +39,6 @@ void Utils::Uring::closeConn(int thread, Gen::Connection &conn)
         Gen::activeThreads[thread].ssl.erase(sslIt);
     }
 
-    if (conn.peerFd != -1)
-    {
-        auto peerIt = Gen::activeThreads[thread].connections.find(conn.peerFd);
-        if (peerIt != Gen::activeThreads[thread].connections.end())
-        {
-            close(peerIt->second.fd);
-            Gen::activeThreads[thread].connections.erase(peerIt);
-        }
-    }
-
     int fd = conn.fd;
     close(fd);
     Gen::activeThreads[thread].connections.erase(fd);
