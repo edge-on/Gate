@@ -319,6 +319,7 @@ void Core::worker(int thread)
                 }
 
                 conn.resolverFd = resolverFd;
+                conn.in_len = res;
 
                 pipeline->queueConnectResolver(conn);
                 io_uring_submit(ring);
@@ -437,7 +438,7 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_CONNECT_RESOLVER:
         {
-            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
+            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, conn.in_len);
 
             char packet[512] = {0};
 
