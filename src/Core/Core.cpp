@@ -437,7 +437,7 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_CONNECT_RESOLVER:
         {
-            conn.host = "edgeon.io"; // Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
+            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
 
             char packet[512] = {0};
 
