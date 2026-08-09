@@ -319,6 +319,7 @@ void Core::worker(int thread)
                 }
 
                 conn.resolverFd = resolverFd;
+                conn.out_len = res;
 
                 pipeline->queueConnectResolver(conn);
                 io_uring_submit(ring);
@@ -437,8 +438,8 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_CONNECT_RESOLVER:
         {
-            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, res);
-            
+            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, conn.out_len);
+
             conn.resolverPacket[0] = 0x12;
             conn.resolverPacket[1] = 0x34;
             conn.resolverPacket[2] = 0x01;
@@ -505,7 +506,8 @@ void Core::worker(int thread)
                 sockaddr_in originAddr{};
                 int peerFd = -1;
 
-                    peerFd = Proxy::createOriginSocket((char *)"13.140.157.112", 80, originAddr);
+                if (!ip.empty())
+                    peerFd = Proxy::createOriginSocket((char *)ip.data(), 80, originAddr);
 
                 if (peerFd == -1)
                 {
