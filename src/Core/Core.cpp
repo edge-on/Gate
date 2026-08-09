@@ -440,27 +440,25 @@ void Core::worker(int thread)
         {
             conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, conn.in_len);
 
-            char packet[512] = {0};
+            memset(conn.resolverPacket, 0, sizeof(conn.resolverPacket));
+            conn.resolverPacket[0] = 0x12;
+            conn.resolverPacket[1] = 0x34;
+            conn.resolverPacket[2] = 0x01;
+            conn.resolverPacket[3] = 0x00;
+            conn.resolverPacket[5] = 1;
 
-            packet[0] = 0x12;
-            packet[1] = 0x34;
-            packet[2] = 0x01;
-            packet[3] = 0x00;
-            packet[5] = 1;
-
-            char *qname = &packet[12];
+            char *qname = &conn.resolverPacket[12];
             DNSClient::formatName(qname, conn.host);
             int qlen = strlen((char *)qname) + 1;
-            packet[12 + qlen + 1] = 1;
-            packet[12 + qlen + 3] = 1;
+            conn.resolverPacket[12 + qlen + 1] = 1;
+            conn.resolverPacket[12 + qlen + 3] = 1;
 
             conn.out_len = 12 + qlen + 4;
 
-            pipeline->queueWriteResolver(conn, packet);
+            pipeline->queueWriteResolver(conn); // artık parametre almasına gerek yok
             io_uring_submit(ring);
 
             conn.lastOpType = Gen::STATE_CONNECT_RESOLVER;
-
             break;
         }
 
@@ -503,7 +501,7 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                std::string ip = "13.140.157.112"; // DNSClient::getRandomIP(ips);
+                std::string ip = DNSClient::getRandomIP(ips);
 
                 sockaddr_in originAddr{};
                 int peerFd = -1;

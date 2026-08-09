@@ -90,6 +90,7 @@ public:
         char out_plain_buffer[BUFFER_SIZE];
         ssize_t out_len = 0;
 
+        char resolverPacket[512];
         std::string host;
 
         std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeQueue;

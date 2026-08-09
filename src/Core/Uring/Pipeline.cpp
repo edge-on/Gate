@@ -131,14 +131,14 @@ void Pipeline::queueConnectResolver(Gen::Connection &conn)
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
-void Pipeline::queueWriteResolver(Gen::Connection &conn, char packet[512])
+void Pipeline::queueWriteResolver(Gen::Connection &conn)
 {
     io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
 
     uint64_t data = ((uint64_t)Gen::STATE_WRITE_RESOLVER << 32) | (uint32_t)conn.fd;
-    io_uring_prep_write(sqe, conn.resolverFd, packet, conn.out_len, 0);
+    io_uring_prep_write(sqe, conn.resolverFd, conn.resolverPacket, conn.out_len, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 

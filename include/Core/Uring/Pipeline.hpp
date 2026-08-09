@@ -23,7 +23,7 @@ public:
     void queueReadOrigin(Gen::Connection &conn);
 
     void queueConnectResolver(Gen::Connection &conn);
-    void queueWriteResolver(Gen::Connection &conn, char packet[512]);
+    void queueWriteResolver(Gen::Connection &conn);
     void queueReadResolver(Gen::Connection &conn);
 
     void write502Page(Gen::Connection &conn);
