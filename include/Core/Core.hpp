@@ -6,6 +6,8 @@
 #include <array>
 #include <utility>
 
+#include <unordered_map>
+
 #include "Core/Ssl/Ssl.hpp"
 #include "Core/Gen/Gen.hpp"
 #include "Core/Uring/Pipeline.hpp"
@@ -25,6 +27,8 @@ public:
     ~Core();
 
     void start();
+
+    std::unordered_map<std::string, char *> caches;
 
 private:
     SSL_CTX *ctx;
