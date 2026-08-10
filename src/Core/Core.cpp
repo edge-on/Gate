@@ -260,13 +260,9 @@ void Core::worker(int thread)
             }
 
             int readBytes = SSL_read(ssl.ssl, conn.in_plain_buffer, res);
-            int e = SSL_get_error(ssl.ssl, readBytes);
 
-            std::cout << "[SSL_READ] - " << e << " - " << conn.fd << std::endl;
             if (readBytes > 0)
             {
-                std::cout << "[TLS_HANDSHAKE] - " << conn.fd << " - Data: " << conn.in_plain_buffer << std::endl;
-
                 conn.in_len = readBytes;
 
                 if (conn.resolverFd == -1)
@@ -345,8 +341,6 @@ void Core::worker(int thread)
                 }
             }
 
-            std::cout << "[READ_CLIENT] - " << conn.fd << " - Data: " << conn.in_plain_buffer << std::endl;
-
             memset(conn.in_raw_buffer, 0, BUFFER_SIZE);
 
             if (conn.resolverFd == -1)
@@ -385,8 +379,6 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_CLIENT:
         {
-            std::cout << "[WRITE_CLIENT] - " << conn.fd << std::endl;
-
             if (!conn.writeQueue.empty())
             {
                 if (res > 0)
@@ -422,8 +414,6 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_ORIGIN_CONNECTING:
         {
-            std::cout << "[STATE_ORIGIN_CONNECTING] - " << conn.fd << std::endl;
-
             pipeline->queueReadOrigin(conn);
             pipeline->queueWriteOrigin(conn);
             io_uring_submit(ring);
@@ -434,16 +424,12 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_ORIGIN:
         {
-            std::cout << "[STATE_WRITE_ORIGIN] - " << conn.fd << std::endl;
-
             conn.lastOpType = Gen::STATE_WRITE_ORIGIN;
             break;
         }
 
         case Gen::STATE_READ_ORIGIN:
         {
-            std::cout << "[STATE_READ_ORIGIN] - " << conn.fd << std::endl;
-
             conn.isReadingOrigin = false;
 
             if (res == 0)
@@ -496,8 +482,6 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_CONNECT_RESOLVER:
         {
-            std::cout << "[STATE_CONNECT_RESOLVER] - " << conn.fd << std::endl;
-
             conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, conn.out_len);
 
             conn.resolverPacket[0] = 0x12;
@@ -524,8 +508,6 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_RESOLVER:
         {
-            std::cout << "[STATE_WRITE_RESOLVER] - " << conn.fd << std::endl;
-
             pipeline->queueReadResolver(conn);
             io_uring_submit(ring);
 
@@ -536,8 +518,6 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_RESOLVER:
         {
-            std::cout << "[STATE_READ_RESOLVER] - " << conn.fd << std::endl;
-
             char qname[256];
             DNSClient::formatName(qname, conn.host);
             int qlen = strlen((char *)qname) + 1;

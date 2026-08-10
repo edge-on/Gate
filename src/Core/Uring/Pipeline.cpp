@@ -13,7 +13,7 @@ void Pipeline::queueMultishotAccept(int serverFd)
         return;
 
     uint64_t data = ((uint64_t)Gen::STATE_ACCEPT_MULTISHOT << 32) | (uint32_t)serverFd;
-    io_uring_prep_multishot_accept(sqe, serverFd, nullptr, nullptr, 0);
+    io_uring_prep_multishot_accept(sqe, serverFd, nullptr, nullptr, SOCK_NONBLOCK);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
