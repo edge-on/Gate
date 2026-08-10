@@ -204,6 +204,45 @@ void Core::worker(int thread)
             auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
 
             BIO_write(ssl.rbio, conn.in_raw_buffer, res);
+            int readBytes = SSL_read(ssl.ssl, conn.in_plain_buffer, res);
+
+            if (readBytes > 0)
+            {
+                conn.in_len = readBytes;
+                
+                if (conn.resolverFd == -1)
+                {
+                    int resolverFd = Proxy::createResolverSocket();
+                    if (resolverFd == -1)
+                    {
+                        conn.backendIsUnreachable = true;
+
+                        pipeline->write502Page(conn);
+
+                        if (!conn.isWritingClient)
+                        {
+                            conn.isWritingClient = true;
+                            pipeline->queueWriteClient(conn);
+                        }
+                        io_uring_submit(ring);
+
+                        break;
+                    }
+
+                    conn.resolverFd = resolverFd;
+                    conn.out_len = res;
+
+                    pipeline->queueConnectResolver(conn);
+                    io_uring_submit(ring);
+                    conn.lastOpType = Gen::STATE_READ_CLIENT;
+                    break;
+                }
+
+                pipeline->queueWriteOrigin(conn);
+                io_uring_submit(ring);
+                conn.lastOpType = Gen::STATE_READ_CLIENT;
+                break;
+            }
 
             int r = SSL_accept(ssl.ssl);
             if (r > 0)
@@ -278,6 +317,8 @@ void Core::worker(int thread)
 
             conn.in_len = res;
 
+            memset(conn.in_plain_buffer, 0, BUFFER_SIZE);
+
             // TCP TLS
             if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
@@ -298,6 +339,8 @@ void Core::worker(int thread)
                     break;
                 }
             }
+
+            memset(conn.in_raw_buffer, 0, BUFFER_SIZE);
 
             if (conn.resolverFd == -1)
             {
