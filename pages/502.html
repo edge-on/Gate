@@ -4,29 +4,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EdgeOn — Gateway Timeout</title>
+    <title>EdgeOn — Gateway Timeout (502)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
         rel="stylesheet">
     <style>
         :root {
-            --ink: #0c111d;
-            --muted: #5d6675;
-            --muted-2: #97a1b0;
-            --border: #e7e9ee;
-            --border-soft: #f0f1f4;
-            --surface: #fbfbfc;
-            --ok: #0c8a5f;
-            --ok-bg: #e8f7f0;
-            --ok-ring: #b7ecd4;
-            --fail: #c22539;
-            --fail-bg: #fcebec;
-            --fail-ring: #f4c2c8;
-            --accent: #3452e0;
-            --accent-2: #6d8cff;
-            --sans: 'Inter', sans-serif;
-            --mono: 'IBM Plex Mono', monospace;
+            --slate-900: #0f172a;
+            --slate-800: #1e293b;
+            --slate-700: #334155;
+            --slate-600: #475569;
+            --slate-500: #64748b;
+            --slate-400: #94a3b8;
+            --slate-300: #cbd5e1;
+            --slate-200: #e2e8f0;
+            --slate-100: #f1f5f9;
+            --slate-50: #f8fafc;
+            
+            --ink: var(--slate-900);
+            --muted: var(--slate-600);
+            --muted-subtle: var(--slate-400);
+            --border: var(--slate-200);
+            --border-subtle: var(--slate-100);
+            --surface: var(--slate-50);
+            --card-bg: #ffffff;
+
+            --ok: #10b981;
+            --ok-bg: #ecfdf5;
+            --ok-border: #a7f3d0;
+            --ok-ring: rgba(16, 185, 129, 0.2);
+
+            --fail: #ef4444;
+            --fail-bg: #fef2f2;
+            --fail-border: #fecaca;
+            --fail-ring: rgba(239, 68, 68, 0.2);
+
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --accent-bg: #eff6ff;
+            --accent-border: #bfdbfe;
+
+            --sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -1px rgba(15, 23, 42, 0.03);
         }
 
         * {
@@ -40,45 +66,57 @@
             color: var(--ink);
             background: #ffffff;
             -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         .page {
-            max-width: 860px;
+            max-width: 880px;
+            width: 100%;
             margin: 0 auto;
+            padding: 0 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
-        /* top bar */
+        /* Topbar */
         .topbar {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 24px 32px;
-            border-bottom: 1px solid var(--border-soft);
+            padding: 24px 0;
+            border-bottom: 1px solid var(--border-subtle);
         }
 
         .brand {
             display: flex;
             align-items: center;
-            gap: 9px;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--ink);
         }
 
         .brand-mark {
-            width: 26px;
-            height: 26px;
+            width: 28px;
+            height: 28px;
             border-radius: 8px;
-            background: linear-gradient(145deg, #3452e0, #1f36a8);
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
         }
 
         .brand-mark svg {
-            width: 14px;
-            height: 14px;
+            width: 15px;
+            height: 15px;
         }
 
         .brand-name {
-            font-size: 14.5px;
+            font-size: 15px;
             font-weight: 700;
             letter-spacing: -0.01em;
         }
@@ -86,26 +124,32 @@
         .topbar-right {
             display: flex;
             align-items: center;
-            gap: 18px;
+            gap: 16px;
         }
 
-        .status-link {
-            display: flex;
+        .status-badge-top {
+            display: inline-flex;
             align-items: center;
-            gap: 7px;
-            font-size: 13px;
-            color: var(--muted);
-            text-decoration: none;
+            gap: 8px;
+            font-size: 12.5px;
+            color: var(--slate-700);
             font-weight: 500;
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+            padding: 4px 12px;
+            border-radius: 20px;
+            text-decoration: none;
+            transition: all 0.2s ease;
         }
 
-        .status-link:hover {
-            color: var(--ink);
+        .status-badge-top:hover {
+            border-color: var(--slate-300);
+            background: #ffffff;
         }
 
         .live-dot {
-            width: 6px;
-            height: 6px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             background: var(--ok);
             position: relative;
@@ -116,94 +160,98 @@
             position: absolute;
             inset: -3px;
             border-radius: 50%;
-            border: 1px solid var(--ok-ring);
-            animation: pulse 2s ease-out infinite;
+            border: 1.5px solid var(--ok);
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
         }
 
-        @keyframes pulse {
+        @keyframes pulse-ring {
             0% {
-                transform: scale(0.8);
+                transform: scale(0.7);
                 opacity: 0.8;
             }
-
-            100% {
+            80%, 100% {
                 transform: scale(2.2);
                 opacity: 0;
             }
         }
 
-        /* hero */
+        /* Hero */
         .hero {
-            padding: 56px 32px 0;
+            padding: 48px 0 36px;
         }
 
         .eyebrow {
             display: inline-flex;
             align-items: center;
-            gap: 7px;
+            gap: 8px;
             font-family: var(--mono);
             font-size: 11.5px;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--fail);
             background: var(--fail-bg);
-            border: 1px solid var(--fail-ring);
-            padding: 5px 12px 5px 10px;
+            border: 1px solid var(--fail-border);
+            padding: 5px 12px;
             border-radius: 20px;
             margin-bottom: 20px;
+            letter-spacing: 0.02em;
         }
 
         .eyebrow svg {
-            width: 12px;
-            height: 12px;
+            width: 13px;
+            height: 13px;
         }
 
         h1 {
-            font-size: 34px;
+            font-size: 32px;
             font-weight: 700;
-            letter-spacing: -0.028em;
-            line-height: 1.2;
-            max-width: 520px;
+            letter-spacing: -0.025em;
+            line-height: 1.25;
+            max-width: 560px;
             margin-bottom: 14px;
+            color: var(--slate-900);
         }
 
         .sub {
-            font-size: 15.5px;
+            font-size: 15px;
             color: var(--muted);
             line-height: 1.6;
-            max-width: 480px;
-            margin-bottom: 10px;
+            max-width: 520px;
+            margin-bottom: 12px;
         }
 
         .sub a {
             color: var(--accent);
             text-decoration: none;
             font-weight: 500;
+            transition: color 0.15s ease;
         }
 
         .sub a:hover {
+            color: var(--accent-hover);
             text-decoration: underline;
         }
 
         .timestamp {
             font-family: var(--mono);
             font-size: 12px;
-            color: var(--muted-2);
-            margin-bottom: 44px;
+            color: var(--muted-subtle);
         }
 
-        /* connection strip */
-        .strip {
+        /* Connection Strip */
+        .strip-wrapper {
+            margin: 28px 0 40px;
             background: var(--surface);
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
-            padding: 48px 32px 46px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 36px 28px;
+            box-shadow: var(--shadow-sm);
         }
 
         .nodes {
             display: grid;
             grid-template-columns: 1fr auto 1fr auto 1fr;
             align-items: center;
-            max-width: 640px;
+            max-width: 680px;
             margin: 0 auto;
         }
 
@@ -212,12 +260,12 @@
             flex-direction: column;
             align-items: center;
             text-align: center;
-            gap: 3px;
+            gap: 4px;
         }
 
         .icon-shell {
-            width: 56px;
-            height: 56px;
+            width: 54px;
+            height: 54px;
             border-radius: 14px;
             background: #ffffff;
             border: 1px solid var(--border);
@@ -225,16 +273,19 @@
             align-items: center;
             justify-content: center;
             position: relative;
-            box-shadow: 0 1px 3px rgba(12, 17, 29, 0.06);
-            margin-bottom: 14px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 12px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .icon-shell.ok {
-            border-color: var(--ok-ring);
+            border-color: var(--ok-border);
+            background: linear-gradient(180deg, #ffffff 0%, var(--ok-bg) 100%);
         }
 
         .icon-shell.fail {
-            border-color: var(--fail-ring);
+            border-color: var(--fail-border);
+            background: linear-gradient(180deg, #ffffff 0%, var(--fail-bg) 100%);
         }
 
         .icon-shell svg {
@@ -244,15 +295,16 @@
 
         .status-badge {
             position: absolute;
-            bottom: -5px;
-            right: -5px;
+            bottom: -4px;
+            right: -4px;
             width: 20px;
             height: 20px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 2.5px solid #ffffff;
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .status-badge.ok {
@@ -264,8 +316,8 @@
         }
 
         .status-badge svg {
-            width: 9px;
-            height: 9px;
+            width: 10px;
+            height: 10px;
         }
 
         .node-name {
@@ -276,14 +328,14 @@
 
         .node-sub {
             font-family: var(--mono);
-            font-size: 10.5px;
-            color: var(--muted-2);
+            font-size: 11px;
+            color: var(--muted-subtle);
         }
 
         .node-status {
-            font-size: 11.5px;
-            font-weight: 600;
-            letter-spacing: 0.02em;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
             margin-top: 2px;
         }
 
@@ -296,65 +348,71 @@
         }
 
         .connector {
-            height: 1.5px;
+            height: 2px;
+            width: 60px;
             position: relative;
-            margin: 0 -6px;
             align-self: flex-start;
-            margin-top: 28px;
+            margin-top: 27px;
         }
 
         .connector.ok {
-            background: linear-gradient(90deg, var(--ok-ring), var(--ok-ring));
+            background: var(--ok);
+            box-shadow: 0 0 8px var(--ok-ring);
         }
 
         .connector.fail {
-            background: repeating-linear-gradient(90deg, var(--fail) 0 5px, transparent 5px 10px);
-            opacity: 0.55;
+            background: repeating-linear-gradient(90deg, var(--fail) 0 6px, transparent 6px 12px);
+            opacity: 0.75;
         }
 
-        /* body columns */
-        .body {
-            padding: 52px 32px 8px;
-        }
-
+        /* Content Columns */
         .cols {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 48px;
-            max-width: 720px;
-            margin: 0 auto 44px;
+            gap: 32px;
+            margin-bottom: 40px;
+        }
+
+        .col-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
         }
 
         .col-eyebrow {
             font-family: var(--mono);
             font-size: 10.5px;
-            color: var(--muted-2);
+            color: var(--muted-subtle);
             text-transform: uppercase;
             letter-spacing: 0.08em;
             font-weight: 600;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
-        .col h2 {
-            font-size: 17px;
+        .col-card h2 {
+            font-size: 16px;
             font-weight: 700;
-            letter-spacing: -0.012em;
+            letter-spacing: -0.01em;
             margin-bottom: 10px;
+            color: var(--slate-900);
         }
 
-        .col p {
-            font-size: 14px;
+        .col-card p {
+            font-size: 13.5px;
             color: var(--muted);
-            line-height: 1.7;
+            line-height: 1.65;
         }
 
-        /* technical detail panel */
+        /* Tech Details */
         .tech {
-            max-width: 720px;
-            margin: 0 auto 56px;
+            background: #ffffff;
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: var(--radius-md);
             overflow: hidden;
+            margin-bottom: 48px;
+            box-shadow: var(--shadow-sm);
         }
 
         .tech-head {
@@ -362,9 +420,12 @@
             border-bottom: 1px solid var(--border);
             font-size: 12px;
             font-weight: 600;
-            color: var(--muted);
+            color: var(--slate-700);
             letter-spacing: 0.01em;
             background: var(--surface);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .tech-grid {
@@ -374,7 +435,7 @@
 
         .tech-item {
             padding: 16px 20px;
-            border-bottom: 1px solid var(--border-soft);
+            border-bottom: 1px solid var(--border-subtle);
         }
 
         .tech-item:nth-last-child(-n+2) {
@@ -382,42 +443,99 @@
         }
 
         .tech-item:nth-child(odd) {
-            border-right: 1px solid var(--border-soft);
+            border-right: 1px solid var(--border-subtle);
         }
 
         .tech-label {
-            font-size: 11.5px;
-            color: var(--muted-2);
+            font-size: 11px;
+            color: var(--muted-subtle);
             margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 500;
         }
 
         .tech-value {
             font-family: var(--mono);
             font-size: 13px;
-            color: var(--ink);
+            color: var(--slate-800);
             font-weight: 500;
         }
 
-        /* footer */
+        /* Footer */
         .footer {
-            border-top: 1px solid var(--border-soft);
-            padding: 26px 32px 40px;
+            margin-top: auto;
+            border-top: 1px solid var(--border-subtle);
+            padding: 24px 0 36px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 14px;
+            gap: 16px;
         }
 
         .footer-left {
-            font-family: var(--mono);
-            font-size: 11.5px;
-            color: var(--muted-2);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--muted);
         }
 
-        .footer-left b {
-            color: var(--muted);
+        .ip-wrapper {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--slate-50);
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .ip-label {
+            color: var(--muted-subtle);
+            font-weight: 500;
+        }
+
+        .ip-value {
+            color: var(--slate-900);
             font-weight: 600;
+        }
+
+        .ip-btn {
+            background: transparent;
+            border: none;
+            color: var(--accent);
+            font-family: var(--sans);
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .ip-btn:hover {
+            background: var(--accent-bg);
+            color: var(--accent-hover);
+        }
+
+        .ip-btn:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+
+        .ip-btn .spinner {
+            animation: rotate 1s linear infinite;
+        }
+
+        @keyframes rotate {
+            100% { transform: rotate(360deg); }
         }
 
         .footer-links {
@@ -430,30 +548,25 @@
             color: var(--muted);
             text-decoration: none;
             font-weight: 500;
+            transition: color 0.15s ease;
         }
 
         .footer-links a:hover {
             color: var(--accent);
         }
 
-        @media (max-width:640px) {
-
-            .topbar,
-            .hero,
-            .strip,
-            .body,
-            .footer {
-                padding-left: 20px;
-                padding-right: 20px;
+        @media (max-width: 640px) {
+            .hero {
+                padding: 32px 0 24px;
             }
 
             h1 {
-                font-size: 26px;
+                font-size: 24px;
             }
 
             .nodes {
                 grid-template-columns: 1fr;
-                gap: 24px;
+                gap: 20px;
             }
 
             .connector {
@@ -462,7 +575,7 @@
 
             .cols {
                 grid-template-columns: 1fr;
-                gap: 28px;
+                gap: 20px;
             }
 
             .tech-grid {
@@ -474,7 +587,7 @@
             }
 
             .tech-item:nth-last-child(-n+2) {
-                border-bottom: 1px solid var(--border-soft);
+                border-bottom: 1px solid var(--border-subtle);
             }
 
             .tech-item:last-child {
@@ -484,6 +597,7 @@
             .footer {
                 flex-direction: column;
                 align-items: flex-start;
+                gap: 16px;
             }
         }
     </style>
@@ -492,113 +606,123 @@
 <body>
     <div class="page">
 
-        <div class="topbar">
-            <div class="brand">
+        <header class="topbar">
+            <a href="/" class="brand">
                 <div class="brand-mark">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"
                         stroke-linejoin="round">
                         <path d="M3 12h4l3-8 4 16 3-8h4" />
                     </svg>
                 </div>
                 <span class="brand-name">EdgeOn</span>
+            </a>
+            <div class="topbar-right">
+                <a href="#" class="status-badge-top">
+                    <span class="live-dot"></span>
+                    <span>Edge Network Active</span>
+                </a>
             </div>
-        </div>
+        </header>
 
-        <div class="hero">
-            <div class="eyebrow">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 8v5M12 16h.01" />
-                </svg>
-                GATEWAY TIMEOUT · 502
-            </div>
-            <h1>Your origin server didn't respond in time</h1>
-            <p class="sub">EdgeOn's edge network reached your origin but the connection was not completed. Learn more at
-                <a href="#">edgeon.io/docs/errors/502</a>.
-            </p>
-            <div class="timestamp">July 2, 2026 · 12:04:26 UTC</div>
-        </div>
-
-        <div class="strip">
-            <div class="nodes">
-                <div class="node">
-                    <div class="icon-shell ok">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#475467" stroke-width="1.6">
-                            <rect x="3" y="5" width="18" height="14" rx="2" />
-                            <path d="M3 9h18" />
-                            <circle cx="6.3" cy="7" r="0.5" fill="#475467" stroke="none" />
-                        </svg>
-                        <div class="status-badge ok">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <path d="M4 12l5 5L20 6" />
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="node-name">Client</div>
-                    <div class="node-sub">Your browser</div>
-                    <div class="node-status ok">ONLINE</div>
+        <main>
+            <section class="hero">
+                <div class="eyebrow">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 8v5M12 16h.01" />
+                    </svg>
+                    GATEWAY TIMEOUT · 502
                 </div>
+                <h1>Your origin server didn't respond in time</h1>
+                <p class="sub">EdgeOn's edge network reached your origin but the connection was not completed. Learn more at
+                    <a href="#">edgeon.io/docs/errors/502</a>.
+                </p>
+                <div id="timestamp" class="timestamp">July 2, 2026 · 12:04:26 UTC</div>
+            </section>
 
-                <div class="connector ok"></div>
-
-                <div class="node">
-                    <div class="icon-shell ok">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#3452e0" stroke-width="1.6">
-                            <path d="M6 18a4 4 0 010-8 5 5 0 019.6-1.5A4.5 4.5 0 0118.5 18H6z" />
-                        </svg>
-                        <div class="status-badge ok">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <path d="M4 12l5 5L20 6" />
+            <section class="strip-wrapper">
+                <div class="nodes">
+                    <div class="node">
+                        <div class="icon-shell ok">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.8">
+                                <rect x="3" y="5" width="18" height="14" rx="2" />
+                                <path d="M3 9h18" />
+                                <circle cx="6.3" cy="7" r="0.5" fill="#475569" stroke="none" />
                             </svg>
+                            <div class="status-badge ok">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M4 12l5 5L20 6" />
+                                </svg>
+                            </div>
                         </div>
+                        <div class="node-name">Client</div>
+                        <div class="node-sub">Your browser</div>
+                        <div class="node-status ok">ONLINE</div>
                     </div>
-                    <div class="node-name">Edge · New York 2</div>
-                    <div class="node-sub">wan-us-ny2</div>
-                    <div class="node-status ok">ONLINE</div>
-                </div>
 
-                <div class="connector fail"></div>
+                    <div class="connector ok"></div>
 
-                <div class="node">
-                    <div class="icon-shell fail">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#c22539" stroke-width="1.6">
-                            <ellipse cx="12" cy="6" rx="8" ry="3" />
-                            <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
-                        </svg>
-                        <div class="status-badge fail">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <path d="M6 6l12 12M18 6L6 18" />
+                    <div class="node">
+                        <div class="icon-shell ok">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8">
+                                <path d="M6 18a4 4 0 010-8 5 5 0 019.6-1.5A4.5 4.5 0 0118.5 18H6z" />
                             </svg>
+                            <div class="status-badge ok">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M4 12l5 5L20 6" />
+                                </svg>
+                            </div>
                         </div>
+                        <div class="node-name">Edge · New York 2</div>
+                        <div class="node-sub">wan-us-ny2</div>
+                        <div class="node-status ok">ONLINE</div>
                     </div>
-                    <div class="node-name">Origin</div>
-                    <div class="node-status fail">TIMED OUT</div>
-                </div>
-            </div>
-        </div>
 
-        <div class="body">
-            <div class="cols">
-                <div class="col">
+                    <div class="connector fail"></div>
+
+                    <div class="node">
+                        <div class="icon-shell fail">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.8">
+                                <ellipse cx="12" cy="6" rx="8" ry="3" />
+                                <path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
+                            </svg>
+                            <div class="status-badge fail">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M6 6l12 12M18 6L6 18" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="node-name">Origin</div>
+                        <div class="node-sub">Web Server</div>
+                        <div class="node-status fail">TIMED OUT</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="cols">
+                <div class="col-card">
                     <div class="col-eyebrow">What happened</div>
                     <h2>The request reached your server, but nothing came back</h2>
-                    <p>EdgeOn's edge node in Frankfurt accepted the connection and forwarded your request to the origin.
+                    <p>EdgeOn's edge node accepted the connection and forwarded your request to the origin server.
                         The origin did not send a response within the configured timeout, so the request was closed.</p>
                 </div>
-                <div class="col">
+                <div class="col-card">
                     <div class="col-eyebrow">What you can do</div>
                     <h2>Check that your origin is accepting connections</h2>
                     <p>This usually resolves on its own within a few minutes. If it persists, confirm your server is
                         running and reachable, and that it isn't blocking requests from EdgeOn's edge IP range.</p>
                 </div>
-            </div>
+            </section>
 
-            <div class="tech">
-                <div class="tech-head">Technical details</div>
+            <section class="tech">
+                <div class="tech-head">
+                    <span>Technical details</span>
+                    <span style="font-family:var(--mono); font-size:11px; color:var(--muted-subtle);">HTTP 502</span>
+                </div>
                 <div class="tech-grid">
                     <div class="tech-item">
                         <div class="tech-label">Edge node</div>
@@ -609,22 +733,130 @@
                         <div class="tech-value">New York, USA (wan-us-ny2)</div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </section>
+        </main>
 
-        <div class="footer">
+        <footer class="footer">
             <div class="footer-left">
-                Ray ID <b>efra03-8f2c19a4</b> &nbsp;·&nbsp; Your IP <a href="#"
-                    style="color:var(--accent); font-family:var(--sans); font-weight:500;">Click to reveal</a>
+                <div class="ip-wrapper">
+                    <span class="ip-label">Your IP:</span>
+                    <span id="ip-display" class="ip-value">—</span>
+                    <button id="ip-btn" class="ip-btn" onclick="handleIpClick()" title="Reveal your public IP address">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <span>Click to reveal</span>
+                    </button>
+                </div>
             </div>
             <div class="footer-links">
                 <a href="#">Status page</a>
                 <a href="#">Documentation</a>
                 <a href="#">Contact support</a>
             </div>
-        </div>
+        </footer>
 
     </div>
+
+    <script>
+        // Dynamic Timestamp
+        (function updateTimestamp() {
+            const el = document.getElementById('timestamp');
+            if (el) {
+                const now = new Date();
+                const options = { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short', hour12: false };
+                el.textContent = now.toLocaleDateString('en-US', options).replace(',', ' ·');
+            }
+        })();
+
+        // Real IP Reveal & Copy Handler
+        let currentIp = null;
+        let isFetching = false;
+
+        async function handleIpClick() {
+            const btn = document.getElementById('ip-btn');
+            const display = document.getElementById('ip-display');
+            if (!btn || !display || isFetching) return;
+
+            // If IP already fetched, treat click as Copy to Clipboard
+            if (currentIp) {
+                try {
+                    await navigator.clipboard.writeText(currentIp);
+                    btn.innerHTML = `
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span>Copied!</span>
+                    `;
+                    setTimeout(() => {
+                        btn.innerHTML = `
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            <span>Copy IP</span>
+                        `;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Copy failed:', err);
+                }
+                return;
+            }
+
+            // Fetch IP address
+            isFetching = true;
+            btn.innerHTML = `
+                <svg class="spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="9" stroke-dasharray="36" stroke-dashoffset="12" stroke-linecap="round"></circle>
+                </svg>
+                <span>Fetching...</span>
+            `;
+
+            const providers = [
+                'https://api.ipify.org?format=json',
+                'https://api.my-ip.io/v2/ip.json',
+                'https://icanhazip.com'
+            ];
+
+            let fetchedIp = null;
+
+            for (const url of providers) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3500);
+                    const res = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
+                    if (res.ok) {
+                        const raw = await res.text();
+                        try {
+                            const parsed = JSON.parse(raw);
+                            fetchedIp = parsed.ip || parsed.ip_address;
+                        } catch (_) {
+                            fetchedIp = raw.trim();
+                        }
+                        if (fetchedIp && fetchedIp.length >= 7) break;
+                    }
+                } catch (e) {
+                    console.warn('IP lookup provider failed:', url, e);
+                }
+            }
+
+            isFetching = false;
+
+            if (fetchedIp) {
+                currentIp = fetchedIp;
+                display.textContent = fetchedIp;
+                btn.innerHTML = `
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <span>Copy IP</span>
+                `;
+                btn.title = "Copy IP to clipboard";
+            } else {
+                display.textContent = 'Unavailable';
+                btn.innerHTML = `
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    <span>Retry</span>
+                `;
+            }
+        }
+    </script>
 </body>
 
 </html>

@@ -2,6 +2,8 @@
 
 #include <signal.h>
 
+#include <hiredis/hiredis.h>
+
 #include "Core/Core.hpp"
 
 #include "Dotenv/Dotenv.hpp"
@@ -17,5 +19,7 @@ public:
 
     static std::vector<int> listeners;
 
-    static char* resolverIp;
+    static char *resolverIp;
+
+    static redisContext *redis;
 };

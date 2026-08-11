@@ -72,6 +72,9 @@ void Core::worker(int thread)
         bool hasMore = cqe->flags & IORING_CQE_F_MORE;
         io_uring_cqe_seen(ring, cqe);
 
+        redisReply *reply = (redisReply *)redisCommand(Main::redis, "SET x %s", "merhaba hiredis");
+        printf("SET Yanıtı: %s\n", reply->str);
+
         if (res < 0)
         {
             if (opType == Gen::STATE_CONNECT_RESOLVER || opType == Gen::STATE_WRITE_RESOLVER || opType == Gen::STATE_READ_RESOLVER)
@@ -247,6 +250,8 @@ void Core::worker(int thread)
 
                 if (bytes > 0)
                 {
+                    Gen::activeThreads[thread].bandwith += bytes;
+
                     chunk.second = bytes;
                     conn.writeQueue.push_back(std::move(chunk));
                 }
@@ -382,7 +387,13 @@ void Core::worker(int thread)
             if (!conn.writeQueue.empty())
             {
                 if (res > 0)
+                {
+                    Gen::activeThreads[thread].bandwith -= res;
+                    if (Gen::activeThreads[thread].bandwith < 0)
+                        Gen::activeThreads[thread].bandwith = 0;
+
                     conn.writeOffset += res;
+                }
 
                 if (conn.writeOffset >= conn.writeQueue.front().second)
                 {
@@ -450,8 +461,10 @@ void Core::worker(int thread)
                 {
                     std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
                     int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
-                    chunk.second = bytes;
 
+                    Gen::activeThreads[thread].bandwith += bytes;
+
+                    chunk.second = bytes;
                     conn.writeQueue.push_back(std::move(chunk));
                 }
             }
