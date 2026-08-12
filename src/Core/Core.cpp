@@ -359,6 +359,36 @@ void Core::worker(int thread)
                 }
             }
 
+            // If request from port 80
+            if (!Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+            {
+                std::string host = Utils::Http::getHost(conn.in_raw_buffer, res);
+                std::string permanentlyMoved = "HTTP/1.1 301 Moved Permanently\r\n"
+                                               "Location: https://" +
+                                               host + "/\r\n"
+                                                      "Content-Length: 0\r\n"
+                                                      "Connection: close\r\n\r\n";
+
+                if (permanentlyMoved.size() <= BUFFER_SIZE)
+                {
+                    std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
+
+                    memcpy(chunk.first.data(), permanentlyMoved.data(), permanentlyMoved.size());
+                    chunk.second = static_cast<int>(permanentlyMoved.size());
+
+                    conn.writeQueue.push_back(std::move(chunk));
+
+                    pipeline->queueWriteClient(conn);
+                    io_uring_submit(ring);
+                }
+                else
+                {
+                    std::cerr << "Response size exceeds BUFFER_SIZE!" << std::endl;
+                }
+
+                break;
+            }
+
             memset(conn.in_raw_buffer, 0, BUFFER_SIZE);
 
             if (conn.resolverFd == -1)
