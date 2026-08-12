@@ -117,8 +117,16 @@ void Core::worker(int thread)
                 auto peerIt = Gen::activeThreads[thread].connections.find(it->second.peerFd);
                 if (peerIt != Gen::activeThreads[thread].connections.end())
                 {
+                    if (peerIt->second.type == Gen::TYPE_CLIENT)
+                        if (Gen::activeThreads[thread].activeConnections > 0)
+                            Gen::activeThreads[thread].activeConnections--;
+
                     Utils::Uring::closeConn(thread, peerIt->second);
                 }
+
+                if (it->second.type == Gen::TYPE_CLIENT)
+                    if (Gen::activeThreads[thread].activeConnections > 0)
+                        Gen::activeThreads[thread].activeConnections--;
 
                 Utils::Uring::closeConn(thread, it->second);
             }
@@ -175,6 +183,8 @@ void Core::worker(int thread)
                 pipeline->queueMultishotAccept(fd);
             }
 
+            Gen::activeThreads[thread].activeConnections++;
+
             io_uring_submit(ring);
             conn.lastOpType = Gen::STATE_ACCEPT_MULTISHOT;
 
@@ -198,6 +208,9 @@ void Core::worker(int thread)
 
             if (res == 0)
             {
+                if (Gen::activeThreads[thread].activeConnections > 0)
+                    Gen::activeThreads[thread].activeConnections--;
+
                 Utils::Uring::closeConn(thread, conn);
                 io_uring_submit(ring);
                 break;
@@ -313,6 +326,9 @@ void Core::worker(int thread)
 
             if (res == 0)
             {
+                if (Gen::activeThreads[thread].activeConnections > 0)
+                    Gen::activeThreads[thread].activeConnections--;
+
                 Utils::Uring::closeConn(thread, conn);
                 io_uring_submit(ring);
                 break;
