@@ -3,7 +3,7 @@
 void Thread::Operational::operationalWorker(int thread) {
     while (true)
     {
-        ssize_t rpsCount;
+        ssize_t rpsCount = 0;
         
         for(auto thread : Gen::activeThreads) {
             rpsCount += thread.second.connections.size();
