@@ -18,6 +18,8 @@
 #include "Utils/Pages.hpp"
 #include "Utils/Http.hpp"
 
+#include "Core/Thread/Operational.hpp"
+
 #include "Main.hpp"
 
 class Core

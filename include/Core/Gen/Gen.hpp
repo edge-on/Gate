@@ -109,8 +109,6 @@ public:
     {
         std::thread::id id;
 
-        ssize_t bandwith = 0;
-
         // FD -> Connection
         std::unordered_map<int, Connection> connections;
         // FD -> SSL

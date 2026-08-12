@@ -22,4 +22,8 @@ public:
     static char *resolverIp;
 
     static redisContext *redis;
+
+    static std::string country;
+    static std::string city;
+    static std::string code;
 };

@@ -18,11 +18,13 @@ void Core::start()
 
     ctx = Ssl::initSSL();
 
-    int threadCount = std::stoi(Main::dotenv->map["concurrency"]) + 1;
+    int threadCount = std::stoi(Main::dotenv->map["concurrency"]) + 2;
 
     for (int i = 0; i < threadCount; ++i)
     {
-        if (i + 1 == threadCount)
+        if (i + 2 == threadCount)
+            Gen::threads.emplace_back(&Thread::Operational::operationalWorker, i);
+        else if (i + 1 == threadCount)
             Gen::threads.emplace_back(&Core::memoryWorker, this, i);
         else
             Gen::threads.emplace_back(&Core::worker, this, i);
@@ -71,9 +73,6 @@ void Core::worker(int thread)
         int res = cqe->res;
         bool hasMore = cqe->flags & IORING_CQE_F_MORE;
         io_uring_cqe_seen(ring, cqe);
-
-        redisReply *reply = (redisReply *)redisCommand(Main::redis, "SET x %s", "merhaba hiredis");
-        printf("SET Yanıtı: %s\n", reply->str);
 
         if (res < 0)
         {
@@ -250,8 +249,6 @@ void Core::worker(int thread)
 
                 if (bytes > 0)
                 {
-                    Gen::activeThreads[thread].bandwith += bytes;
-
                     chunk.second = bytes;
                     conn.writeQueue.push_back(std::move(chunk));
                 }
@@ -388,10 +385,6 @@ void Core::worker(int thread)
             {
                 if (res > 0)
                 {
-                    Gen::activeThreads[thread].bandwith -= res;
-                    if (Gen::activeThreads[thread].bandwith < 0)
-                        Gen::activeThreads[thread].bandwith = 0;
-
                     conn.writeOffset += res;
                 }
 
@@ -461,8 +454,6 @@ void Core::worker(int thread)
                 {
                     std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
                     int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
-
-                    Gen::activeThreads[thread].bandwith += bytes;
 
                     chunk.second = bytes;
                     conn.writeQueue.push_back(std::move(chunk));
