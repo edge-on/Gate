@@ -67,16 +67,20 @@ void Pipeline::queueConnectOrigin(Gen::Connection &originConn)
 
 void Pipeline::queueWriteOrigin(Gen::Connection &conn)
 {
+    if (conn.writeOriginQueue.empty())
+        return;
+
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
 
-    // If thats an TLS request, we will take the plain buffer becase of decrypting
-    // If thats an Raw request, we will take the raw buffer, becase there's no decrypting
-    auto *src = (conn.protocolState == Gen::TCP_TLS ? conn.in_plain_buffer : conn.in_raw_buffer);
+    auto &front = conn.writeOriginQueue.front();
+
+    char *src = front.first.data();
+    ssize_t len = front.second;
 
     uint64_t data = ((uint64_t)Gen::STATE_WRITE_ORIGIN << 32) | (uint32_t)conn.fd;
-    io_uring_prep_write(sqe, conn.peerFd, src, conn.in_len, 0);
+    io_uring_prep_write(sqe, conn.peerFd, src + conn.writeOriginOffset, len - conn.writeOriginOffset, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 

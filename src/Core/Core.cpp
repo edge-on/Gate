@@ -274,12 +274,31 @@ void Core::worker(int thread)
                 pipeline->queueWriteClient(conn);
             }
 
-            int readBytes = SSL_read(ssl.ssl, conn.in_plain_buffer, res);
-
-            if (readBytes > 0)
+            while (true)
             {
-                conn.in_len = readBytes;
+                std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
 
+                int bytes = SSL_read(ssl.ssl, chunk.first.data(), BUFFER_SIZE);
+
+                if (bytes > 0)
+                {
+                    chunk.second = bytes;
+                    conn.writeOriginQueue.push_back(std::move(chunk));
+                }
+                else
+                {
+                    int err = SSL_get_error(ssl.ssl, bytes);
+                    if (err == SSL_ERROR_WANT_READ)
+                    {
+                        pipeline->queueReadClient(conn);
+                    }
+
+                    break;
+                }
+            }
+
+            if (conn.writeOriginQueue.size() > 0)
+            {
                 if (conn.resolverFd == -1)
                 {
                     int resolverFd = Proxy::createResolverSocket();
@@ -308,7 +327,12 @@ void Core::worker(int thread)
                     break;
                 }
 
-                pipeline->queueWriteOrigin(conn);
+                if (!conn.isWritingOrigin && conn.writeOriginQueue.size() > 0)
+                {
+                    conn.isWritingOrigin = true;
+                    pipeline->queueWriteOrigin(conn);
+                }
+
                 io_uring_submit(ring);
                 conn.lastOpType = Gen::STATE_TLS_CONNECTING;
                 break;
@@ -342,15 +366,31 @@ void Core::worker(int thread)
             if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
-                BIO_write(ssl.rbio, conn.in_raw_buffer, res);
+                int q = BIO_write(ssl.rbio, conn.in_raw_buffer, res);
 
-                int bytes = SSL_read(ssl.ssl, conn.in_plain_buffer, BUFFER_SIZE);
-
-                if (bytes > 0)
+                while (true)
                 {
-                    conn.in_len = bytes;
+                    std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
+
+                    int bytes = SSL_read(ssl.ssl, chunk.first.data(), BUFFER_SIZE);
+                    if (bytes > 0)
+                    {
+                        chunk.second = bytes;
+                        conn.writeOriginQueue.push_back(std::move(chunk));
+                    }
+                    else
+                    {
+                        int err = SSL_get_error(ssl.ssl, bytes);
+                        if (err == SSL_ERROR_WANT_READ)
+                        {
+                            pipeline->queueReadClient(conn);
+                        }
+
+                        break;
+                    }
                 }
-                else
+
+                if (!conn.writeOriginQueue.size() > 0)
                 {
                     pipeline->queueReadClient(conn);
                     io_uring_submit(ring);
@@ -358,6 +398,9 @@ void Core::worker(int thread)
                     break;
                 }
             }
+
+            // I will not aplly write origin queue architecture to port 80 fd's, because of we are not send origin responses to client
+            // At least for now
 
             // If request from port 80
             if (!Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
@@ -419,7 +462,12 @@ void Core::worker(int thread)
                 break;
             }
 
-            pipeline->queueWriteOrigin(conn);
+            if (!conn.isWritingOrigin && conn.writeOriginQueue.size() > 0)
+            {
+                conn.isWritingOrigin = true;
+                pipeline->queueWriteOrigin(conn);
+            }
+
             io_uring_submit(ring);
             conn.lastOpType = Gen::STATE_READ_CLIENT;
             break;
@@ -453,7 +501,6 @@ void Core::worker(int thread)
             conn.isWritingClient = false;
             conn.writeOffset = 0;
 
-            pipeline->queueReadClient(conn);
             io_uring_submit(ring);
             conn.lastOpType = Gen::STATE_WRITE_CLIENT;
             break;
@@ -465,7 +512,13 @@ void Core::worker(int thread)
         case Gen::STATE_ORIGIN_CONNECTING:
         {
             pipeline->queueReadOrigin(conn);
-            pipeline->queueWriteOrigin(conn);
+
+            if (!conn.isWritingOrigin && conn.writeOriginQueue.size() > 0)
+            {
+                conn.isWritingOrigin = true;
+                pipeline->queueWriteOrigin(conn);
+            }
+
             io_uring_submit(ring);
 
             conn.lastOpType = Gen::STATE_ORIGIN_CONNECTING;
@@ -474,6 +527,36 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_ORIGIN:
         {
+            if (!conn.writeOriginQueue.empty())
+            {
+                if (res > 0)
+                {
+                    conn.writeOriginOffset += res;
+                }
+
+                if (conn.writeOriginOffset >= conn.writeOriginQueue.front().second)
+                {
+                    conn.writeOriginQueue.pop_front();
+                    conn.writeOriginOffset = 0;
+                }
+            }
+
+            if (!conn.writeOriginQueue.empty())
+            {
+                conn.isWritingOrigin = true;
+
+                pipeline->queueWriteOrigin(conn);
+                io_uring_submit(ring);
+
+                conn.lastOpType = Gen::STATE_WRITE_ORIGIN;
+                break;
+            }
+
+            conn.isWritingOrigin = false;
+            conn.writeOriginOffset = 0;
+
+            io_uring_submit(ring);
+
             conn.lastOpType = Gen::STATE_WRITE_ORIGIN;
             break;
         }
@@ -595,7 +678,7 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                std::string ip = DNSClient::getRandomIP(ips);
+                std::string ip = "13.140.157.112"; // DNSClient::getRandomIP(ips);
 
                 sockaddr_in originAddr{};
                 int peerFd = -1;
@@ -635,7 +718,12 @@ void Core::worker(int thread)
                 break;
             }
 
-            pipeline->queueWriteOrigin(conn);
+            if (!conn.isWritingOrigin && conn.writeOriginQueue.size() > 0)
+            {
+                conn.isWritingOrigin = true;
+                pipeline->queueWriteOrigin(conn);
+            }
+
             io_uring_submit(ring);
 
             conn.lastOpType = Gen::STATE_READ_RESOLVER;

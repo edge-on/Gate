@@ -74,13 +74,17 @@ public:
         ProtocolState protocolState;
 
         int writeOffset = 0;
+        int writeOriginOffset = 0;
 
         bool backendIsUnreachable = false;
 
         bool isWritingClient = false;
+        bool isWritingOrigin = false;
 
         bool isReadingClient = false;
         bool isReadingOrigin = false;
+
+        bool isConnectedOrigin = false;
 
         char in_raw_buffer[BUFFER_SIZE];
         char in_plain_buffer[BUFFER_SIZE];
@@ -94,6 +98,7 @@ public:
         std::string host;
 
         std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeQueue;
+        std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeOriginQueue;
     } Connection;
 
     typedef struct
