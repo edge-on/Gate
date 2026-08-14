@@ -14,18 +14,14 @@ Core::~Core()
 
 void Core::start()
 {
-    std::vector<char> memory_hog((1.5 * 1024 * 1024 * 1024), 1);
-
     ctx = Ssl::initSSL();
 
-    int threadCount = std::stoi(Main::dotenv->map["concurrency"]) + 2;
+    int threadCount = std::stoi(Main::dotenv->map["concurrency"]) + 1;
 
     for (int i = 0; i < threadCount; ++i)
     {
-        if (i + 2 == threadCount)
+        if (i + 1 == threadCount)
             Gen::threads.emplace_back(&Thread::Operational::operationalWorker, i);
-        else if (i + 1 == threadCount)
-            Gen::threads.emplace_back(&Core::memoryWorker, this, i);
         else
             Gen::threads.emplace_back(&Core::worker, this, i);
 
@@ -731,19 +727,5 @@ void Core::worker(int thread)
             break;
         }
         }
-    }
-}
-
-void Core::memoryWorker(int thread)
-{
-    while (true)
-    {
-        volatile unsigned long long val = 0;
-        for (int i = 0; i < 5000000; i++)
-        {
-            val += i * i;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 }
