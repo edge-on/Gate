@@ -258,6 +258,11 @@ void Core::worker(int thread)
 
                 if (bytes > 0)
                 {
+                    if (conn.resolverFd == -1 && conn.host.empty())
+                    {
+                        conn.host = Utils::Http::getHost(chunk.first.data(), bytes);
+                    }
+
                     chunk.second = bytes;
                     conn.writeQueue.push_back(std::move(chunk));
                 }
@@ -371,9 +376,10 @@ void Core::worker(int thread)
                     int bytes = SSL_read(ssl.ssl, chunk.first.data(), BUFFER_SIZE);
                     if (bytes > 0)
                     {
-                        std::string host = Utils::Http::getHost(chunk.first.data(), bytes);
-                        if (!host.empty())
-                            conn.host = host;
+                        if (conn.resolverFd == -1 && conn.host.empty())
+                        {
+                            conn.host = Utils::Http::getHost(chunk.first.data(), bytes);
+                        }
 
                         chunk.second = bytes;
                         conn.writeOriginQueue.push_back(std::move(chunk));
@@ -615,8 +621,6 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_CONNECT_RESOLVER:
         {
-            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, conn.out_len);
-
             conn.resolverPacket[0] = 0x12;
             conn.resolverPacket[1] = 0x34;
             conn.resolverPacket[2] = 0x01;
@@ -738,7 +742,7 @@ void Core::worker(int thread)
                     break;
                 }
 
-                if (type == 1 && len == 4)
+                if (type == 1 && len == 4) // A record, RDATA gerçekten 4 byte mi
                 {
                     char ip_str[INET_ADDRSTRLEN];
                     inet_ntop(AF_INET, p, ip_str, INET_ADDRSTRLEN);
@@ -756,7 +760,7 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                std::string ip = DNSClient::getRandomIP(ips);
+                std::string ip = "13.140.157.112"; // DNSClient::getRandomIP(ips);
 
                 sockaddr_in originAddr{};
                 int peerFd = -1;
