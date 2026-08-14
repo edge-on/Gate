@@ -371,8 +371,9 @@ void Core::worker(int thread)
                     int bytes = SSL_read(ssl.ssl, chunk.first.data(), BUFFER_SIZE);
                     if (bytes > 0)
                     {
-                        if (conn.host.empty())
-                            conn.host = Utils::Http::getHost(chunk.first.data(), bytes);
+                        std::string host = Utils::Http::getHost(chunk.first.data(), bytes);
+                        if (!host.empty())
+                            conn.host = host;
 
                         chunk.second = bytes;
                         conn.writeOriginQueue.push_back(std::move(chunk));
@@ -614,6 +615,8 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_CONNECT_RESOLVER:
         {
+            conn.host = Utils::Http::getHost(Gen::activeThreads[thread].ssl[conn.fd].handshakeDone ? conn.in_plain_buffer : conn.in_raw_buffer, conn.out_len);
+
             conn.resolverPacket[0] = 0x12;
             conn.resolverPacket[1] = 0x34;
             conn.resolverPacket[2] = 0x01;
