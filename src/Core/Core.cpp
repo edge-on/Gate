@@ -651,30 +651,108 @@ void Core::worker(int thread)
             DNSClient::formatName(qname, conn.host);
             int qlen = strlen((char *)qname) + 1;
 
+            char *buf_start = conn.in_raw_buffer;
+            char *buf_end = conn.in_raw_buffer + res;
+
+            auto fail_resolver = [&]()
+            {
+                conn.backendIsUnreachable = true;
+                pipeline->write502Page(conn);
+                if (!conn.isWritingClient)
+                {
+                    conn.isWritingClient = true;
+                    pipeline->queueWriteClient(conn);
+                }
+                io_uring_submit(ring);
+            };
+
+            if (res < 12 + qlen + 4)
+            {
+                fail_resolver();
+                break;
+            }
+
             std::vector<std::string> ips;
             int count = ntohs(*(uint16_t *)&conn.in_raw_buffer[6]);
             char *p = &conn.in_raw_buffer[12 + qlen + 4];
 
+            auto remaining = [&](char *ptr) -> long
+            {
+                return buf_end - ptr;
+            };
+
+            auto skip_name = [&](char *&ptr) -> bool
+            {
+                while (ptr < buf_end)
+                {
+                    uint8_t label_len = (uint8_t)*ptr;
+                    if ((label_len & 0xC0) == 0xC0)
+                    {
+                        ptr += 2;
+                        return ptr <= buf_end;
+                    }
+                    else if (label_len == 0)
+                    {
+                        ptr += 1;
+                        return ptr <= buf_end;
+                    }
+                    else
+                    {
+                        ptr += 1 + label_len;
+                        if (ptr > buf_end)
+                            return false;
+                    }
+                }
+                return false;
+            };
+
+            bool parse_ok = true;
+
             for (int i = 0; i < count; i++)
             {
-                p += 2;
+                if (!skip_name(p))
+                {
+                    parse_ok = false;
+                    break;
+                }
+
+                if (remaining(p) < 10)
+                {
+                    parse_ok = false;
+                    break;
+                }
+
                 uint16_t type = ntohs(*(uint16_t *)p);
                 p += 8;
+
                 uint16_t len = ntohs(*(uint16_t *)p);
                 p += 2;
 
-                if (type == 1)
+                if (remaining(p) < (long)len)
+                {
+                    parse_ok = false;
+                    break;
+                }
+
+                if (type == 1 && len == 4)
                 {
                     char ip_str[INET_ADDRSTRLEN];
                     inet_ntop(AF_INET, p, ip_str, INET_ADDRSTRLEN);
                     ips.push_back(std::string(ip_str));
                 }
+
                 p += len;
+            }
+
+            if (!parse_ok)
+            {
+                fail_resolver();
+                break;
             }
 
             if (conn.peerFd == -1)
             {
-                std::string ip = "13.140.157.112"; // DNSClient::getRandomIP(ips);
+                std::string ip = DNSClient::getRandomIP(ips);
 
                 sockaddr_in originAddr{};
                 int peerFd = -1;
@@ -684,17 +762,7 @@ void Core::worker(int thread)
 
                 if (peerFd == -1)
                 {
-                    conn.backendIsUnreachable = true;
-
-                    pipeline->write502Page(conn);
-
-                    if (!conn.isWritingClient)
-                    {
-                        conn.isWritingClient = true;
-                        pipeline->queueWriteClient(conn);
-                    }
-                    io_uring_submit(ring);
-
+                    fail_resolver();
                     break;
                 }
 
