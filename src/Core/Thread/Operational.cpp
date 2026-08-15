@@ -7,10 +7,10 @@ void Thread::Operational::operationalWorker(int thread)
         ssize_t rpsCount = 0;
         ssize_t acCount = 0;
 
-        for (auto thread : Gen::activeThreads)
+        for (const auto &[threadId, threadObj] : Gen::activeThreads)
         {
-            rpsCount += thread.second.connections.size();
-            acCount += thread.second.activeConnections;
+            rpsCount += threadObj.connections.size();
+            acCount += threadObj.activeConnections;
         }
 
         std::string key = Main::country + "-" + Main::city + "-" + Main::code;
