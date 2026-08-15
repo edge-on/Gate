@@ -258,11 +258,6 @@ void Core::worker(int thread)
 
                 if (bytes > 0)
                 {
-                    if (conn.resolverFd == -1 && conn.host.empty())
-                    {
-                        conn.host = Utils::Http::getHost(chunk.first.data(), bytes);
-                    }
-
                     chunk.second = bytes;
                     conn.writeQueue.push_back(std::move(chunk));
                 }
@@ -283,6 +278,13 @@ void Core::worker(int thread)
 
                 if (bytes > 0)
                 {
+                    if (conn.resolverFd == -1 && conn.host.empty())
+                    {
+                        std::string host = Utils::Http::getHost(chunk.first.data(), bytes);
+                        if (host != "undefined" && !host.empty())
+                            conn.host = host;
+                    }
+
                     chunk.second = bytes;
                     conn.writeOriginQueue.push_back(std::move(chunk));
                 }
@@ -378,7 +380,9 @@ void Core::worker(int thread)
                     {
                         if (conn.resolverFd == -1 && conn.host.empty())
                         {
-                            conn.host = Utils::Http::getHost(chunk.first.data(), bytes);
+                            std::string host = Utils::Http::getHost(chunk.first.data(), bytes);
+                            if (host != "undefined" && !host.empty())
+                                conn.host = host;
                         }
 
                         chunk.second = bytes;

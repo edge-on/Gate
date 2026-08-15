@@ -37,7 +37,7 @@ std::string Utils::Http::getHost(const char *buffer, size_t buffer_len)
         });
 
     if (it == data.end())
-        return "";
+        return "undefined";
 
     auto start = it + 5;
 
