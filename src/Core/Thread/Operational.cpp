@@ -33,7 +33,7 @@ void Thread::Operational::operationalWorker(int thread)
         redisReply *reply3 = (redisReply *)redisCommand(Main::redis, "SET %s %d", trafficKey.c_str(), Helper::VNStat::getDailyTraffic());
         if (reply3 != NULL)
         {
-            freeReplyObject(reply2);
+            freeReplyObject(reply3);
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(1));
