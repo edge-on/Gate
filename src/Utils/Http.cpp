@@ -24,6 +24,37 @@ const char *Utils::Http::getRootDomainPtr(const char *host, size_t len)
     return host;
 }
 
+std::string Utils::Http::getHeader(const char *buffer, size_t buffer_len, const char *req)
+{
+    std::string_view data(buffer, buffer_len);
+
+    auto it = std::search(
+        data.begin(), data.end(),
+        req, req + std::strlen(req),
+        [](char a, char b)
+        {
+            return (a | 32) == b;
+        });
+
+    if (it == data.end())
+        return "undefined";
+
+    auto start = it + 5;
+
+    while (start != data.end() && (*start == ' ' || *start == '\t'))
+    {
+        start++;
+    }
+
+    auto end = start;
+    while (end != data.end() && *end != '\r' && *end != '\n')
+    {
+        end++;
+    }
+
+    return std::string(start, end);
+}
+
 std::string Utils::Http::getHost(const char *buffer, size_t buffer_len)
 {
     std::string_view data(buffer, buffer_len);

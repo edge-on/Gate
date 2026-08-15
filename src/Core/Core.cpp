@@ -295,7 +295,8 @@ void Core::worker(int thread)
 
                 if (bytes > 0)
                 {
-                    if (conn.isBlocked)
+                    if (conn.isBlocked ||
+                        Security::Headers::validateReq(chunk.first.data(), bytes) == Security::Headers::RequestStatus::BLOCKED)
                     {
                         pipeline->writePage(conn, "403");
 
@@ -409,7 +410,8 @@ void Core::worker(int thread)
                     int bytes = SSL_read(ssl.ssl, chunk.first.data(), BUFFER_SIZE);
                     if (bytes > 0)
                     {
-                        if (conn.isBlocked)
+                        if (conn.isBlocked ||
+                            Security::Headers::validateReq(chunk.first.data(), bytes) == Security::Headers::RequestStatus::BLOCKED)
                         {
                             pipeline->writePage(conn, "403");
 

@@ -15,6 +15,8 @@
 
 #include "Cassandra/Scylla/Origin.hpp"
 
+#include "Core/Security/Headers.hpp"
+
 #include "Utils/Pages.hpp"
 #include "Utils/Http.hpp"
 
