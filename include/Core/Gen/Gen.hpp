@@ -86,6 +86,8 @@ public:
 
         bool isConnectedOrigin = false;
 
+        bool isBlocked = false;
+
         char in_raw_buffer[BUFFER_SIZE];
         char in_plain_buffer[BUFFER_SIZE];
         ssize_t in_len = 0;

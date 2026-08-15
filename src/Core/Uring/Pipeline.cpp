@@ -157,9 +157,9 @@ void Pipeline::queueReadResolver(Gen::Connection &conn)
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
-void Pipeline::write502Page(Gen::Connection &conn)
+void Pipeline::writePage(Gen::Connection &conn, std::string p)
 {
-    std::string page = Pages::getPage("pages/502.html");
+    std::string page = Pages::getPage("pages/" + p + ".html");
 
     std::string req =
         "HTTP/1.1 502 Bad Gateway\r\n"

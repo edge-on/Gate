@@ -24,35 +24,6 @@ int main(int argc, char *argv[])
 
     Maxmind::DB::init("./GeoDNS/GeoLite2-ASN.mmdb");
 
-    std::string provider = Maxmind::DB::getVal("169.58.162.138");
-
-    if (provider.empty())
-    {
-        std::cout << "Provider not found or clean." << std::endl;
-        return 0;
-    }
-
-    std::string lowerProvider = Utils::String::toLower(provider);
-    bool isBlocked = false;
-
-    for (const auto &p : Maxmind::DB::blockedProviders)
-    {
-        if (lowerProvider.find(p) != std::string::npos)
-        {
-            isBlocked = true;
-            break;
-        }
-    }
-
-    if (isBlocked)
-    {
-        std::cout << "Blocked IP (" << provider << ")" << std::endl;
-    }
-    else
-    {
-        std::cout << "Allowed IP (" << provider << ")" << std::endl;
-    }
-
     Main::redis = redisConnect(Main::dotenv->map["redis_host"].data(), 6379);
 
     if (Main::redis == NULL || Main::redis->err)

@@ -76,7 +76,7 @@ void Core::worker(int thread)
             {
                 Gen::Connection &conn = Gen::activeThreads[thread].connections[fd];
                 close(conn.resolverFd);
-                pipeline->write502Page(conn);
+                pipeline->writePage(conn, "502");
 
                 if (!conn.isWritingClient)
                 {
@@ -92,7 +92,7 @@ void Core::worker(int thread)
             {
                 Gen::Connection &conn = Gen::activeThreads[thread].connections[fd];
                 Gen::Connection &originConn = Gen::activeThreads[thread].connections[conn.peerFd];
-                pipeline->write502Page(conn);
+                pipeline->writePage(conn, "502");
 
                 Utils::Uring::closeConn(thread, originConn);
                 conn.peerFd = -1;
@@ -177,6 +177,34 @@ void Core::worker(int thread)
             if (!hasMore)
             {
                 pipeline->queueMultishotAccept(fd);
+            }
+
+            if (conn.fd >= 0)
+            {
+                struct sockaddr_in peer_addr;
+                socklen_t peer_len = sizeof(peer_addr);
+
+                if (getpeername(conn.fd, (struct sockaddr *)&peer_addr, &peer_len) == 0)
+                {
+                    char ip_str[INET_ADDRSTRLEN];
+                    inet_ntop(AF_INET, &peer_addr.sin_addr, ip_str, sizeof(ip_str));
+
+                    std::string provider = Maxmind::DB::getVal(ip_str);
+
+                    if (!provider.empty())
+                    {
+                        std::string lowerProvider = Utils::String::toLower(provider);
+
+                        for (const auto &p : Maxmind::DB::blockedProviders)
+                        {
+                            if (lowerProvider.find(p) != std::string::npos)
+                            {
+                                conn.isBlocked = true;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
 
             Gen::activeThreads[thread].activeConnections++;
@@ -278,6 +306,20 @@ void Core::worker(int thread)
 
                 if (bytes > 0)
                 {
+                    if (conn.isBlocked)
+                    {
+                        pipeline->writePage(conn, "403");
+
+                        if (!conn.isWritingClient)
+                        {
+                            conn.isWritingClient = true;
+                            pipeline->queueWriteClient(conn);
+                        }
+
+                        io_uring_submit(ring);
+                        break;
+                    }
+
                     if (conn.resolverFd == -1 && conn.host.empty())
                     {
                         std::string host = Utils::Http::getHost(chunk.first.data(), bytes);
@@ -309,7 +351,7 @@ void Core::worker(int thread)
                     {
                         conn.backendIsUnreachable = true;
 
-                        pipeline->write502Page(conn);
+                        pipeline->writePage(conn, "502");
 
                         if (!conn.isWritingClient)
                         {
@@ -378,6 +420,20 @@ void Core::worker(int thread)
                     int bytes = SSL_read(ssl.ssl, chunk.first.data(), BUFFER_SIZE);
                     if (bytes > 0)
                     {
+                        if (conn.isBlocked)
+                        {
+                            pipeline->writePage(conn, "403");
+
+                            if (!conn.isWritingClient)
+                            {
+                                conn.isWritingClient = true;
+                                pipeline->queueWriteClient(conn);
+                            }
+
+                            io_uring_submit(ring);
+                            break;
+                        }
+
                         if (conn.resolverFd == -1 && conn.host.empty())
                         {
                             std::string host = Utils::Http::getHost(chunk.first.data(), bytes);
@@ -451,7 +507,7 @@ void Core::worker(int thread)
                 {
                     conn.backendIsUnreachable = true;
 
-                    pipeline->write502Page(conn);
+                    pipeline->writePage(conn, "502");
 
                     if (!conn.isWritingClient)
                     {
@@ -669,7 +725,7 @@ void Core::worker(int thread)
             auto fail_resolver = [&]()
             {
                 conn.backendIsUnreachable = true;
-                pipeline->write502Page(conn);
+                pipeline->writePage(conn, "502");
                 if (!conn.isWritingClient)
                 {
                     conn.isWritingClient = true;

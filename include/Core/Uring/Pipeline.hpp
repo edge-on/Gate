@@ -26,7 +26,7 @@ public:
     void queueWriteResolver(Gen::Connection &conn);
     void queueReadResolver(Gen::Connection &conn);
 
-    void write502Page(Gen::Connection &conn);
+    void writePage(Gen::Connection &conn, std::string page);
 
 private:
     struct io_uring *ring;

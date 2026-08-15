@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EdgeOn — Gateway Timeout (502)</title>
+    <title>EdgeOn — Access Blocked (403)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -40,6 +40,10 @@
             --fail-bg: #fef2f2;
             --fail-border: #fecaca;
             --fail-ring: rgba(239, 68, 68, 0.2);
+
+            --warn: #f59e0b;
+            --warn-bg: #fffbeb;
+            --warn-border: #fde68a;
 
             --accent: #2563eb;
             --accent-hover: #1d4ed8;
@@ -99,82 +103,10 @@
             color: var(--ink);
         }
 
-        .brand-mark {
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
-        }
-
-        .brand-mark svg {
-            width: 15px;
-            height: 15px;
-        }
-
         .brand-name {
             font-size: 15px;
             font-weight: 700;
             letter-spacing: -0.01em;
-        }
-
-        .topbar-right {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .status-badge-top {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12.5px;
-            color: var(--slate-700);
-            font-weight: 500;
-            background: var(--slate-50);
-            border: 1px solid var(--slate-200);
-            padding: 4px 12px;
-            border-radius: 20px;
-            text-decoration: none;
-            transition: all 0.2s ease;
-        }
-
-        .status-badge-top:hover {
-            border-color: var(--slate-300);
-            background: #ffffff;
-        }
-
-        .live-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--ok);
-            position: relative;
-        }
-
-        .live-dot::after {
-            content: "";
-            position: absolute;
-            inset: -3px;
-            border-radius: 50%;
-            border: 1.5px solid var(--ok);
-            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-        }
-
-        @keyframes pulse-ring {
-            0% {
-                transform: scale(0.7);
-                opacity: 0.8;
-            }
-
-            80%,
-            100% {
-                transform: scale(2.2);
-                opacity: 0;
-            }
         }
 
         /* Hero */
@@ -208,7 +140,7 @@
             font-weight: 700;
             letter-spacing: -0.025em;
             line-height: 1.25;
-            max-width: 560px;
+            max-width: 580px;
             margin-bottom: 14px;
             color: var(--slate-900);
         }
@@ -217,7 +149,7 @@
             font-size: 15px;
             color: var(--muted);
             line-height: 1.6;
-            max-width: 520px;
+            max-width: 560px;
             margin-bottom: 12px;
         }
 
@@ -239,9 +171,51 @@
             color: var(--muted-subtle);
         }
 
+        /* VPN Notice Banner */
+        .vpn-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            background: var(--warn-bg);
+            border: 1px solid var(--warn-border);
+            border-radius: var(--radius-md);
+            padding: 18px 20px;
+            margin: 24px 0 40px;
+        }
+
+        .vpn-banner-icon {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+            border-radius: 10px;
+            background: #ffffff;
+            border: 1px solid var(--warn-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .vpn-banner-icon svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .vpn-banner-text h3 {
+            font-size: 14.5px;
+            font-weight: 700;
+            color: var(--slate-900);
+            margin-bottom: 4px;
+        }
+
+        .vpn-banner-text p {
+            font-size: 13.5px;
+            color: var(--slate-700);
+            line-height: 1.6;
+        }
+
         /* Connection Strip */
         .strip-wrapper {
-            margin: 28px 0 40px;
+            margin: 0 0 40px;
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: var(--radius-lg);
@@ -277,7 +251,6 @@
             position: relative;
             box-shadow: var(--shadow-sm);
             margin-bottom: 12px;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .icon-shell.ok {
@@ -407,6 +380,13 @@
             line-height: 1.65;
         }
 
+        .col-card ol {
+            font-size: 13.5px;
+            color: var(--muted);
+            line-height: 1.75;
+            padding-left: 18px;
+        }
+
         /* Tech Details */
         .tech {
             background: #ffffff;
@@ -527,11 +507,6 @@
             color: var(--accent-hover);
         }
 
-        .ip-btn:focus-visible {
-            outline: 2px solid var(--accent);
-            outline-offset: 1px;
-        }
-
         .ip-btn .spinner {
             animation: rotate 1s linear infinite;
         }
@@ -618,13 +593,29 @@
 
         <main>
             <section class="hero">
-                <h1>Your origin server didn't respond in time</h1>
-                <p class="sub">EdgeOn's edge network reached your origin but the connection was not completed. Learn
-                    more at
-                    <a href="#">edgeon.io/docs/errors/502</a>.
+                <h1>Your access to this site has been blocked</h1>
+                <p class="sub">EdgeOn detected that your connection is coming through a VPN, proxy, or anonymizer
+                    service. For security reasons, requests from these networks are not permitted to reach this
+                    site. Learn more at
+                    <a href="#">edgeon.io/docs/errors/403</a>.
                 </p>
                 <div id="timestamp" class="timestamp">July 2, 2026 · 12:04:26 UTC</div>
             </section>
+
+            <div class="vpn-banner">
+                <div class="vpn-banner-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+                        <path d="M12 9v4M12 17h.01" />
+                        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                </div>
+                <div class="vpn-banner-text">
+                    <h3>Are you using a VPN?</h3>
+                    <p>If you have a VPN, proxy, or "private browsing" network extension turned on, please disable
+                        it and reload the page. If you're not using one, the network you're connected to may be
+                        associated with hosting or proxy services that are blocked automatically.</p>
+                </div>
+            </div>
 
             <section class="strip-wrapper">
                 <div class="nodes">
@@ -671,9 +662,8 @@
                     <div class="node">
                         <div class="icon-shell fail">
                             <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.8">
-                                <ellipse cx="12" cy="6" rx="8" ry="3" />
-                                <path
-                                    d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
+                                <path d="M12 15v2M12 8v4" />
+                                <circle cx="12" cy="12" r="9" />
                             </svg>
                             <div class="status-badge fail">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"
@@ -682,32 +672,37 @@
                                 </svg>
                             </div>
                         </div>
-                        <div class="node-name">Origin</div>
-                        <div class="node-sub">Web Server</div>
-                        <div class="node-status fail">TIMED OUT</div>
+                        <div class="node-name">Security Check</div>
+                        <div class="node-sub">VPN / Proxy filter</div>
+                        <div class="node-status fail">BLOCKED</div>
                     </div>
                 </div>
             </section>
 
             <section class="cols">
                 <div class="col-card">
-                    <div class="col-eyebrow">What happened</div>
-                    <h2>The request reached your server, but nothing came back</h2>
-                    <p>EdgeOn's edge node accepted the connection and forwarded your request to the origin server.
-                        The origin did not send a response within the configured timeout, so the request was closed.</p>
+                    <div class="col-eyebrow">Why this happened</div>
+                    <h2>Your IP address matched a known VPN or proxy range</h2>
+                    <p>EdgeOn's edge network screens incoming traffic against lists of VPN exit nodes, public
+                        proxies, and datacenter IP ranges. Your request was flagged by this filter and the connection
+                        to the origin server was not allowed to proceed.</p>
                 </div>
                 <div class="col-card">
-                    <div class="col-eyebrow">What you can do</div>
-                    <h2>Check that your origin is accepting connections</h2>
-                    <p>This usually resolves on its own within a few minutes. If it persists, confirm your server is
-                        running and reachable, and that it isn't blocking requests from EdgeOn's edge IP range.</p>
+                    <div class="col-eyebrow">How to get back in</div>
+                    <h2>Try the steps below</h2>
+                    <ol>
+                        <li>Turn off any VPN, proxy, or Smart DNS service.</li>
+                        <li>Disable "private relay" or similar browser/network extensions.</li>
+                        <li>Reconnect to your regular home or mobile network.</li>
+                        <li>Refresh this page.</li>
+                    </ol>
                 </div>
             </section>
 
             <section class="tech">
                 <div class="tech-head">
                     <span>Technical details</span>
-                    <span style="font-family:var(--mono); font-size:11px; color:var(--muted-subtle);">HTTP 502</span>
+                    <span style="font-family:var(--mono); font-size:11px; color:var(--muted-subtle);">HTTP 403</span>
                 </div>
                 <div class="tech-grid">
                     <div class="tech-item">
@@ -766,7 +761,6 @@
             const display = document.getElementById('ip-display');
             if (!btn || !display || isFetching) return;
 
-            // If IP already fetched, treat click as Copy to Clipboard
             if (currentIp) {
                 try {
                     await navigator.clipboard.writeText(currentIp);
@@ -786,7 +780,6 @@
                 return;
             }
 
-            // Fetch IP address
             isFetching = true;
             btn.innerHTML = `
                 <svg class="spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
