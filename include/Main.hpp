@@ -4,12 +4,16 @@
 
 #include <hiredis/hiredis.h>
 
+#include "Utils/String.hpp"
+
 #include "Core/Core.hpp"
 
 #include "Dotenv/Dotenv.hpp"
 #include "Cassandra/Cassandra.hpp"
 
 #include "DNS/DNSClient.hpp"
+
+#include "Maxmind/DB.hpp"
 
 class Main
 {

@@ -22,25 +22,62 @@ int main(int argc, char *argv[])
     Main::city = Main::dotenv->map["city"];
     Main::code = Main::dotenv->map["code"];
 
+    Maxmind::DB::init("./GeoDNS/GeoLite2-ASN.mmdb");
+
+    std::string provider = Maxmind::DB::getVal("169.58.162.138");
+
+    if (provider.empty())
+    {
+        std::cout << "Provider not found or clean." << std::endl;
+        return 0;
+    }
+
+    std::string lowerProvider = Utils::String::toLower(provider);
+    bool isBlocked = false;
+
+    for (const auto &p : Maxmind::DB::blockedProviders)
+    {
+        if (lowerProvider.find(p) != std::string::npos)
+        {
+            isBlocked = true;
+            break;
+        }
+    }
+
+    if (isBlocked)
+    {
+        std::cout << "Blocked IP (" << provider << ")" << std::endl;
+    }
+    else
+    {
+        std::cout << "Allowed IP (" << provider << ")" << std::endl;
+    }
+
     Main::redis = redisConnect(Main::dotenv->map["redis_host"].data(), 6379);
 
-    if(Main::redis == NULL || Main::redis->err) {
-        if(Main::redis) {
+    if (Main::redis == NULL || Main::redis->err)
+    {
+        if (Main::redis)
+        {
             std::cout << "Redis connection is not successfull." << std::endl;
             redisFree(Main::redis);
-        } else {
+        }
+        else
+        {
             std::cout << "Redis context is not created successfully." << std::endl;
         }
         return 1;
     }
- 
-    redisReply *reply = (redisReply*)redisCommand(Main::redis, "AUTH %s %s", 
-                        Main::dotenv->map["redis_username"].data(), 
-                        Main::dotenv->map["redis_password"].data());
-    
-    if (reply == NULL || Main::redis->err) {
+
+    redisReply *reply = (redisReply *)redisCommand(Main::redis, "AUTH %s %s",
+                                                   Main::dotenv->map["redis_username"].data(),
+                                                   Main::dotenv->map["redis_password"].data());
+
+    if (reply == NULL || Main::redis->err)
+    {
         printf("Authentication failed or command error\n");
-        if (reply) freeReplyObject(reply);
+        if (reply)
+            freeReplyObject(reply);
         redisFree(Main::redis);
         return 1;
     }
