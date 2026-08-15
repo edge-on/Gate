@@ -26,22 +26,33 @@ void Maxmind::DB::init(const char *path)
     }
 }
 
-std::string Maxmind::DB::getVal(char *val)
+uint32_t Maxmind::DB::getVal(const char *val)
 {
-    std::string v;
+    uint32_t v;
 
     int gaiError, mmdbError;
     MMDB_lookup_result_s result = MMDB_lookup_string(&mmdb, val, &gaiError, &mmdbError);
+
     if (gaiError != 0)
+    {
         std::cerr << "Error: " << gai_strerror(gaiError) << std::endl;
+    }
     else if (mmdbError != MMDB_SUCCESS)
+    {
         std::cerr << "MMDB Lookup error: " << MMDB_strerror(mmdbError) << std::endl;
+    }
     else if (result.found_entry)
     {
         MMDB_entry_data_s entryData;
-        if (MMDB_get_value(&result.entry, &entryData, "autonomous_system_organization", NULL) == MMDB_SUCCESS)
-            if (entryData.has_data)
-                v = std::string(entryData.utf8_string, entryData.data_size);
+        int status = MMDB_get_value(&result.entry, &entryData, "autonomous_system_number", NULL);
+
+        if (status == MMDB_SUCCESS && entryData.has_data)
+        {
+            if (entryData.type == MMDB_DATA_TYPE_UINT32)
+            {
+                v = entryData.uint32;
+            }
+        }
     }
 
     return v;

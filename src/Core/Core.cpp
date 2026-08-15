@@ -189,21 +189,10 @@ void Core::worker(int thread)
                     char ip_str[INET_ADDRSTRLEN];
                     inet_ntop(AF_INET, &peer_addr.sin_addr, ip_str, sizeof(ip_str));
 
-                    std::string provider = Maxmind::DB::getVal(ip_str);
+                    uint32_t providerAsn = Maxmind::DB::getVal(ip_str);
 
-                    if (!provider.empty())
-                    {
-                        std::string lowerProvider = Utils::String::toLower(provider);
-
-                        for (const auto &p : Maxmind::DB::blockedProviders)
-                        {
-                            if (lowerProvider.find(p) != std::string::npos)
-                            {
-                                conn.isBlocked = true;
-                                break;
-                            }
-                        }
-                    }
+                    if (Maxmind::DB::blockedAsns.find(providerAsn) != Maxmind::DB::blockedAsns.end())
+                        conn.isBlocked = true;
                 }
             }
 
