@@ -760,7 +760,7 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                std::string ip = "13.140.157.112"; // DNSClient::getRandomIP(ips);
+                std::string ip = DNSClient::getRandomIP(ips);
 
                 sockaddr_in originAddr{};
                 int peerFd = -1;
