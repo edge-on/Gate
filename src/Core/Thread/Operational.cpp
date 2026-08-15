@@ -2,8 +2,19 @@
 
 void Thread::Operational::operationalWorker(int thread)
 {
+    int seconds = 0;
+
     while (true)
     {
+        seconds++;
+
+        if (seconds == 60)
+        {
+            seconds = 0;
+
+            
+        }
+
         ssize_t rpsCount = 0;
         ssize_t acCount = 0;
 
