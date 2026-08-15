@@ -16,6 +16,7 @@ void Thread::Operational::operationalWorker(int thread)
         std::string key = Main::country + "-" + Main::city + "-" + Main::code;
         std::string rpsKey = "rps-" + key;
         std::string activeConnections = "ac-" + key;
+        std::string trafficKey = "traffic-" + key;
 
         redisReply *reply = (redisReply *)redisCommand(Main::redis, "SET %s %d", rpsKey.c_str(), rpsCount);
         if (reply != NULL)
@@ -25,6 +26,12 @@ void Thread::Operational::operationalWorker(int thread)
 
         redisReply *reply2 = (redisReply *)redisCommand(Main::redis, "SET %s %d", activeConnections.c_str(), acCount);
         if (reply2 != NULL)
+        {
+            freeReplyObject(reply2);
+        }
+
+        redisReply *reply3 = (redisReply *)redisCommand(Main::redis, "SET %s %d", trafficKey.c_str(), Helper::VNStat::getDailyTraffic());
+        if (reply3 != NULL)
         {
             freeReplyObject(reply2);
         }

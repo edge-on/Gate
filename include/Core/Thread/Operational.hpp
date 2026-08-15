@@ -8,6 +8,8 @@
 
 #include "Core/Gen/Gen.hpp"
 
+#include "Helper/VNStat.hpp"
+
 namespace Thread
 {
     class Operational
