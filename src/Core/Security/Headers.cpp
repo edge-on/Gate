@@ -25,12 +25,7 @@ Security::Headers::RequestStatus Security::Headers::validateReq(char *req, ssize
 
 bool Security::Headers::isBotUserAgent(const std::string &userAgent)
 {
-    if (userAgent.empty() || userAgent == "undefined" || userAgent.length() < 30)
-    {
-        return true;
-    }
-
-    if (userAgent.find("Mozilla/5.0") == std::string::npos)
+    if (userAgent.empty() || userAgent == "undefined" || userAgent.length() < 15)
     {
         return true;
     }
@@ -39,6 +34,47 @@ bool Security::Headers::isBotUserAgent(const std::string &userAgent)
     std::transform(lowerUa.begin(), lowerUa.end(), lowerUa.begin(),
                    [](unsigned char c)
                    { return std::tolower(c); });
+
+    static const std::vector<std::string> allowedBotKeywords = {
+        "googlebot",
+        "google-inspectiontool",
+        "googleother",
+        "adsbot-google",
+        "mediapartners-google",
+        "apis-google",
+        "bingbot",
+        "msnbot",
+        "bingpreview",
+        "slurp",
+        "duckduckbot",
+        "baiduspider",
+        "yandexbot",
+        "sogou",
+        "exabot",
+        "facebookexternalhit",
+        "twitterbot",
+        "linkedinbot",
+        "applebot",
+        "petalbot",
+    };
+
+    for (const auto &keyword : allowedBotKeywords)
+    {
+        if (lowerUa.find(keyword) != std::string::npos)
+        {
+            return false;
+        }
+    }
+
+    if (userAgent.length() < 30)
+    {
+        return true;
+    }
+
+    if (userAgent.find("Mozilla/5.0") == std::string::npos)
+    {
+        return true;
+    }
 
     static const std::vector<std::string> botKeywords = {
         "curl", "wget", "python", "urllib", "requests", "axios", "node-fetch",
