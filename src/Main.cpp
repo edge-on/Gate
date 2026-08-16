@@ -74,8 +74,6 @@ int main(int argc, char *argv[])
     Main::ssl = new Mmap::SSL();
     Main::ssl->init("./db/sslRecords.mmap");
 
-    Origin::getSSLCerts();
-
     Core core;
     core.start();
 }

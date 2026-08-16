@@ -45,19 +45,49 @@ int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, con
     return SSL_TLSEXT_ERR_NOACK;
 }
 
-int Ssl::sni_callback(SSL *ssl, int *ad, void *arg)
+int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
 {
-    const char *domain = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
-    if (!domain)
-        return SSL_TLSEXT_ERR_NOACK;
+    const unsigned char *extData = nullptr;
+    size_t extLen = 0;
 
-    const char* root = Utils::Http::getRootDomainPtr(domain, strlen(domain));
+    if (!SSL_client_hello_get0_ext(ssl, TLSEXT_TYPE_server_name, &extData, &extLen) || extLen < 5)
+    {
+        *al = SSL_AD_UNRECOGNIZED_NAME;
+        return SSL_CLIENT_HELLO_ERROR;
+    }
+
+    size_t nameLen = (static_cast<size_t>(extData[3]) << 8) | extData[4];
+    if (5 + nameLen > extLen)
+    {
+        *al = SSL_AD_UNRECOGNIZED_NAME;
+        return SSL_CLIENT_HELLO_ERROR;
+    }
+
+    std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
+    const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
 
     auto it = Gen::zones.find(root);
+    if (it != Gen::zones.end() && it->second.ctx != nullptr)
+    {
+        SSL_set_SSL_CTX(ssl, it->second.ctx);
+        return SSL_CLIENT_HELLO_SUCCESS;
+    }
 
-    if (it == Gen::zones.end() || it->second.ctx == nullptr)
-        return SSL_TLSEXT_ERR_NOACK;
+    auto *conn = static_cast<Gen::Connection *>(SSL_get_app_data(ssl));
+    if (!conn)
+    {
+        *al = SSL_AD_INTERNAL_ERROR;
+        return SSL_CLIENT_HELLO_ERROR;
+    }
 
-    SSL_set_SSL_CTX(ssl, it->second.ctx);
-    return SSL_TLSEXT_ERR_OK;
+    conn->protocolState = Gen::TCP_TLS_PENDING_CERT;
+
+    int threadId = conn->threadId;
+    int fd = conn->fd;
+    uint64_t genId = conn->connGenId;
+
+    Origin::getSSLCert(domain.c_str(), [threadId, fd, genId](bool success)
+                       { Gen::activeThreads[threadId].wakeup.push({threadId, fd, genId, success}); });
+
+    return SSL_CLIENT_HELLO_RETRY;
 }

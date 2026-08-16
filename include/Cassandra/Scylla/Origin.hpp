@@ -15,10 +15,19 @@
 class Origin
 {
 public:
+    struct SSLCertAsyncContext
+    {
+        std::string domain;
+        std::function<void(bool)> onDone;
+    };
+
     static std::string getOrigin(std::string host);
     static bool getSSLCerts();
 
     static bool getNewVersions();
 
-    // static std::string getAcmeToken(std::string host, std::string token);
+    static void getSSLCert(const char *domain, std::function<void(bool)> onDone);
+
+    static void finishSSLCert(SSLCertAsyncContext *ctx, bool success, CassIterator *iterator = nullptr, const CassResult *result = nullptr);
+    static void onSSLCertFutureReady(CassFuture *future, void *data);
 };

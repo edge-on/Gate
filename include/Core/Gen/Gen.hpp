@@ -14,6 +14,8 @@
 #include <list>
 #include <utility>
 
+#include <deque>
+
 #define BUFFER_SIZE 16384
 #define QUEUE_DEPTH 4096
 
@@ -58,6 +60,20 @@ public:
         TCP_RAW,
         TCP_TLS
     } ProtocolState;
+
+    struct PendingTlsResumeItem
+    {
+        int fd;
+        uint64_t connGenId;
+        bool success;
+    };
+
+    struct ThreadWakeup
+    {
+        int eventFd = -1;
+        std::mutex queueMutex;
+        std::deque<PendingTlsResumeItem> resumeQueue;
+    };
 
     typedef struct
     {

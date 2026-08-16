@@ -166,6 +166,8 @@ void Core::worker(int thread)
                 ssl.rbio = BIO_new(BIO_s_mem());
                 ssl.wbio = BIO_new(BIO_s_mem());
 
+                SSL_set_app_data(ssl.ssl, &conn);
+
                 conn.protocolState = Gen::TCP_TLS;
 
                 SSL_set_bio(ssl.ssl, ssl.rbio, ssl.wbio);
