@@ -9,15 +9,30 @@ Security::Headers::RequestStatus Security::Headers::validateReq(char *req, ssize
     }
 
     std::string userAgent = Utils::Http::getHeader(req, len, "user-agent:");
-    if (userAgent == "undefined" || isBotUserAgent(userAgent))
+    if (userAgent == "undefined")
     {
         return RequestStatus::BLOCKED;
     }
 
-    if (Utils::Http::getHeader(req, len, "accept-language:") == "undefined" ||
-        Utils::Http::getHeader(req, len, "accept-encoding:") == "undefined")
+    std::string lowerUa = userAgent;
+    std::transform(lowerUa.begin(), lowerUa.end(), lowerUa.begin(),
+                   [](unsigned char c)
+                   { return std::tolower(c); });
+
+    bool isWhitelistedCrawler = isAllowedCrawler(lowerUa);
+
+    if (!isWhitelistedCrawler && isBotUserAgent(userAgent))
     {
         return RequestStatus::BLOCKED;
+    }
+
+    if (!isWhitelistedCrawler)
+    {
+        if (Utils::Http::getHeader(req, len, "accept-language:") == "undefined" ||
+            Utils::Http::getHeader(req, len, "accept-encoding:") == "undefined")
+        {
+            return RequestStatus::BLOCKED;
+        }
     }
 
     return RequestStatus::VALID_CLIENT;
@@ -35,35 +50,9 @@ bool Security::Headers::isBotUserAgent(const std::string &userAgent)
                    [](unsigned char c)
                    { return std::tolower(c); });
 
-    static const std::vector<std::string> allowedBotKeywords = {
-        "googlebot",
-        "google-inspectiontool",
-        "googleother",
-        "adsbot-google",
-        "mediapartners-google",
-        "apis-google",
-        "bingbot",
-        "msnbot",
-        "bingpreview",
-        "slurp",
-        "duckduckbot",
-        "baiduspider",
-        "yandexbot",
-        "sogou",
-        "exabot",
-        "facebookexternalhit",
-        "twitterbot",
-        "linkedinbot",
-        "applebot",
-        "petalbot",
-    };
-
-    for (const auto &keyword : allowedBotKeywords)
+    if (isAllowedCrawler(lowerUa))
     {
-        if (lowerUa.find(keyword) != std::string::npos)
-        {
-            return false;
-        }
+        return false;
     }
 
     if (userAgent.length() < 30)
@@ -113,5 +102,17 @@ bool Security::Headers::isBotUserAgent(const std::string &userAgent)
         return true;
     }
 
+    return false;
+}
+
+bool Security::Headers::isAllowedCrawler(const std::string &lowerUa)
+{
+    for (const auto &keyword : kAllowedBotKeywords)
+    {
+        if (lowerUa.find(keyword) != std::string::npos)
+        {
+            return true;
+        }
+    }
     return false;
 }
