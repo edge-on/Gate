@@ -8,11 +8,11 @@ void Thread::Operational::operationalWorker(int thread)
     {
         seconds++;
 
-        if (seconds == 60)
+        if (seconds == 1)
         {
             seconds = 0;
 
-            
+            Origin::getNewVersions();
         }
 
         ssize_t rpsCount = 0;

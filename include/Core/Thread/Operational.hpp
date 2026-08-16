@@ -10,6 +10,8 @@
 
 #include "Helper/VNStat.hpp"
 
+#include "Mmap/SSL.hpp"
+
 namespace Thread
 {
     class Operational
