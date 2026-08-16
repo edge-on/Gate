@@ -8,6 +8,8 @@
 
 #include "Core/Core.hpp"
 
+#include "Mmap/SSL.hpp"
+
 #include "Dotenv/Dotenv.hpp"
 #include "Cassandra/Cassandra.hpp"
 
@@ -30,4 +32,6 @@ public:
     static std::string country;
     static std::string city;
     static std::string code;
+
+    static Mmap::SSL *ssl;
 };

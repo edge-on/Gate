@@ -16,13 +16,8 @@
 
 namespace Mmap
 {
-    const size_t MAX_DATA_RECORDS = 2;
-
-    typedef enum
-    {
-        RECORDS,
-        IP_GROUPS
-    };
+    const size_t MAX_DATA_RECORDS = 100000; // 100K
+    const size_t SYSTEM_DATA_RECORDS = 10;
 
     struct __attribute__((packed)) SSLMetadata
     {
@@ -33,11 +28,19 @@ namespace Mmap
         char privKey[8192];     // 8192 Byte
     }; // 12552 Byte
 
+    struct __attribute__((packed)) SystemMetadata
+    {
+        char key[256];      // 256 Byte
+        char valueStr[256]; // 256 Byte
+        uint64_t valueInt;  // 16 Byte
+    }; // 528 Byte
+
     class SSL
     {
     private:
         char *mmapBase = nullptr;
         SSLMetadata *sslMetadata = nullptr;
+        SystemMetadata *systemMetadata = nullptr;
 
         size_t totalFileSize = 0;
         int32_t freeListHeadIdx = -1;
@@ -45,11 +48,13 @@ namespace Mmap
     public:
         bool init(const char *filepath);
 
-        bool getSSL(std::string domain);
+        bool getSSL(std::string domain, SSLMetadata &data);
         bool appendSSL(std::string domain, SSLMetadata data);
         bool deleteSSL(std::string domain);
 
-        uint64_t murmurHash64(const std::string &str, uint32_t seed = 42);
+        uint64_t getCurrentVersion();
+
+        uint64_t murmurHash64(const std::string &str, uint32_t seed);
 
         ~SSL();
     };

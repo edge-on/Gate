@@ -1,14 +1,17 @@
 #include "Mmap/SSL.hpp"
+#include <cstring>
+#include <algorithm>
 
 Mmap::SSL::~SSL()
 {
-    if (mmapBase)
+    if (mmapBase && totalFileSize > 0)
         munmap(mmapBase, totalFileSize);
 }
 
 bool Mmap::SSL::init(const char *filepath)
 {
-    totalFileSize = MAX_DATA_RECORDS * sizeof(SSLMetadata);
+    size_t systemDataSize = SYSTEM_DATA_RECORDS * sizeof(SystemMetadata);
+    totalFileSize = systemDataSize + (MAX_DATA_RECORDS * sizeof(SSLMetadata));
 
     bool is_new_file = (access(filepath, F_OK) == -1);
 
@@ -30,78 +33,107 @@ bool Mmap::SSL::init(const char *filepath)
 
     mmapBase = static_cast<char *>(map);
 
-    sslMetadata = reinterpret_cast<SSLMetadata *>(mmapBase);
+    // 0 = Version
+    systemMetadata = reinterpret_cast<SystemMetadata *>(mmapBase);
+
+    sslMetadata = reinterpret_cast<SSLMetadata *>(mmapBase + systemDataSize);
 
     if (is_new_file)
     {
         freeListHeadIdx = 0;
         for (size_t i = 0; i < MAX_DATA_RECORDS; ++i)
         {
-            CassUuid uuid;
-            uuid.clock_seq_and_node = 0;
-            uuid.time_and_version = 0;
-
-            memset(sslMetadata[i].certificate, 0, sizeof(sslMetadata[i].certificate));
-            memset(sslMetadata[i].privKey, 0, sizeof(sslMetadata[i].privKey));
+            memset(&sslMetadata[i], 0, sizeof(SSLMetadata));
             sslMetadata[i].version = -1;
         }
+
+        for (size_t i = 0; i < SYSTEM_DATA_RECORDS; ++i)
+        {
+            memset(&systemMetadata[i].key, 0, sizeof(systemMetadata[i].key));
+            memset(&systemMetadata[i].valueStr, 0, sizeof(systemMetadata[i].valueStr));
+        }
+
+        memcpy(systemMetadata[0].key, "version", 8);
+        systemMetadata[0].valueInt = 0;
     }
 
     return true;
 }
 
-bool Mmap::SSL::getSSL(std::string domain)
+bool Mmap::SSL::getSSL(std::string domain, SSLMetadata &data)
 {
-    uint64_t hash = murmurHash64(domain);
+    uint64_t hash = murmurHash64(domain, 42);
 
-    if (hash < 0 || hash > MAX_DATA_RECORDS)
+    if (hash >= MAX_DATA_RECORDS)
         return false;
 
+    if (sslMetadata[hash].version == -1)
+        return false;
+
+    if (strncmp(sslMetadata[hash].domain, domain.c_str(), sizeof(sslMetadata[hash].domain)) != 0)
+        return false;
+
+    data = sslMetadata[hash];
     return true;
 }
 
-bool Mmap::SSL::appendSSL(std::string domain, SSLMetadata data)
+bool Mmap::SSL::appendSSL(std::string domain, const SSLMetadata data)
 {
-    uint64_t hash = murmurHash64(domain);
+    uint64_t hash = murmurHash64(domain, 42);
 
-    if (hash < 0 || hash > MAX_DATA_RECORDS)
+    if (hash >= MAX_DATA_RECORDS)
         return false;
 
-    memcpy(sslMetadata[hash].domain, data.domain, strlen(data.domain));
+    if (systemMetadata[0].valueInt <= data.version)
+        return false;
+
+    memset(&sslMetadata[hash], 0, sizeof(SSLMetadata));
+
+    strncpy(sslMetadata[hash].domain, data.domain, sizeof(sslMetadata[hash].domain) - 1);
+    strncpy(sslMetadata[hash].certificate, data.certificate, sizeof(sslMetadata[hash].certificate) - 1);
+    strncpy(sslMetadata[hash].privKey, data.privKey, sizeof(sslMetadata[hash].privKey) - 1);
     sslMetadata[hash].version = data.version;
-    memcpy(sslMetadata[hash].certificate, data.domain, strlen(data.certificate));
-    memcpy(sslMetadata[hash].privKey, data.domain, strlen(data.privKey));
+
+    systemMetadata[0].valueInt = data.version;
 
     return true;
 }
 
 bool Mmap::SSL::deleteSSL(std::string domain)
 {
-    uint64_t hash = murmurHash64(domain);
+    uint64_t hash = murmurHash64(domain, 42);
 
-    if (hash < 0 || hash > MAX_DATA_RECORDS)
+    if (hash >= MAX_DATA_RECORDS || sslMetadata[hash].version == -1)
         return false;
 
-    memset(sslMetadata[hash].certificate, 0, sizeof(sslMetadata[hash].certificate));
-    memset(sslMetadata[hash].privKey, 0, sizeof(sslMetadata[hash].privKey));
+    if (strncmp(sslMetadata[hash].domain, domain.c_str(), sizeof(sslMetadata[hash].domain)) != 0)
+        return false;
+
+    memset(&sslMetadata[hash], 0, sizeof(SSLMetadata));
     sslMetadata[hash].version = -1;
 
     return true;
 }
 
-uint64_t Mmap::SSL::murmurHash64(const std::string &str, uint32_t seed = 42)
+uint64_t Mmap::SSL::getCurrentVersion()
+{
+    return systemMetadata[0].valueInt;
+}
+
+uint64_t Mmap::SSL::murmurHash64(const std::string &str, uint32_t seed)
 {
     const uint64_t m = 0xc6a4a7935bd1e995ULL;
     const int r = 47;
 
     uint64_t h = seed ^ (str.length() * m);
 
-    const uint64_t *data = reinterpret_cast<const uint64_t *>(str.data());
-    const uint64_t *end = data + (str.length() / 8);
+    const char *data = str.data();
+    size_t nblocks = str.length() / 8;
 
-    while (data != end)
+    for (size_t i = 0; i < nblocks; i++)
     {
-        uint64_t k = *data++;
+        uint64_t k;
+        std::memcpy(&k, data + (i * 8), sizeof(uint64_t));
 
         k *= m;
         k ^= k >> r;
@@ -111,7 +143,7 @@ uint64_t Mmap::SSL::murmurHash64(const std::string &str, uint32_t seed = 42)
         h *= m;
     }
 
-    const unsigned char *data2 = reinterpret_cast<const unsigned char *>(data);
+    const unsigned char *data2 = reinterpret_cast<const unsigned char *>(data + (nblocks * 8));
     switch (str.length() & 7)
     {
     case 7:

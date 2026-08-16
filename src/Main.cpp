@@ -9,6 +9,8 @@ char *Main::resolverIp;
 
 redisContext *Main::redis;
 
+Mmap::SSL *Main::ssl;
+
 std::string Main::country;
 std::string Main::city;
 std::string Main::code;
@@ -68,6 +70,9 @@ int main(int argc, char *argv[])
     {
         std::cout << "ScyllaDB Connected" << std::endl;
     }
+
+    Main::ssl = new Mmap::SSL();
+    Main::ssl->init("./db/sslRecords.mmap");
 
     Origin::getSSLCerts();
 
