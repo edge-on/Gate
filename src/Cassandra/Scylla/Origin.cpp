@@ -71,6 +71,8 @@ bool Origin::getSSLCerts()
             std::string secretKey = Main::dotenv->map["ssl_private_key"];
             std::string decryptedText = Aes::decryptWithKey(std::string(privateKey, privateKeyLen), secretKey);
 
+            std::cout << "I TAKE SSL FOR " << domain << std::endl;
+
             if (decryptedText.empty())
             {
                 cass_iterator_free(iterator);
@@ -362,7 +364,7 @@ void Origin::getSSLCert(const char *domain, std::function<void(bool)> onDone)
     cass_future_set_callback(future, onSSLCertFutureReady, ctx);
 }
 
-void Origin::finishSSLCert(SSLCertAsyncContext *ctx, bool success, CassIterator *iterator = nullptr, const CassResult *result = nullptr)
+void Origin::finishSSLCert(SSLCertAsyncContext *ctx, bool success, CassIterator *iterator, const CassResult *result)
 {
     if (iterator)
         cass_iterator_free(iterator);

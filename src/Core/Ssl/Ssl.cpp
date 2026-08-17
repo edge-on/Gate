@@ -64,6 +64,7 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
     auto it = Gen::zones.find(root);
     if (it != Gen::zones.end() && it->second.ctx != nullptr)
     {
+        std::cout << "SSL TAKED FOR " << domain.c_str() << std::endl;
         SSL_set_SSL_CTX(ssl, it->second.ctx);
         return SSL_CLIENT_HELLO_SUCCESS;
     }
@@ -79,6 +80,8 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
 
     int threadId = conn->thread;
     int fd = conn->fd;
+
+    std::cout << "SSL PENDING FOR " << domain.c_str() << std::endl;
 
     Origin::getSSLCert(domain.c_str(), [threadId, fd](bool success)
                        { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });

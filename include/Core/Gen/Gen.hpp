@@ -5,8 +5,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#include "Core/Ssl/Ssl.hpp"
-
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -15,6 +13,10 @@
 #include <utility>
 
 #include <sys/eventfd.h>
+
+#include <string>
+#include <openssl/ssl.h>
+#include <mutex>
 
 #include <deque>
 

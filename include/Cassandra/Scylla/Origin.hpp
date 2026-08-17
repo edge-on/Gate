@@ -10,6 +10,8 @@
 #include "Utils/Crypto/Aes.hpp"
 #include "Utils/Crypto/Kyber.hpp"
 
+#include <cassandra.h>
+
 #include "Main.hpp"
 
 class Origin
