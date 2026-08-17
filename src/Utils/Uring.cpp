@@ -31,6 +31,7 @@ void Utils::Uring::makeNonBlocking(int fd)
 
 void Utils::Uring::closeConn(int thread, Gen::Connection &conn)
 {
+    std::cout << "[CLOSE] fd=" << conn.fd << " thread=" << thread << std::endl;
     auto sslIt = Gen::activeThreads[thread].ssl.find(conn.fd);
     if (sslIt != Gen::activeThreads[thread].ssl.end())
     {

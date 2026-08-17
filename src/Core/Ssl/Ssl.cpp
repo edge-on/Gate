@@ -21,6 +21,10 @@ SSL_CTX *Ssl::initSSL()
 
 int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg)
 {
+    auto *connDbg = static_cast<Gen::Connection *>(SSL_get_app_data(ssl));
+    std::cout << "[HELLO_CB] ssl=" << (void *)ssl
+              << " fd=" << (connDbg ? connDbg->fd : -1)
+              << std::endl;
 
     int *force_flag = (int *)SSL_get_app_data(ssl);
 

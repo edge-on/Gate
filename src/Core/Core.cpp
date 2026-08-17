@@ -79,6 +79,8 @@ void Core::worker(int thread)
 
         if (res < 0)
         {
+            std::cout << "I AM WORKING FOR " << res << std::endl;
+
             if (opType == Gen::STATE_CONNECT_RESOLVER || opType == Gen::STATE_WRITE_RESOLVER || opType == Gen::STATE_READ_RESOLVER)
             {
                 Gen::Connection &conn = Gen::activeThreads[thread].connections[fd];
@@ -391,9 +393,15 @@ void Core::worker(int thread)
         // ===========================================
         case Gen::STATE_TLS_CONNECTING:
         {
+            auto &sslDbg = Gen::activeThreads[thread].ssl[conn.fd];
+            std::cout << "[TLS_CONNECTING] fd=" << conn.fd
+                      << " ssl=" << (void *)sslDbg.ssl
+                      << " handshakeDone=" << sslDbg.handshakeDone
+                      << " res=" << res << std::endl;
+
             conn.isReadingClient = false;
 
-            std::cout << "RES: " << res << std::endl;
+            std::cout << "RES: " << res << " FD: " << conn.fd << std::endl;
 
             if (res == 0)
             {
@@ -407,8 +415,8 @@ void Core::worker(int thread)
 
             auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
 
-            BIO_write(ssl.rbio, conn.in_raw_buffer, res);
-
+            int written = BIO_write(ssl.rbio, conn.in_raw_buffer, res);
+            std::cout << "Written: " << written << " - Res: " << res << " FD: " << conn.fd << std::endl;
             int r = SSL_accept(ssl.ssl);
             if (r > 0)
             {
@@ -570,6 +578,7 @@ void Core::worker(int thread)
 
             if (res == 0)
             {
+                std::cout << "READ_CLIENT - " << res << std::endl;
                 if (Gen::activeThreads[thread].activeConnections > 0)
                     Gen::activeThreads[thread].activeConnections--;
 
