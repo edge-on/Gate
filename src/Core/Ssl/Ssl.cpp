@@ -14,12 +14,7 @@ SSL_CTX *Ssl::initSSL()
 
     SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
-    SSL_CTX_callback_ctrl(ctx, SSL_CTRL_SET_TLSEXT_SERVERNAME_CB, reinterpret_cast<void (*)()>(Ssl::sni_callback));
-
-    // Here is for HTTP2
-    // SSL_CTX_set_cipher_list(ctx, "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384");
-    // SSL_CTX_set_ecdh_auto(ctx, 1);
-    // SSL_CTX_set_alpn_select_cb(ctx, Ssl::alpn_cb, NULL);
+    SSL_CTX_set_client_hello_cb(ctx, Ssl::client_hello_cb, nullptr);
 
     return ctx;
 }
@@ -80,14 +75,13 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
         return SSL_CLIENT_HELLO_ERROR;
     }
 
-    conn->protocolState = Gen::TCP_TLS_PENDING_CERT;
+    conn->protocolState = Gen::TCP_PENDING_SSL;
 
-    int threadId = conn->threadId;
+    int threadId = conn->thread;
     int fd = conn->fd;
-    uint64_t genId = conn->connGenId;
 
-    Origin::getSSLCert(domain.c_str(), [threadId, fd, genId](bool success)
-                       { Gen::activeThreads[threadId].wakeup.push({threadId, fd, genId, success}); });
+    Origin::getSSLCert(domain.c_str(), [threadId, fd](bool success)
+                       { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });
 
     return SSL_CLIENT_HELLO_RETRY;
 }

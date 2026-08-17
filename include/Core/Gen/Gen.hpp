@@ -14,6 +14,8 @@
 #include <list>
 #include <utility>
 
+#include <sys/eventfd.h>
+
 #include <deque>
 
 #define BUFFER_SIZE 16384
@@ -40,7 +42,10 @@ public:
         // DNS
         STATE_CONNECT_RESOLVER,
         STATE_WRITE_RESOLVER,
-        STATE_READ_RESOLVER
+        STATE_READ_RESOLVER,
+
+        // TLS
+        STATE_TLS_WAKEUP
     } State;
 
     typedef enum
@@ -58,13 +63,14 @@ public:
     typedef enum
     {
         TCP_RAW,
-        TCP_TLS
+        TCP_TLS,
+        TCP_PENDING_SSL
     } ProtocolState;
 
     struct PendingTlsResumeItem
     {
+        int thread;
         int fd;
-        uint64_t connGenId;
         bool success;
     };
 
@@ -73,6 +79,34 @@ public:
         int eventFd = -1;
         std::mutex queueMutex;
         std::deque<PendingTlsResumeItem> resumeQueue;
+
+        void init()
+        {
+            eventFd = eventfd(0, EFD_NONBLOCK);
+        }
+
+        void push(PendingTlsResumeItem item)
+        {
+            {
+                std::lock_guard<std::mutex> lock(queueMutex);
+                resumeQueue.push_back(item);
+            }
+            uint64_t one = 1;
+            write(eventFd, &one, sizeof(one));
+        }
+
+        std::deque<PendingTlsResumeItem> drain()
+        {
+            uint64_t val;
+            read(eventFd, &val, sizeof(val));
+
+            std::deque<PendingTlsResumeItem> out;
+            {
+                std::lock_guard<std::mutex> lock(queueMutex);
+                out.swap(resumeQueue);
+            }
+            return out;
+        }
     };
 
     typedef struct
@@ -81,6 +115,8 @@ public:
         int resolverFd = -1;
 
         int peerFd = -1;
+
+        int thread = -1;
 
         sockaddr_in originAddr{};
 
@@ -133,6 +169,8 @@ public:
         std::thread::id id;
 
         ssize_t activeConnections = 0;
+
+        ThreadWakeup wakeup;
 
         // FD -> Connection
         std::unordered_map<int, Connection> connections;

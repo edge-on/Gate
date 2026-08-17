@@ -6,6 +6,8 @@
 #include <array>
 #include <utility>
 
+#include <sys/poll.h>
+
 #include <unordered_map>
 
 #include "Core/Ssl/Ssl.hpp"
