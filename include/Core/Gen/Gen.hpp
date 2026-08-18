@@ -115,10 +115,9 @@ public:
     {
         int fd = -1;
         int resolverFd = -1;
-
         int peerFd = -1;
-
         int thread = -1;
+        int gen = -1;
 
         sockaddr_in originAddr{};
 
@@ -157,6 +156,11 @@ public:
         std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeOriginQueue;
     } Connection;
 
+    typedef struct {
+        int connFd;
+        int gen = 0;
+    } Generation;
+
     typedef struct
     {
         SSL *ssl;
@@ -178,6 +182,8 @@ public:
         std::unordered_map<int, Connection> connections;
         // FD -> SSL
         std::unordered_map<int, SslStructure> ssl;
+        // FD -> Gen
+        std::unordered_map<int, Generation> generations;
 
         struct io_uring ring;
 

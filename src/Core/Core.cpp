@@ -156,6 +156,11 @@ void Core::worker(int thread)
             tempConn.fd = clientFd;
             tempConn.type = Gen::TYPE_CLIENT;
 
+            Gen::activeThreads[thread].generations[clientFd].connFd = clientFd;
+            Gen::activeThreads[thread].generations[clientFd].gen += 1;
+
+            tempConn.gen = Gen::activeThreads[thread].generations[clientFd].gen;
+
             Gen::activeThreads[thread].connections.erase(clientFd);
             Gen::activeThreads[thread].connections.emplace(clientFd, std::move(tempConn));
 
@@ -385,6 +390,9 @@ void Core::worker(int thread)
             continue;
 
         Gen::Connection &conn = it->second;
+
+        if (conn.gen != Gen::activeThreads[thread].generations[conn.fd].gen)
+            continue;
 
         switch (opType)
         {
