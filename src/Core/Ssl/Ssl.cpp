@@ -64,8 +64,9 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
 
     std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
     const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
+    std::string rootDomain(root, domain.c_str() + domain.size() - root);
 
-    auto it = Gen::zones.find(root);
+    auto it = Gen::zones.find(rootDomain);
     if (it != Gen::zones.end() && it->second.ctx != nullptr)
     {
         std::cout << "SSL TAKED FOR " << domain.c_str() << std::endl;
@@ -80,14 +81,17 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
         return SSL_CLIENT_HELLO_ERROR;
     }
 
+    if (conn->protocolState == Gen::TCP_PENDING_SSL)
+        return SSL_CLIENT_HELLO_RETRY;
+
     conn->protocolState = Gen::TCP_PENDING_SSL;
 
     int threadId = conn->thread;
     int fd = conn->fd;
 
-    std::cout << "SSL PENDING FOR " << domain.c_str() << std::endl;
+    std::cout << "SSL PENDING FOR " << rootDomain << std::endl;
 
-    Origin::getSSLCert(domain.c_str(), [threadId, fd](bool success)
+    Origin::getSSLCert(rootDomain.c_str(), [threadId, fd](bool success)
                        { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });
 
     return SSL_CLIENT_HELLO_RETRY;

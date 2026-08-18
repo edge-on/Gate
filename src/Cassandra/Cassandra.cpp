@@ -18,24 +18,17 @@ bool Cassandra::connect()
     cass_cluster_set_credentials(cluster, dotenv->map["scylla_username"].c_str(), dotenv->map["scylla_password"].c_str());
 
     connect_future = cass_session_connect(session, cluster);
+    cass_future_wait(connect_future);
 
     if (cass_future_error_code(connect_future) == CASS_OK)
     {
         return true;
     }
-    else
-    {
-        const char *message;
-        size_t message_length;
-        cass_future_error_message(connect_future, &message, &message_length);
-        fprintf(stderr, "Unable to connect: '%.*s'\n", (int)message_length, message);
 
-        return true;
-    }
-
-    cass_future_free(connect_future);
-    cass_cluster_free(cluster);
-    cass_session_free(session);
+    const char *message;
+    size_t message_length;
+    cass_future_error_message(connect_future, &message, &message_length);
+    fprintf(stderr, "Unable to connect: '%.*s'\n", (int)message_length, message);
 
     return false;
 }

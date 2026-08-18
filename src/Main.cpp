@@ -71,8 +71,6 @@ int main(int argc, char *argv[])
         std::cout << "ScyllaDB Connected" << std::endl;
     }
 
-    Origin::getSSLCerts();
-    
     Main::ssl = new Mmap::SSL();
     Main::ssl->init("./db/sslRecords.mmap");
 

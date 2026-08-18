@@ -154,6 +154,7 @@ void Core::worker(int thread)
 
             Gen::Connection tempConn{};
             tempConn.fd = clientFd;
+            tempConn.thread = thread;
             tempConn.type = Gen::TYPE_CLIENT;
 
             Gen::activeThreads[thread].generations[clientFd].connFd = clientFd;
@@ -270,6 +271,9 @@ void Core::worker(int thread)
                 else
                 {
                     int err = SSL_get_error(ssl.ssl, r);
+
+                    if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
+                        continue;
 
                     if (err == SSL_ERROR_WANT_READ)
                         pipeline->queueTlsConnecting(conn);
@@ -456,11 +460,8 @@ void Core::worker(int thread)
             {
                 int err = SSL_get_error(ssl.ssl, r);
 
-                std::cout << err << std::endl;
-
-                if (err == X509_V_ERR_CRL_NOT_YET_VALID)
+                if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
                 {
-                    std::cout << "X509_V_ERR_CRL_NOT_YET_VALID" << std::endl;
                     io_uring_submit(ring);
                     break;
                 }
@@ -1013,7 +1014,7 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                std::string ip = DNSClient::getRandomIP(ips);
+                std::string ip = "13.140.157.112"; // DNSClient::getRandomIP(ips);
 
                 sockaddr_in originAddr{};
                 int peerFd = -1;

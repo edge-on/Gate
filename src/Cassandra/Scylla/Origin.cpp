@@ -1,5 +1,8 @@
 #include "Cassandra/Scylla/Origin.hpp"
 
+#include <iostream>
+#include <thread>
+
 // Allow filtering will be removed
 std::string Origin::getOrigin(std::string host)
 {
@@ -352,52 +355,49 @@ bool Origin::getNewVersions()
 
 void Origin::getSSLCert(const char *domain, std::function<void(bool)> onDone)
 {
-    CassStatement *statement = cass_statement_new("SELECT * FROM edgeon.ssl WHERE domain = ?;", 1);
-    cass_statement_bind_string(statement, 0, domain);
+    std::cout << "getSSLCert " << domain << std::endl;
 
-    auto *ctx = new SSLCertAsyncContext{std::string(domain), std::move(onDone)};
+    std::thread([domain = std::string(domain), onDone = std::move(onDone)]() mutable
+                {
+                    bool success = loadSSLCertForDomain(domain);
+                    std::cout << "getSSLCert done " << domain << " success=" << success << std::endl;
+                    onDone(success);
+                })
+        .detach();
+}
+
+bool Origin::loadSSLCertForDomain(const std::string &domain)
+{
+    CassStatement *statement = cass_statement_new("SELECT * FROM edgeon.ssl WHERE domain = ?;", 1);
+    cass_statement_bind_string(statement, 0, domain.c_str());
 
     CassFuture *future = cass_session_execute(Main::cas->session, statement);
-
     cass_statement_free(statement);
 
-    cass_future_set_callback(future, onSSLCertFutureReady, ctx);
-}
+    if (!future)
+        return false;
 
-void Origin::finishSSLCert(SSLCertAsyncContext *ctx, bool success, CassIterator *iterator, const CassResult *result)
-{
-    if (iterator)
-        cass_iterator_free(iterator);
-    if (result)
-        cass_result_free(result);
-
-    ctx->onDone(success);
-    delete ctx;
-}
-
-void Origin::onSSLCertFutureReady(CassFuture *future, void *data)
-{
-    std::unique_ptr<SSLCertAsyncContext> ownedCtx(static_cast<SSLCertAsyncContext *>(data));
-    SSLCertAsyncContext *ctx = ownedCtx.release();
+    cass_future_wait(future);
 
     if (cass_future_error_code(future) != CASS_OK)
     {
+        const char *message;
+        size_t message_length;
+        cass_future_error_message(future, &message, &message_length);
+        std::cerr << "getSSLCert query failed for " << domain << ": "
+                  << std::string(message, message_length) << std::endl;
         cass_future_free(future);
-        finishSSLCert(ctx, false);
-        return;
+        return false;
     }
 
     const CassResult *result = cass_future_get_result(future);
     CassIterator *iterator = cass_iterator_from_result(result);
 
+    bool loaded = false;
+
     while (cass_iterator_next(iterator))
     {
         const CassRow *row = cass_iterator_get_row(iterator);
-
-        const CassValue *domainVal = cass_row_get_column_by_name(row, "domain");
-        const char *domain;
-        size_t domainLen;
-        cass_value_get_string(domainVal, &domain, &domainLen);
 
         const CassValue *certVal = cass_row_get_column_by_name(row, "certificate");
         const char *certificate;
@@ -418,48 +418,26 @@ void Origin::onSSLCertFutureReady(CassFuture *future, void *data)
         cass_int32_t v;
         cass_value_get_int32(versionVal, &v);
 
-        if (v <= Main::ssl->getCurrentVersion())
-        {
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
-        }
-
-        Main::ssl->setVersion(v);
+        if (v > Main::ssl->getCurrentVersion())
+            Main::ssl->setVersion(v);
 
         std::string secretKey = Main::dotenv->map["ssl_private_key"];
         std::string decryptedText = Aes::decryptWithKey(std::string(privateKey, privateKeyLen), secretKey);
 
         if (decryptedText.empty())
-        {
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
-        }
+            break;
 
         std::vector<unsigned char> rawPrivateKey = Aes::base64_decode(decryptedText);
         if (rawPrivateKey.empty())
-        {
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
-        }
+            break;
 
         Kyber::KyberPayload payload = Kyber::parseKyberPayload(std::string(privCert, privCertLen));
         if (!payload.success)
-        {
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
-        }
+            break;
 
         std::vector<unsigned char> finalSharedSecret = Kyber::kyberDecrypt(payload.kyberCiphertext, rawPrivateKey);
         if (finalSharedSecret.empty())
-        {
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
-        }
+            break;
 
         std::string sharedSecretStr(finalSharedSecret.begin(), finalSharedSecret.end());
 
@@ -470,78 +448,62 @@ void Origin::onSSLCertFutureReady(CassFuture *future, void *data)
             sharedSecretStr);
 
         if (tlsPrivateKeyRaw.empty())
-        {
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
-        }
+            break;
 
-        std::string tlsPrivateKeyPem(tlsPrivateKeyRaw.begin(), tlsPrivateKeyRaw.end());
+        if (Gen::zones[domain].ctx)
+            SSL_CTX_free(Gen::zones[domain].ctx);
 
-        const std::string &zoneDomain = ctx->domain;
-
-        if (Gen::zones[zoneDomain].ctx)
-            Gen::zones[zoneDomain].ctx = nullptr;
-
-        Gen::zones[zoneDomain].domain = zoneDomain;
-        Gen::zones[zoneDomain].ctx = SSL_CTX_new(TLS_server_method());
+        Gen::zones[domain].domain = domain;
+        Gen::zones[domain].ctx = SSL_CTX_new(TLS_server_method());
 
         BIO *cert_bio = BIO_new_mem_buf(certificate, static_cast<int>(certLen));
         X509 *cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr);
-        if (!cert || SSL_CTX_use_certificate(Gen::zones[zoneDomain].ctx, cert) <= 0)
+        if (!cert || SSL_CTX_use_certificate(Gen::zones[domain].ctx, cert) <= 0)
         {
             if (cert)
                 X509_free(cert);
             BIO_free(cert_bio);
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
+            break;
         }
         X509_free(cert);
 
         X509 *extra_cert = nullptr;
         while ((extra_cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr)) != nullptr)
         {
-            SSL_CTX_add1_chain_cert(Gen::zones[zoneDomain].ctx, extra_cert);
+            SSL_CTX_add1_chain_cert(Gen::zones[domain].ctx, extra_cert);
             X509_free(extra_cert);
         }
         BIO_free(cert_bio);
 
         BIO *key_bio = BIO_new_mem_buf(tlsPrivateKeyRaw.data(), static_cast<int>(tlsPrivateKeyRaw.size()));
         if (!key_bio)
-        {
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
-        }
+            break;
 
         EVP_PKEY *pkey = PEM_read_bio_PrivateKey(key_bio, nullptr, nullptr, nullptr);
         BIO_free(key_bio);
 
         if (!pkey)
-        {
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
-        }
+            break;
 
-        if (SSL_CTX_use_PrivateKey(Gen::zones[zoneDomain].ctx, pkey) <= 0)
+        if (SSL_CTX_use_PrivateKey(Gen::zones[domain].ctx, pkey) <= 0)
         {
             EVP_PKEY_free(pkey);
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
+            break;
         }
         EVP_PKEY_free(pkey);
 
-        if (!SSL_CTX_check_private_key(Gen::zones[zoneDomain].ctx))
-        {
-            cass_future_free(future);
-            finishSSLCert(ctx, false, iterator, result);
-            return;
-        }
+        if (!SSL_CTX_check_private_key(Gen::zones[domain].ctx))
+            break;
+
+        loaded = true;
     }
 
+    cass_iterator_free(iterator);
+    cass_result_free(result);
     cass_future_free(future);
-    finishSSLCert(ctx, true, iterator, result);
+
+    if (!loaded)
+        std::cerr << "getSSLCert: no certificate row for " << domain << std::endl;
+
+    return loaded;
 }
