@@ -22,10 +22,6 @@ SSL_CTX *Ssl::initSSL()
 int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg)
 {
     auto *connDbg = static_cast<Gen::Connection *>(SSL_get_app_data(ssl));
-    std::cout << "[HELLO_CB] ssl=" << (void *)ssl
-              << " fd=" << (connDbg ? connDbg->fd : -1)
-              << std::endl;
-
     int *force_flag = (int *)SSL_get_app_data(ssl);
 
     if (force_flag && *force_flag == 1)
@@ -69,7 +65,6 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
     auto it = Gen::zones.find(rootDomain);
     if (it != Gen::zones.end() && it->second.ctx != nullptr)
     {
-        std::cout << "SSL TAKED FOR " << domain.c_str() << std::endl;
         SSL_set_SSL_CTX(ssl, it->second.ctx);
         return SSL_CLIENT_HELLO_SUCCESS;
     }
@@ -88,8 +83,6 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
 
     int threadId = conn->thread;
     int fd = conn->fd;
-
-    std::cout << "SSL PENDING FOR " << rootDomain << std::endl;
 
     Origin::getSSLCert(rootDomain.c_str(), [threadId, fd](bool success)
                        { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });

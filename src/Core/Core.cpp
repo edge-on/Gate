@@ -79,8 +79,6 @@ void Core::worker(int thread)
 
         if (res < 0)
         {
-            std::cout << "I AM WORKING FOR " << res << std::endl;
-
             if (opType == Gen::STATE_CONNECT_RESOLVER || opType == Gen::STATE_WRITE_RESOLVER || opType == Gen::STATE_READ_RESOLVER)
             {
                 Gen::Connection &conn = Gen::activeThreads[thread].connections[fd];
@@ -223,8 +221,6 @@ void Core::worker(int thread)
 
         if (opType == Gen::STATE_TLS_WAKEUP)
         {
-            std::cout << "wake up" << std::endl;
-
             auto items = Gen::activeThreads[thread].wakeup.drain();
 
             for (auto &item : items)
@@ -238,7 +234,7 @@ void Core::worker(int thread)
 
                 auto &conn = it->second;
 
-                conn.lastOpType = Gen::STATE_TLS_WAKEUP;
+                conn.lastOpType = Gen::STATE_TLS_CONNECTING;
 
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
                 int r = SSL_accept(ssl.ssl);
@@ -272,8 +268,9 @@ void Core::worker(int thread)
                 {
                     int err = SSL_get_error(ssl.ssl, r);
 
-                    if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
+                    if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB) {
                         continue;
+                    }
 
                     if (err == SSL_ERROR_WANT_READ)
                         pipeline->queueTlsConnecting(conn);
@@ -294,11 +291,10 @@ void Core::worker(int thread)
                 if (!conn.writeQueue.empty() && !conn.isWritingClient)
                 {
                     conn.isWritingClient = true;
-
                     pipeline->queueWriteClient(conn);
                 }
 
-                while (true)
+                while (true && ssl.handshakeDone)
                 {
                     std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
 
@@ -343,7 +339,7 @@ void Core::worker(int thread)
                     }
                 }
 
-                if (conn.writeOriginQueue.size() > 0)
+                if (conn.writeOriginQueue.size() > 0 && ssl.handshakeDone)
                 {
                     if (conn.resolverFd == -1)
                     {
@@ -386,7 +382,7 @@ void Core::worker(int thread)
             }
 
             io_uring_submit(ring);
-            break;
+            continue;
         }
 
         auto it = Gen::activeThreads[thread].connections.find(fd);
@@ -406,14 +402,7 @@ void Core::worker(int thread)
         case Gen::STATE_TLS_CONNECTING:
         {
             auto &sslDbg = Gen::activeThreads[thread].ssl[conn.fd];
-            std::cout << "[TLS_CONNECTING] fd=" << conn.fd
-                      << " ssl=" << (void *)sslDbg.ssl
-                      << " handshakeDone=" << sslDbg.handshakeDone
-                      << " res=" << res << std::endl;
-
             conn.isReadingClient = false;
-
-            std::cout << "RES: " << res << " FD: " << conn.fd << std::endl;
 
             if (res == 0)
             {
@@ -428,7 +417,6 @@ void Core::worker(int thread)
             auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
 
             int written = BIO_write(ssl.rbio, conn.in_raw_buffer, res);
-            std::cout << "Written: " << written << " - Res: " << res << " FD: " << conn.fd << std::endl;
             int r = SSL_accept(ssl.ssl);
             if (r > 0)
             {
@@ -587,7 +575,6 @@ void Core::worker(int thread)
 
             if (res == 0)
             {
-                std::cout << "READ_CLIENT - " << res << std::endl;
                 if (Gen::activeThreads[thread].activeConnections > 0)
                     Gen::activeThreads[thread].activeConnections--;
 
