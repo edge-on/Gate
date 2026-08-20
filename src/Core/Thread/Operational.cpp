@@ -21,6 +21,21 @@ void Thread::Operational::operationalWorker(int thread)
         for (const auto &[threadId, threadObj] : Gen::activeThreads)
         {
             rpsCount += threadObj.connections.size();
+
+            int a = 0;
+            int c = 0;
+            for (auto &ba : threadObj.connections)
+            {
+                if (ba.second.type == Gen::TYPE_CLIENT)
+                    a++;
+
+                if (ba.second.type == Gen::TYPE_ORIGIN)
+                    c++;
+            }
+
+            std::cout << "Type CLIENT: " << a << std::endl;
+            std::cout << "Type ORIGIN: " << c << std::endl;
+
             acCount += threadObj.activeConnections;
         }
 

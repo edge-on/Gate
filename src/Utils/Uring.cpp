@@ -40,6 +40,9 @@ void Utils::Uring::closeConn(int thread, Gen::Connection &conn)
         Gen::activeThreads[thread].ssl.erase(sslIt);
     }
 
+    if (conn.type == Gen::TYPE_CLIENT && Gen::activeThreads[thread].activeConnections > 0)
+        Gen::activeThreads[thread].activeConnections--;
+
     int fd = conn.fd;
     close(fd);
     Gen::activeThreads[thread].connections.erase(fd);
