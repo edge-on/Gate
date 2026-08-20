@@ -268,7 +268,8 @@ void Core::worker(int thread)
                 {
                     int err = SSL_get_error(ssl.ssl, r);
 
-                    if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB) {
+                    if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
+                    {
                         continue;
                     }
 
@@ -579,6 +580,10 @@ void Core::worker(int thread)
                     Gen::activeThreads[thread].activeConnections--;
 
                 Utils::Uring::closeConn(thread, conn);
+
+                if (conn.peerFd != -1)
+                    Utils::Uring::closeConn(thread, Gen::activeThreads[thread].connections[conn.peerFd]);
+
                 io_uring_submit(ring);
                 break;
             }
@@ -896,6 +901,9 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_RESOLVER:
         {
+            if (res == 0 && conn.resolverFd != -1)
+                close(conn.resolverFd);
+
             char qname[256];
             DNSClient::formatName(qname, conn.host);
             int qlen = strlen((char *)qname) + 1;
