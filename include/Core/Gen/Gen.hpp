@@ -140,6 +140,7 @@ public:
         bool isConnectedOrigin = false;
 
         bool isBlocked = false;
+        bool pendingClose = false;
 
         char in_raw_buffer[BUFFER_SIZE];
         char in_plain_buffer[BUFFER_SIZE];

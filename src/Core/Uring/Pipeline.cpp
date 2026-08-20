@@ -159,6 +159,8 @@ void Pipeline::queueReadResolver(Gen::Connection &conn)
 
 void Pipeline::writePage(Gen::Connection &conn, std::string p)
 {
+    conn.pendingClose = true;
+
     std::string page = Pages::getPage("pages/" + p + ".html");
 
     std::string req =

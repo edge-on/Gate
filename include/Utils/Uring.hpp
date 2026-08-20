@@ -16,5 +16,6 @@ namespace Utils
 
         static void makeNonBlocking(int fd);
         static void closeConn(int thread, Gen::Connection &conn);
+        static void closeConnectionFull(int thread, int fd);
     };
 } // namespace Utils

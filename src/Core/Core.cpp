@@ -262,11 +262,14 @@ void Core::worker(int thread)
 
                     if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
                     {
+                        pipeline->queueTlsConnecting(conn);
                         continue;
                     }
 
                     if (err == SSL_ERROR_WANT_READ)
                         pipeline->queueTlsConnecting(conn);
+                    else
+                        Utils::Uring::closeConnectionFull(thread, conn.fd);
                 }
 
                 while (BIO_pending(ssl.wbio) > 0)
@@ -327,6 +330,10 @@ void Core::worker(int thread)
                         {
                             pipeline->queueReadClient(conn);
                         }
+                        else
+                        {
+                            Utils::Uring::closeConnectionFull(thread, conn.fd);
+                        }
 
                         break;
                     }
@@ -372,6 +379,10 @@ void Core::worker(int thread)
                     conn.lastOpType = Gen::STATE_TLS_CONNECTING;
                     break;
                 }
+                else if (ssl.handshakeDone)
+                {
+                    pipeline->queueReadClient(conn);
+                }
             }
 
             io_uring_submit(ring);
@@ -399,7 +410,7 @@ void Core::worker(int thread)
 
             if (res == 0)
             {
-                Utils::Uring::closeConn(thread, conn);
+                Utils::Uring::closeConnectionFull(thread, conn.fd);
                 io_uring_submit(ring);
                 break;
             }
@@ -440,12 +451,15 @@ void Core::worker(int thread)
 
                 if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
                 {
+                    pipeline->queueTlsConnecting(conn);
                     io_uring_submit(ring);
                     break;
                 }
 
                 if (err == SSL_ERROR_WANT_READ)
                     pipeline->queueTlsConnecting(conn);
+                else
+                    Utils::Uring::closeConnectionFull(thread, conn.fd);
             }
 
             while (BIO_pending(ssl.wbio) > 0)
@@ -507,6 +521,10 @@ void Core::worker(int thread)
                     {
                         pipeline->queueReadClient(conn);
                     }
+                    else
+                    {
+                        Utils::Uring::closeConnectionFull(thread, conn.fd);
+                    }
 
                     break;
                 }
@@ -553,6 +571,9 @@ void Core::worker(int thread)
                 break;
             }
 
+            if (ssl.handshakeDone)
+                pipeline->queueReadClient(conn);
+
             io_uring_submit(ring);
 
             conn.lastOpType = Gen::STATE_TLS_CONNECTING;
@@ -565,11 +586,7 @@ void Core::worker(int thread)
 
             if (res == 0)
             {
-                Utils::Uring::closeConn(thread, conn);
-
-                if (conn.peerFd != -1)
-                    Utils::Uring::closeConn(thread, Gen::activeThreads[thread].connections[conn.peerFd]);
-
+                Utils::Uring::closeConnectionFull(thread, conn.fd);
                 io_uring_submit(ring);
                 break;
             }
@@ -623,6 +640,10 @@ void Core::worker(int thread)
                         {
                             pipeline->queueReadClient(conn);
                         }
+                        else
+                        {
+                            Utils::Uring::closeConnectionFull(thread, conn.fd);
+                        }
 
                         break;
                     }
@@ -658,6 +679,7 @@ void Core::worker(int thread)
                     chunk.second = static_cast<int>(permanentlyMoved.size());
 
                     conn.writeQueue.push_back(std::move(chunk));
+                    conn.pendingClose = true;
 
                     pipeline->queueWriteClient(conn);
                     io_uring_submit(ring);
@@ -739,6 +761,14 @@ void Core::worker(int thread)
             conn.isWritingClient = false;
             conn.writeOffset = 0;
 
+            if (conn.pendingClose)
+            {
+                Utils::Uring::closeConnectionFull(thread, fd);
+                io_uring_submit(ring);
+                break;
+            }
+
+            pipeline->queueReadClient(conn);
             io_uring_submit(ring);
             conn.lastOpType = Gen::STATE_WRITE_CLIENT;
             break;
@@ -805,7 +835,28 @@ void Core::worker(int thread)
 
             if (res == 0)
             {
-                Utils::Uring::closeConn(thread, Gen::activeThreads[thread].connections[conn.peerFd]);
+                if (conn.peerFd != -1)
+                {
+                    auto originIt = Gen::activeThreads[thread].connections.find(conn.peerFd);
+                    if (originIt != Gen::activeThreads[thread].connections.end())
+                        Utils::Uring::closeConn(thread, originIt->second);
+                    conn.peerFd = -1;
+                }
+
+                if (!conn.writeQueue.empty())
+                {
+                    conn.pendingClose = true;
+                    if (!conn.isWritingClient)
+                    {
+                        conn.isWritingClient = true;
+                        pipeline->queueWriteClient(conn);
+                    }
+                }
+                else
+                {
+                    Utils::Uring::closeConn(thread, conn);
+                }
+
                 io_uring_submit(ring);
                 break;
             }
@@ -1015,6 +1066,12 @@ void Core::worker(int thread)
                 peerConn.type = Gen::TYPE_ORIGIN;
                 peerConn.originAddr = originAddr;
                 conn.peerFd = peerFd;
+
+                if (conn.resolverFd != -1)
+                {
+                    close(conn.resolverFd);
+                    conn.resolverFd = -1;
+                }
 
                 Gen::activeThreads[thread].connections.emplace(peerFd, std::move(peerConn));
 

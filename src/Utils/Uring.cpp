@@ -31,7 +31,6 @@ void Utils::Uring::makeNonBlocking(int fd)
 
 void Utils::Uring::closeConn(int thread, Gen::Connection &conn)
 {
-    std::cout << "[CLOSE] fd=" << conn.fd << " thread=" << thread << std::endl;
     auto sslIt = Gen::activeThreads[thread].ssl.find(conn.fd);
     if (sslIt != Gen::activeThreads[thread].ssl.end())
     {
@@ -46,4 +45,38 @@ void Utils::Uring::closeConn(int thread, Gen::Connection &conn)
     int fd = conn.fd;
     close(fd);
     Gen::activeThreads[thread].connections.erase(fd);
+}
+
+void Utils::Uring::closeConnectionFull(int thread, int fd)
+{
+    auto it = Gen::activeThreads[thread].connections.find(fd);
+    if (it == Gen::activeThreads[thread].connections.end())
+        return;
+
+    Gen::Connection &conn = it->second;
+    int peerFd = conn.peerFd;
+
+    if (conn.resolverFd != -1)
+    {
+        close(conn.resolverFd);
+        conn.resolverFd = -1;
+    }
+
+    if (peerFd != -1)
+    {
+        auto peerIt = Gen::activeThreads[thread].connections.find(peerFd);
+        if (peerIt != Gen::activeThreads[thread].connections.end())
+        {
+            if (peerIt->second.resolverFd != -1)
+            {
+                close(peerIt->second.resolverFd);
+                peerIt->second.resolverFd = -1;
+            }
+            peerIt->second.peerFd = -1;
+            closeConn(thread, peerIt->second);
+        }
+        conn.peerFd = -1;
+    }
+
+    closeConn(thread, conn);
 }

@@ -50,7 +50,7 @@ int Proxy::createOriginSocket(char *ip, int port, sockaddr_in &outAddr)
 int Proxy::createResolverSocket()
 {
     int sockFd = socket(AF_INET, SOCK_DGRAM, 0);
-    if(sockFd < 0)
+    if (sockFd < 0)
         return -1;
 
     Utils::Uring::makeNonBlocking(sockFd);
