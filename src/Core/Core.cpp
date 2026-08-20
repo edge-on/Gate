@@ -16,6 +16,9 @@ void Core::start()
 {
     ctx = Ssl::initSSL();
 
+    Gen::zones["localhost"].ctx = ctx;
+    Gen::zones["localhost"].domain = "domain";
+
     int threadCount = std::stoi(Main::dotenv->map["concurrency"]) + 1;
 
     for (int i = 0; i < threadCount; ++i)
@@ -264,6 +267,13 @@ void Core::worker(int thread)
                 {
                     int err = SSL_get_error(ssl.ssl, r);
 
+                    if (err == SSL_ERROR_SYSCALL || err == SSL_ERROR_SSL || err == SSL_ERROR_ZERO_RETURN)
+                    {
+                        Utils::Uring::closeConn(thread, conn);
+                        io_uring_submit(ring);
+                        continue;
+                    }
+
                     if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
                     {
                         pipeline->queueTlsConnecting(conn);
@@ -274,6 +284,13 @@ void Core::worker(int thread)
                         pipeline->queueTlsConnecting(conn);
                     else
                         Utils::Uring::closeConnectionFull(thread, conn.fd);
+                }
+
+                if (!ssl.wbio || !ssl.rbio || !ssl.ssl)
+                {
+                    Utils::Uring::closeConn(thread, conn);
+                    io_uring_submit(ring);
+                    continue;
                 }
 
                 while (BIO_pending(ssl.wbio) > 0)
@@ -361,7 +378,7 @@ void Core::worker(int thread)
                             }
                             io_uring_submit(ring);
 
-                            break;
+                            continue;
                         }
 
                         conn.resolverFd = resolverFd;
@@ -370,7 +387,7 @@ void Core::worker(int thread)
                         pipeline->queueConnectResolver(conn);
                         io_uring_submit(ring);
                         conn.lastOpType = Gen::STATE_TLS_CONNECTING;
-                        break;
+                        continue;
                     }
 
                     if (!conn.isWritingOrigin && conn.writeOriginQueue.size() > 0)
@@ -381,7 +398,7 @@ void Core::worker(int thread)
 
                     io_uring_submit(ring);
                     conn.lastOpType = Gen::STATE_TLS_CONNECTING;
-                    break;
+                    continue;
                 }
                 else if (ssl.handshakeDone)
                 {
@@ -453,6 +470,13 @@ void Core::worker(int thread)
             {
                 int err = SSL_get_error(ssl.ssl, r);
 
+                if (err == SSL_ERROR_SYSCALL || err == SSL_ERROR_SSL || err == SSL_ERROR_ZERO_RETURN)
+                {
+                    Utils::Uring::closeConn(thread, conn);
+                    io_uring_submit(ring);
+                    continue;
+                }
+
                 if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
                 {
                     pipeline->queueTlsConnecting(conn);
@@ -466,7 +490,14 @@ void Core::worker(int thread)
                     Utils::Uring::closeConnectionFull(thread, conn.fd);
             }
 
-            while (ssl.wbio && BIO_pending(ssl.wbio) > 0)
+            if (!ssl.wbio || !ssl.rbio || !ssl.ssl)
+            {
+                Utils::Uring::closeConn(thread, conn);
+                io_uring_submit(ring);
+                continue;
+            }
+
+            while (BIO_pending(ssl.wbio) > 0)
             {
                 std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
                 int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
