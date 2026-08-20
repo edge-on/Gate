@@ -356,8 +356,7 @@ void Origin::getSSLCert(const char *domain, std::function<void(bool)> onDone)
     std::thread([domain = std::string(domain), onDone = std::move(onDone)]() mutable
                 {
                     bool success = loadSSLCertForDomain(domain);
-                    onDone(success);
-                })
+                    onDone(success); })
         .detach();
 }
 
@@ -379,8 +378,6 @@ bool Origin::loadSSLCertForDomain(const std::string &domain)
         const char *message;
         size_t message_length;
         cass_future_error_message(future, &message, &message_length);
-        std::cerr << "getSSLCert query failed for " << domain << ": "
-                  << std::string(message, message_length) << std::endl;
         cass_future_free(future);
         return false;
     }
@@ -448,6 +445,14 @@ bool Origin::loadSSLCertForDomain(const std::string &domain)
         if (Gen::zones[domain].ctx)
             SSL_CTX_free(Gen::zones[domain].ctx);
 
+        OSSL_PROVIDER *defprov = OSSL_PROVIDER_load(NULL, "default");
+        OSSL_PROVIDER *oqsprov = OSSL_PROVIDER_load(NULL, "oqsprovider");
+
+        if (!oqsprov)
+        {
+            std::cout << "OQS PROVIDER CANNOT BE LOADED" << std::endl;
+        }
+
         Gen::zones[domain].domain = domain;
         Gen::zones[domain].ctx = SSL_CTX_new(TLS_server_method());
 
@@ -490,15 +495,18 @@ bool Origin::loadSSLCertForDomain(const std::string &domain)
         if (!SSL_CTX_check_private_key(Gen::zones[domain].ctx))
             break;
 
+        SSL_CTX_set_cipher_list(Gen::zones[domain].ctx, "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305");
+        if (SSL_CTX_set1_groups_list(Gen::zones[domain].ctx, "X25519MLKEM768:SecP256r1MLKEM768:x25519:P-256") != 1)
+        {
+            std::cout << "FAILED TO SET PQC GROUPS" << std::endl;
+        }
+
         loaded = true;
     }
 
     cass_iterator_free(iterator);
     cass_result_free(result);
     cass_future_free(future);
-
-    if (!loaded)
-        std::cerr << "getSSLCert: no certificate row for " << domain << std::endl;
 
     return loaded;
 }
