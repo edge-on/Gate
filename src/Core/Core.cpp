@@ -896,6 +896,24 @@ void Core::worker(int thread)
                 break;
             }
 
+            char *header_end = (char *)memmem(conn.out_plain_buffer, res, "\r\n\r\n", 4);
+            if (header_end != NULL)
+            {
+                if (Utils::Http::getHeader(conn.out_plain_buffer, res, "location:") != "undefined")
+                {
+                    const char *hsts_header = "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n";
+
+                    size_t hsts_len = strlen(hsts_header);
+                    size_t header_bytes = header_end - conn.out_plain_buffer;
+                    size_t body_bytes = res - header_bytes;
+
+                    memmove(header_end + hsts_len, header_end, body_bytes);
+                    memcpy(header_end, hsts_header, hsts_len);
+
+                    res += hsts_len;
+                }
+            }
+
             if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
             {
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];

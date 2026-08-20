@@ -12,6 +12,8 @@ SSL_CTX *Ssl::initSSL()
     SSL_CTX_use_certificate_chain_file(ctx, "SSL/localhost.pem");
     SSL_CTX_use_PrivateKey_file(ctx, "SSL/localhost-key.pem", SSL_FILETYPE_PEM);
 
+    SSL_CTX_set_cipher_list(ctx, "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305");
+
     SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
     SSL_CTX_set_client_hello_cb(ctx, Ssl::client_hello_cb, nullptr);
