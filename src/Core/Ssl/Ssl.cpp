@@ -8,6 +8,14 @@ SSL_CTX *Ssl::initSSL()
     OpenSSL_add_ssl_algorithms();
     SSL_load_error_strings();
 
+    OSSL_PROVIDER *defprov = OSSL_PROVIDER_load(NULL, "default");
+    OSSL_PROVIDER *oqsprov = OSSL_PROVIDER_load(NULL, "oqsprovider");
+
+    if (!oqsprov)
+    {
+        std::cout << "OQS PROVIDER CANNOT BE LOADED" << std::endl;
+    }
+
     ctx = SSL_CTX_new(TLS_server_method());
     SSL_CTX_use_certificate_chain_file(ctx, "SSL/localhost.pem");
     SSL_CTX_use_PrivateKey_file(ctx, "SSL/localhost-key.pem", SSL_FILETYPE_PEM);
@@ -70,7 +78,7 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
     std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
     const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
     std::string rootDomain(root, domain.c_str() + domain.size() - root);
-    
+
     auto it = Gen::zones.find(rootDomain);
     if (it != Gen::zones.end() && it->second.ctx != nullptr)
     {

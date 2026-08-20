@@ -5,10 +5,13 @@
 #include <openssl/sha.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
+#include <openssl/provider.h>
 
 #include <thread>
 #include <future>
 #include <chrono>
+
+#include <iostream>
 
 #include <string>
 
