@@ -83,7 +83,11 @@ void Core::worker(int thread)
             {
                 Gen::Connection &conn = Gen::activeThreads[thread].connections[fd];
                 close(conn.resolverFd);
-                pipeline->writePage(conn, "502");
+
+                if (conn.missingSni)
+                    pipeline->writePage(conn, "sni");
+                else
+                    pipeline->writePage(conn, "502");
 
                 if (!conn.isWritingClient)
                 {

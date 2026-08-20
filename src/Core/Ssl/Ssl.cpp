@@ -42,13 +42,20 @@ int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, con
 
 int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
 {
+    auto *conn = static_cast<Gen::Connection *>(SSL_get_app_data(ssl));
+    if (!conn)
+    {
+        *al = SSL_AD_INTERNAL_ERROR;
+        return SSL_CLIENT_HELLO_ERROR;
+    }
+
     const unsigned char *extData = nullptr;
     size_t extLen = 0;
 
     if (!SSL_client_hello_get0_ext(ssl, TLSEXT_TYPE_server_name, &extData, &extLen) || extLen < 5)
     {
-        *al = SSL_AD_UNRECOGNIZED_NAME;
-        return SSL_CLIENT_HELLO_ERROR;
+        conn->missingSni = true;
+        return SSL_CLIENT_HELLO_SUCCESS;
     }
 
     size_t nameLen = (static_cast<size_t>(extData[3]) << 8) | extData[4];
@@ -61,19 +68,12 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
     std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
     const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
     std::string rootDomain(root, domain.c_str() + domain.size() - root);
-
+    
     auto it = Gen::zones.find(rootDomain);
     if (it != Gen::zones.end() && it->second.ctx != nullptr)
     {
         SSL_set_SSL_CTX(ssl, it->second.ctx);
         return SSL_CLIENT_HELLO_SUCCESS;
-    }
-
-    auto *conn = static_cast<Gen::Connection *>(SSL_get_app_data(ssl));
-    if (!conn)
-    {
-        *al = SSL_AD_INTERNAL_ERROR;
-        return SSL_CLIENT_HELLO_ERROR;
     }
 
     if (conn->protocolState == Gen::TCP_PENDING_SSL)
