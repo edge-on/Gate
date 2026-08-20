@@ -164,7 +164,7 @@ void Pipeline::writePage(Gen::Connection &conn, std::string p)
     std::string page = Pages::getPage("pages/" + p + ".html");
 
     std::string req =
-        "HTTP/1.1 502 Bad Gateway\r\n"
+        "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html; charset=UTF-8\r\n"
         "Content-Length: " +
         std::to_string(page.size()) + "\r\n"
