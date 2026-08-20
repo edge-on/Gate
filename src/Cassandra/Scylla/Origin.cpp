@@ -74,8 +74,6 @@ bool Origin::getSSLCerts()
             std::string secretKey = Main::dotenv->map["ssl_private_key"];
             std::string decryptedText = Aes::decryptWithKey(std::string(privateKey, privateKeyLen), secretKey);
 
-            std::cout << "I TAKE SSL FOR " << domain << std::endl;
-
             if (decryptedText.empty())
             {
                 cass_iterator_free(iterator);
@@ -355,12 +353,9 @@ bool Origin::getNewVersions()
 
 void Origin::getSSLCert(const char *domain, std::function<void(bool)> onDone)
 {
-    std::cout << "getSSLCert " << domain << std::endl;
-
     std::thread([domain = std::string(domain), onDone = std::move(onDone)]() mutable
                 {
                     bool success = loadSSLCertForDomain(domain);
-                    std::cout << "getSSLCert done " << domain << " success=" << success << std::endl;
                     onDone(success);
                 })
         .detach();

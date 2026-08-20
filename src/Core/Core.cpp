@@ -466,7 +466,7 @@ void Core::worker(int thread)
                     Utils::Uring::closeConnectionFull(thread, conn.fd);
             }
 
-            while (BIO_pending(ssl.wbio) > 0)
+            while (ssl.wbio && BIO_pending(ssl.wbio) > 0)
             {
                 std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
                 int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
@@ -1050,7 +1050,7 @@ void Core::worker(int thread)
 
             if (conn.peerFd == -1)
             {
-                std::string ip = "13.140.157.112"; // DNSClient::getRandomIP(ips);
+                std::string ip = DNSClient::getRandomIP(ips);
 
                 sockaddr_in originAddr{};
                 int peerFd = -1;
