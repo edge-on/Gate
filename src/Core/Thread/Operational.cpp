@@ -12,34 +12,55 @@ void Thread::Operational::operationalWorker(int thread)
         {
             seconds = 0;
 
-            std::vector<std::string> buckets(1000);
-            std::hash<std::string> hasher;
+            uint64_t minute_timestamp = std::chrono::duration_cast<std::chrono::minutes>(std::chrono::system_clock::now().time_since_epoch()).count() * 60;
+
+            redisAppendCommand(Main::redis, "MULTI");
+            size_t active_commands = 0;
 
             for (auto &[domain, metrics] : Gen::zones)
             {
-                size_t bucket = hasher(domain) % 1000;
-                std::string &b_stream = buckets[bucket];
+                if (metrics.inbound == 0 && metrics.outbound == 0 && metrics.dnsQueries == 0)
+                    continue;
 
                 if (metrics.inbound > 0)
-                    b_stream.append("HINCRBY d_bucket:").append(std::to_string(bucket)).append(" i_").append(domain).append(" ").append(std::to_string(metrics.inbound)).append("\r\n");
+                {
+                    redisAppendCommand(Main::redis, "HINCRBY metrics:domain:%s i:%llu %llu",
+                                       domain.c_str(), minute_timestamp, metrics.inbound);
+                    metrics.inbound = 0;
+                    active_commands++;
+                }
 
                 if (metrics.outbound > 0)
-                    b_stream.append("HINCRBY d_bucket:").append(std::to_string(bucket)).append(" o_").append(domain).append(" ").append(std::to_string(metrics.outbound)).append("\r\n");
+                {
+                    redisAppendCommand(Main::redis, "HINCRBY metrics:domain:%s o:%llu %llu",
+                                       domain.c_str(), minute_timestamp, metrics.outbound);
+                    metrics.outbound = 0;
+                    active_commands++;
+                }
 
                 if (metrics.dnsQueries > 0)
-                    b_stream.append("HINCRBY d_bucket:").append(std::to_string(bucket)).append(" dq_").append(domain).append(" ").append(std::to_string(metrics.dnsQueries)).append("\r\n");
+                {
+                    redisAppendCommand(Main::redis, "HINCRBY metrics:domain:%s dq:%llu %llu",
+                                       domain.c_str(), minute_timestamp, metrics.dnsQueries);
+                    metrics.dnsQueries = 0;
+                    active_commands++;
+                }
 
-                metrics.inbound = 0;
-                metrics.outbound = 0;
-                metrics.dnsQueries = 0;
+                active_commands++;
             }
 
-            for (auto bucket : buckets)
+            if (active_commands > 0)
             {
-                redisReply *reply = (redisReply *)redisCommand(Main::redis, bucket.data());
-                if (reply != NULL)
+                redisAppendCommand(Main::redis, "EXEC");
+
+                size_t total_responses = active_commands + 2;
+                for (size_t i = 0; i < total_responses; ++i)
                 {
-                    freeReplyObject(reply);
+                    redisReply *reply = nullptr;
+                    if (redisGetReply(Main::redis, (void **)&reply) == REDIS_OK && reply != nullptr)
+                    {
+                        freeReplyObject(reply);
+                    }
                 }
             }
 
