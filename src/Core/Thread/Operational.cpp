@@ -12,68 +12,6 @@ void Thread::Operational::operationalWorker(int thread)
         {
             seconds = 0;
 
-            uint64_t minute_timestamp = std::chrono::duration_cast<std::chrono::minutes>(
-                                            std::chrono::system_clock::now().time_since_epoch())
-                                            .count() *
-                                        60;
-
-            redisAppendCommand(Main::redis, "MULTI");
-            size_t active_commands = 0;
-
-            for (auto &[domain, metrics] : Gen::zones)
-            {
-                unsigned long long inbound = metrics.inbound.exchange(0);
-                unsigned long long outbound = metrics.outbound.exchange(0);
-                unsigned long long dnsQueries = metrics.dnsQueries.exchange(0);
-
-                if (inbound == 0 && outbound == 0 && dnsQueries == 0)
-                    continue;
-
-                if (inbound > 0)
-                {
-                    redisAppendCommand(Main::redis, "HINCRBY metrics:domain:%s i:%llu %llu",
-                                       domain.c_str(),
-                                       (unsigned long long)minute_timestamp,
-                                       inbound);
-                    active_commands++;
-                }
-
-                if (outbound > 0)
-                {
-                    redisAppendCommand(Main::redis, "HINCRBY metrics:domain:%s o:%llu %llu",
-                                       domain.c_str(),
-                                       (unsigned long long)minute_timestamp,
-                                       outbound);
-                    active_commands++;
-                }
-
-                if (dnsQueries > 0)
-                {
-                    redisAppendCommand(Main::redis, "HINCRBY metrics:domain:%s dq:%llu %llu",
-                                       domain.c_str(),
-                                       (unsigned long long)minute_timestamp,
-                                       dnsQueries);
-                    active_commands++;
-                }
-
-                active_commands++;
-            }
-
-            if (active_commands > 0)
-            {
-                redisAppendCommand(Main::redis, "EXEC");
-
-                size_t total_responses = active_commands + 2;
-                for (size_t i = 0; i < total_responses; ++i)
-                {
-                    redisReply *reply = nullptr;
-                    if (redisGetReply(Main::redis, (void **)&reply) == REDIS_OK && reply != nullptr)
-                    {
-                        freeReplyObject(reply);
-                    }
-                }
-            }
-
             Origin::getNewVersions();
         }
 
