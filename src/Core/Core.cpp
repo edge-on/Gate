@@ -1118,8 +1118,6 @@ void Core::worker(int thread)
                 Gen::zones[conn.domain].dnsQueries++;
             }
 
-            close(conn.resolverFd);
-
             if (conn.peerFd == -1)
             {
                 std::string ip = DNSClient::getRandomIP(ips);
