@@ -17,6 +17,7 @@
 #include <string>
 #include <openssl/ssl.h>
 #include <mutex>
+#include <atomic>
 
 #include <deque>
 
@@ -155,11 +156,14 @@ public:
         char resolverPacket[512];
         std::string host;
 
+        std::string domain;
+
         std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeQueue;
         std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeOriginQueue;
     } Connection;
 
-    typedef struct {
+    typedef struct
+    {
         int connFd;
         int gen = 0;
     } Generation;
@@ -202,6 +206,11 @@ public:
     typedef struct
     {
         std::string domain;
+
+        std::atomic<ssize_t> outbound = 0;
+        std::atomic<ssize_t> inbound = 0;
+
+        std::atomic<ssize_t> dnsQueries = 0;
 
         SSL_CTX *ctx;
     } Zone;

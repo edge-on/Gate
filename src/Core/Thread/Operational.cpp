@@ -8,9 +8,40 @@ void Thread::Operational::operationalWorker(int thread)
     {
         seconds++;
 
-        if (seconds == 1)
+        if (seconds == 60)
         {
             seconds = 0;
+
+            std::vector<std::string> buckets(1000);
+            std::hash<std::string> hasher;
+
+            for (auto &[domain, metrics] : Gen::zones)
+            {
+                size_t bucket = hasher(domain) % 1000;
+                std::string &b_stream = buckets[bucket];
+
+                if (metrics.inbound > 0)
+                    b_stream.append("HINCRBY d_bucket:").append(std::to_string(bucket)).append(" i_").append(domain).append(" ").append(std::to_string(metrics.inbound)).append("\r\n");
+
+                if (metrics.outbound > 0)
+                    b_stream.append("HINCRBY d_bucket:").append(std::to_string(bucket)).append(" o_").append(domain).append(" ").append(std::to_string(metrics.outbound)).append("\r\n");
+
+                if (metrics.dnsQueries > 0)
+                    b_stream.append("HINCRBY d_bucket:").append(std::to_string(bucket)).append(" dq_").append(domain).append(" ").append(std::to_string(metrics.dnsQueries)).append("\r\n");
+
+                metrics.inbound = 0;
+                metrics.outbound = 0;
+                metrics.dnsQueries = 0;
+            }
+
+            for (auto bucket : buckets)
+            {
+                redisReply *reply = (redisReply *)redisCommand(Main::redis, bucket.data());
+                if (reply != NULL)
+                {
+                    freeReplyObject(reply);
+                }
+            }
 
             Origin::getNewVersions();
         }

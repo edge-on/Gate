@@ -80,6 +80,8 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
     }
 
     std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
+    conn->domain = domain;
+
     const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
     std::string rootDomain(root, domain.c_str() + domain.size() - root);
 

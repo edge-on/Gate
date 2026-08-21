@@ -619,6 +619,9 @@ void Core::worker(int thread)
         {
             conn.isReadingClient = false;
 
+            if (!conn.domain.empty())
+                Gen::zones[conn.domain].inbound += res;
+
             if (res == 0)
             {
                 Utils::Uring::closeConnectionFull(thread, conn.fd);
@@ -770,6 +773,9 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_CLIENT:
         {
+            if (!conn.domain.empty())
+                Gen::zones[conn.domain].outbound += res;
+
             if (!conn.writeQueue.empty())
             {
                 if (res > 0)
@@ -830,6 +836,9 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_ORIGIN:
         {
+            if (!conn.domain.empty())
+                Gen::zones[conn.domain].outbound += res;
+
             if (!conn.writeOriginQueue.empty())
             {
                 if (res > 0)
@@ -866,6 +875,9 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_ORIGIN:
         {
+            if (!conn.domain.empty())
+                Gen::zones[conn.domain].inbound += res;
+
             conn.isReadingOrigin = false;
 
             if (res == 0)
@@ -981,6 +993,9 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_RESOLVER:
         {
+            if (!conn.domain.empty())
+                Gen::zones[conn.domain].inbound += res;
+
             pipeline->queueReadResolver(conn);
             io_uring_submit(ring);
 
@@ -1081,7 +1096,7 @@ void Core::worker(int thread)
                     break;
                 }
 
-                if (type == 1 && len == 4) // A record, RDATA gerçekten 4 byte mi
+                if (type == 1 && len == 4) // A record
                 {
                     char ip_str[INET_ADDRSTRLEN];
                     inet_ntop(AF_INET, p, ip_str, INET_ADDRSTRLEN);
@@ -1096,6 +1111,14 @@ void Core::worker(int thread)
                 fail_resolver();
                 break;
             }
+
+            if (!conn.domain.empty())
+            {
+                Gen::zones[conn.domain].inbound += res;
+                Gen::zones[conn.domain].dnsQueries++;
+            }
+
+            close(conn.resolverFd);
 
             if (conn.peerFd == -1)
             {
@@ -1142,9 +1165,7 @@ void Core::worker(int thread)
             }
 
             io_uring_submit(ring);
-
             conn.lastOpType = Gen::STATE_READ_RESOLVER;
-
             break;
         }
         }
