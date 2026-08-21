@@ -12,37 +12,47 @@ void Thread::Operational::operationalWorker(int thread)
         {
             seconds = 0;
 
-            uint64_t minute_timestamp = std::chrono::duration_cast<std::chrono::minutes>(std::chrono::system_clock::now().time_since_epoch()).count() * 60;
+            uint64_t minute_timestamp = std::chrono::duration_cast<std::chrono::minutes>(
+                                            std::chrono::system_clock::now().time_since_epoch())
+                                            .count() *
+                                        60;
 
             redisAppendCommand(Main::redis, "MULTI");
             size_t active_commands = 0;
 
             for (auto &[domain, metrics] : Gen::zones)
             {
-                if (metrics.inbound == 0 && metrics.outbound == 0 && metrics.dnsQueries == 0)
+                unsigned long long inbound = metrics.inbound.exchange(0);
+                unsigned long long outbound = metrics.outbound.exchange(0);
+                unsigned long long dnsQueries = metrics.dnsQueries.exchange(0);
+
+                if (inbound == 0 && outbound == 0 && dnsQueries == 0)
                     continue;
 
-                if (metrics.inbound > 0)
+                if (inbound > 0)
                 {
                     redisAppendCommand(Main::redis, "HINCRBY metrics:domain:%s i:%llu %llu",
-                                       domain.c_str(), minute_timestamp, metrics.inbound);
-                    metrics.inbound = 0;
+                                       domain.c_str(),
+                                       (unsigned long long)minute_timestamp,
+                                       inbound);
                     active_commands++;
                 }
 
-                if (metrics.outbound > 0)
+                if (outbound > 0)
                 {
                     redisAppendCommand(Main::redis, "HINCRBY metrics:domain:%s o:%llu %llu",
-                                       domain.c_str(), minute_timestamp, metrics.outbound);
-                    metrics.outbound = 0;
+                                       domain.c_str(),
+                                       (unsigned long long)minute_timestamp,
+                                       outbound);
                     active_commands++;
                 }
 
-                if (metrics.dnsQueries > 0)
+                if (dnsQueries > 0)
                 {
                     redisAppendCommand(Main::redis, "HINCRBY metrics:domain:%s dq:%llu %llu",
-                                       domain.c_str(), minute_timestamp, metrics.dnsQueries);
-                    metrics.dnsQueries = 0;
+                                       domain.c_str(),
+                                       (unsigned long long)minute_timestamp,
+                                       dnsQueries);
                     active_commands++;
                 }
 
