@@ -376,9 +376,12 @@ bool Origin::loadSSLCertForDomain(const std::string &domain)
     if (cass_future_error_code(future) != CASS_OK)
     {
         const char *message;
-        size_t message_length;
-        cass_future_error_message(future, &message, &message_length);
+        size_t len;
+        cass_future_error_message(future, &message, &len);
         cass_future_free(future);
+
+        std::cerr << "Cassandra Batch Error: " << std::string(message, len) << std::endl;
+
         return false;
     }
 
@@ -509,4 +512,77 @@ bool Origin::loadSSLCertForDomain(const std::string &domain)
     cass_future_free(future);
 
     return loaded;
+}
+
+void Origin::insertStatsAsync()
+{
+    std::thread([]() mutable
+                { insertStatsSync(); })
+        .detach();
+}
+
+bool Origin::insertStatsSync()
+{
+    const char *query = "INSERT INTO domain_stats (domain, type, date, value) VALUES (?, ?, toTimestamp(now()), ?)";
+
+    CassFuture *prep_future = cass_session_prepare(Main::cas->session, query);
+    cass_future_wait(prep_future);
+
+    if (cass_future_error_code(prep_future) != CASS_OK)
+    {
+        cass_future_free(prep_future);
+        return false;
+    }
+    const CassPrepared *prepared = cass_future_get_prepared(prep_future);
+    cass_future_free(prep_future);
+
+    CassBatch *batch = cass_batch_new(CASS_BATCH_TYPE_UNLOGGED);
+
+    for (const auto &[domain, stats] : Gen::zones)
+    {
+        const std::pair<int, int64_t> metrics[] = {
+            {1, stats.dnsQueries},
+            {2, stats.inbound},
+            {3, stats.outbound}};
+
+        for (const auto &[type, value] : metrics)
+        {
+            CassStatement *statement = cass_prepared_bind(prepared);
+
+            cass_statement_bind_string(statement, 0, domain.c_str());
+            cass_statement_bind_int32(statement, 1, type);
+            cass_statement_bind_int64(statement, 2, value);
+
+            cass_batch_add_statement(batch, statement);
+            cass_statement_free(statement);
+        }
+
+        Gen::zones[domain].dnsQueries = 0;
+        Gen::zones[domain].inbound = 0;
+        Gen::zones[domain].outbound = 0;
+    }
+
+    CassFuture *future = cass_session_execute_batch(Main::cas->session, batch);
+    cass_batch_free(batch);
+    cass_prepared_free(prepared);
+
+    if (!future)
+        return false;
+
+    cass_future_wait(future);
+
+    bool success = true;
+    if (cass_future_error_code(future) != CASS_OK)
+    {
+        const char *message;
+        size_t len;
+        cass_future_error_message(future, &message, &len);
+
+        std::cerr << "Cassandra Batch Error: " << std::string(message, len) << std::endl;
+
+        success = false;
+    }
+
+    cass_future_free(future);
+    return success;
 }

@@ -19,11 +19,12 @@ class Origin
 public:
     static std::string getOrigin(std::string host);
     static bool getSSLCerts();
-
     static bool getNewVersions();
 
     static void getSSLCert(const char *domain, std::function<void(bool)> onDone);
+    static void insertStatsAsync();
 
 private:
     static bool loadSSLCertForDomain(const std::string &domain);
+    static bool insertStatsSync();
 };

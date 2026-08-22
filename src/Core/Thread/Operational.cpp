@@ -8,11 +8,16 @@ void Thread::Operational::operationalWorker(int thread)
     {
         seconds++;
 
-        if (seconds == 60)
+        if ((seconds % 60) == 0)
+        {
+            Origin::getNewVersions();
+        }
+
+        if (seconds == 180)
         {
             seconds = 0;
 
-            Origin::getNewVersions();
+            Origin::insertStatsAsync();
         }
 
         ssize_t rpsCount = 0;
