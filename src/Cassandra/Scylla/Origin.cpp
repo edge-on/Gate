@@ -431,7 +431,6 @@ bool Origin::loadSSLCertForDomain(const std::string &domain, const std::string &
         }
 
         Zone *zone = Gen::zones.findOrCreate(domain);
-        zone->host = host;
         SSL_CTX *zoneCtx = SSL_CTX_new(TLS_server_method());
 
         BIO *cert_bio = BIO_new_mem_buf(certificate, static_cast<int>(certLen));
@@ -551,11 +550,11 @@ bool Origin::insertStatsSync()
         {
             CassStatement *statement = cass_prepared_bind(prepared);
 
-            cass_statement_bind_string(statement, 0, zone.host.data());
+            cass_statement_bind_string(statement, 0, zone.domain.c_str());
             cass_statement_bind_int32(statement, 1, type);
             cass_statement_bind_int64(statement, 2, now_ms);
             cass_statement_bind_int64(statement, 3, value);
-            cass_statement_bind_string(statement, 4, domain.c_str());
+            cass_statement_bind_string(statement, 4, zone.host.data());
 
             cass_batch_add_statement(batch, statement);
             cass_statement_free(statement);
