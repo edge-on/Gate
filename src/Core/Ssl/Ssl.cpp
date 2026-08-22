@@ -80,11 +80,11 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
     }
 
     std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
-    conn->domain = domain;
     conn->zone = Gen::zones.findOrCreate(domain);
 
     const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
     std::string rootDomain(root, domain.c_str() + domain.size() - root);
+    conn->domain = rootDomain;
 
     Zone *zone = Gen::zones.find(rootDomain);
     if (zone)
@@ -92,6 +92,7 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
         SSL_CTX *zoneCtx = zone->ctx.load(std::memory_order_acquire);
         if (zoneCtx)
         {
+            zone->host = domain;
             SSL_set_SSL_CTX(ssl, zoneCtx);
             return SSL_CLIENT_HELLO_SUCCESS;
         }
@@ -105,7 +106,7 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
     int threadId = conn->thread;
     int fd = conn->fd;
 
-    Origin::getSSLCert(rootDomain.c_str(), [threadId, fd](bool success)
+    Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, fd](bool success)
                        { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });
 
     return SSL_CLIENT_HELLO_RETRY;

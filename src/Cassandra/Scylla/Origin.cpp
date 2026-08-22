@@ -328,16 +328,16 @@ bool Origin::getNewVersions()
     return true;
 }
 
-void Origin::getSSLCert(const char *domain, std::function<void(bool)> onDone)
+void Origin::getSSLCert(const char *domain, const char *host, std::function<void(bool)> onDone)
 {
-    std::thread([domain = std::string(domain), onDone = std::move(onDone)]() mutable
+    std::thread([domain = std::string(domain), host = std::string(host), onDone = std::move(onDone)]() mutable
                 {
-                    bool success = loadSSLCertForDomain(domain);
+                    bool success = loadSSLCertForDomain(domain, host);
                     onDone(success); })
         .detach();
 }
 
-bool Origin::loadSSLCertForDomain(const std::string &domain)
+bool Origin::loadSSLCertForDomain(const std::string &domain, const std::string &host)
 {
     CassStatement *statement = cass_statement_new("SELECT * FROM edgeon.ssl WHERE domain = ?;", 1);
     cass_statement_bind_string(statement, 0, domain.c_str());
@@ -431,6 +431,7 @@ bool Origin::loadSSLCertForDomain(const std::string &domain)
         }
 
         Zone *zone = Gen::zones.findOrCreate(domain);
+        zone->host = host;
         SSL_CTX *zoneCtx = SSL_CTX_new(TLS_server_method());
 
         BIO *cert_bio = BIO_new_mem_buf(certificate, static_cast<int>(certLen));
@@ -510,7 +511,7 @@ void Origin::insertStatsAsync()
 
 bool Origin::insertStatsSync()
 {
-    const char *query = "INSERT INTO edgeon.domain_stats (domain, type, date, value) VALUES (?, ?, ?, ?)";
+    const char *query = "INSERT INTO edgeon.domain_stats (domain, type, date, value, host) VALUES (?, ?, ?, ?, ?)";
 
     CassFuture *prep_future = cass_session_prepare(Main::cas->session, query);
 
@@ -554,6 +555,7 @@ bool Origin::insertStatsSync()
             cass_statement_bind_int32(statement, 1, type);
             cass_statement_bind_int64(statement, 2, now_ms);
             cass_statement_bind_int64(statement, 3, value);
+            cass_statement_bind_string(statement, 4, zone.host.data());
 
             cass_batch_add_statement(batch, statement);
             cass_statement_free(statement);

@@ -20,10 +20,10 @@ public:
     static bool getSSLCerts();
     static bool getNewVersions();
 
-    static void getSSLCert(const char *domain, std::function<void(bool)> onDone);
+    static void getSSLCert(const char *domain, const char *host, std::function<void(bool)> onDone);
     static void insertStatsAsync();
 
 private:
-    static bool loadSSLCertForDomain(const std::string &domain);
+    static bool loadSSLCertForDomain(const std::string &domain, const std::string &host);
     static bool insertStatsSync();
 };

@@ -13,7 +13,7 @@ void Thread::Operational::operationalWorker(int thread)
             Origin::getNewVersions();
         }
 
-        if (seconds == 180)
+        if (seconds == 10)
         {
             seconds = 0;
 

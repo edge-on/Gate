@@ -14,6 +14,7 @@
 struct Zone
 {
     std::string domain;
+    std::string host;
 
     std::atomic<ssize_t> outbound{0};
     std::atomic<ssize_t> inbound{0};
