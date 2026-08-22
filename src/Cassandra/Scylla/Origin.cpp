@@ -510,20 +510,34 @@ void Origin::insertStatsAsync()
 
 bool Origin::insertStatsSync()
 {
-    const char *query = "INSERT INTO domain_stats (domain, type, date, value) VALUES (?, ?, toTimestamp(now()), ?)";
+    const char *query = "INSERT INTO edgeon.domain_stats (domain, type, date, value) VALUES (?, ?, ?, ?)";
 
     CassFuture *prep_future = cass_session_prepare(Main::cas->session, query);
-    cass_future_wait(prep_future);
 
-    if (cass_future_error_code(prep_future) != CASS_OK)
+    if (!cass_future_wait_timed(prep_future, 5000000))
     {
         cass_future_free(prep_future);
         return false;
     }
+
+    if (cass_future_error_code(prep_future) != CASS_OK)
+    {
+        const char *message;
+        size_t len;
+        cass_future_error_message(prep_future, &message, &len);
+        std::cerr << "ERR Prepare: " << std::string(message, len) << std::endl;
+        cass_future_free(prep_future);
+        return false;
+    }
+
     const CassPrepared *prepared = cass_future_get_prepared(prep_future);
     cass_future_free(prep_future);
 
     CassBatch *batch = cass_batch_new(CASS_BATCH_TYPE_UNLOGGED);
+
+    cass_int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                              std::chrono::system_clock::now().time_since_epoch())
+                              .count();
 
     Gen::zones.forEach([&](const std::string &domain, Zone &zone)
                        {
@@ -538,7 +552,8 @@ bool Origin::insertStatsSync()
 
             cass_statement_bind_string(statement, 0, domain.c_str());
             cass_statement_bind_int32(statement, 1, type);
-            cass_statement_bind_int64(statement, 2, value);
+            cass_statement_bind_int64(statement, 2, now_ms);
+            cass_statement_bind_int64(statement, 3, value);
 
             cass_batch_add_statement(batch, statement);
             cass_statement_free(statement);
@@ -559,9 +574,7 @@ bool Origin::insertStatsSync()
         const char *message;
         size_t len;
         cass_future_error_message(future, &message, &len);
-
         std::cerr << "Cassandra Batch Error: " << std::string(message, len) << std::endl;
-
         success = false;
     }
 
