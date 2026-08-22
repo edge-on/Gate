@@ -551,11 +551,11 @@ bool Origin::insertStatsSync()
         {
             CassStatement *statement = cass_prepared_bind(prepared);
 
-            cass_statement_bind_string(statement, 0, domain.c_str());
+            cass_statement_bind_string(statement, 0, zone.host.data());
             cass_statement_bind_int32(statement, 1, type);
             cass_statement_bind_int64(statement, 2, now_ms);
             cass_statement_bind_int64(statement, 3, value);
-            cass_statement_bind_string(statement, 4, zone.host.data());
+            cass_statement_bind_string(statement, 4, domain.c_str());
 
             cass_batch_add_statement(batch, statement);
             cass_statement_free(statement);

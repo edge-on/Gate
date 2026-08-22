@@ -81,10 +81,10 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
 
     std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
     conn->zone = Gen::zones.findOrCreate(domain);
+    conn->domain = domain;
 
     const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
     std::string rootDomain(root, domain.c_str() + domain.size() - root);
-    conn->domain = rootDomain;
 
     Zone *zone = Gen::zones.find(rootDomain);
     if (zone)
@@ -92,7 +92,7 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
         SSL_CTX *zoneCtx = zone->ctx.load(std::memory_order_acquire);
         if (zoneCtx)
         {
-            zone->host = domain;
+            conn->zone->host = rootDomain;
             SSL_set_SSL_CTX(ssl, zoneCtx);
             return SSL_CLIENT_HELLO_SUCCESS;
         }
