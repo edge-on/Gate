@@ -21,6 +21,8 @@
 
 #include <deque>
 
+#include "Core/Gen/ZoneMap.hpp"
+
 #define BUFFER_SIZE 16384
 #define QUEUE_DEPTH 4096
 
@@ -112,6 +114,8 @@ public:
         }
     };
 
+    using Zone = ::Zone;
+
     typedef struct
     {
         int fd = -1;
@@ -157,6 +161,7 @@ public:
         std::string host;
 
         std::string domain;
+        Zone *zone = nullptr;
 
         std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeQueue;
         std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeOriginQueue;
@@ -203,17 +208,5 @@ public:
     static std::vector<std::thread> threads;
     static std::unordered_map<int, Thread> activeThreads;
 
-    typedef struct
-    {
-        std::string domain;
-
-        std::atomic<ssize_t> outbound = 0;
-        std::atomic<ssize_t> inbound = 0;
-
-        std::atomic<ssize_t> dnsQueries = 0;
-
-        SSL_CTX *ctx;
-    } Zone;
-
-    static std::unordered_map<std::string, Zone> zones;
+    static ZoneMap zones;
 };

@@ -3,38 +3,6 @@
 #include <iostream>
 #include <thread>
 
-// Allow filtering will be removed
-std::string Origin::getOrigin(std::string host)
-{
-    CassStatement *statement = cass_statement_new("SELECT * FROM edgeon.records WHERE name = ? AND type = 1 ALLOW FILTERING;", 1);
-    cass_statement_bind_string(statement, 0, host.data());
-
-    CassFuture *future = cass_session_execute(Main::cas->session, statement);
-    cass_future_wait(future);
-
-    if (cass_future_error_code(future) == CASS_OK)
-    {
-        const CassResult *result = cass_future_get_result(future);
-        CassIterator *iterator = cass_iterator_from_result(result);
-
-        while (cass_iterator_next(iterator))
-        {
-            const CassRow *row = cass_iterator_get_row(iterator);
-
-            const CassValue *val = cass_row_get_column_by_name(row, "value");
-
-            const char *value;
-            size_t len;
-
-            cass_value_get_string(val, &value, &len);
-
-            return value;
-        }
-    }
-
-    return "";
-}
-
 bool Origin::getSSLCerts()
 {
     CassStatement *statement = cass_statement_new("SELECT * FROM edgeon.ssl;", 0);
@@ -128,12 +96,12 @@ bool Origin::getSSLCerts()
 
             std::string tlsPrivateKeyPem(tlsPrivateKeyRaw.begin(), tlsPrivateKeyRaw.end());
 
-            Gen::zones[domain].domain = domain;
-            Gen::zones[domain].ctx = SSL_CTX_new(TLS_server_method());
+            Zone *zone = Gen::zones.findOrCreate(std::string_view(domain, domainLen));
+            SSL_CTX *zoneCtx = SSL_CTX_new(TLS_server_method());
 
             BIO *cert_bio = BIO_new_mem_buf(certificate, certLen);
             X509 *cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr);
-            if (!cert || SSL_CTX_use_certificate(Gen::zones[domain].ctx, cert) <= 0)
+            if (!cert || SSL_CTX_use_certificate(zoneCtx, cert) <= 0)
             {
                 if (cert)
                     X509_free(cert);
@@ -144,7 +112,7 @@ bool Origin::getSSLCerts()
             X509 *extra_cert = nullptr;
             while ((extra_cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr)) != nullptr)
             {
-                SSL_CTX_add1_chain_cert(Gen::zones[domain].ctx, extra_cert);
+                SSL_CTX_add1_chain_cert(zoneCtx, extra_cert);
                 X509_free(extra_cert);
             }
             BIO_free(cert_bio);
@@ -152,6 +120,7 @@ bool Origin::getSSLCerts()
             BIO *key_bio = BIO_new_mem_buf(tlsPrivateKeyRaw.data(), static_cast<int>(tlsPrivateKeyRaw.size()));
             if (!key_bio)
             {
+                SSL_CTX_free(zoneCtx);
                 return false;
             }
 
@@ -160,20 +129,25 @@ bool Origin::getSSLCerts()
 
             if (!pkey)
             {
+                SSL_CTX_free(zoneCtx);
                 return false;
             }
 
-            if (SSL_CTX_use_PrivateKey(Gen::zones[domain].ctx, pkey) <= 0)
+            if (SSL_CTX_use_PrivateKey(zoneCtx, pkey) <= 0)
             {
                 EVP_PKEY_free(pkey);
+                SSL_CTX_free(zoneCtx);
                 return false;
             }
             EVP_PKEY_free(pkey);
 
-            if (!SSL_CTX_check_private_key(Gen::zones[domain].ctx))
+            if (!SSL_CTX_check_private_key(zoneCtx))
             {
+                SSL_CTX_free(zoneCtx);
                 return false;
             }
+
+            Gen::zones.replaceCtx(zone, zoneCtx);
         }
 
         cass_iterator_free(iterator);
@@ -290,15 +264,12 @@ bool Origin::getNewVersions()
 
             std::string tlsPrivateKeyPem(tlsPrivateKeyRaw.begin(), tlsPrivateKeyRaw.end());
 
-            if (Gen::zones[domain].ctx)
-                Gen::zones[domain].ctx = nullptr;
-
-            Gen::zones[domain].domain = domain;
-            Gen::zones[domain].ctx = SSL_CTX_new(TLS_server_method());
+            Zone *zone = Gen::zones.findOrCreate(std::string_view(domain, domainLen));
+            SSL_CTX *zoneCtx = SSL_CTX_new(TLS_server_method());
 
             BIO *cert_bio = BIO_new_mem_buf(certificate, certLen);
             X509 *cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr);
-            if (!cert || SSL_CTX_use_certificate(Gen::zones[domain].ctx, cert) <= 0)
+            if (!cert || SSL_CTX_use_certificate(zoneCtx, cert) <= 0)
             {
                 if (cert)
                     X509_free(cert);
@@ -309,7 +280,7 @@ bool Origin::getNewVersions()
             X509 *extra_cert = nullptr;
             while ((extra_cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr)) != nullptr)
             {
-                SSL_CTX_add1_chain_cert(Gen::zones[domain].ctx, extra_cert);
+                SSL_CTX_add1_chain_cert(zoneCtx, extra_cert);
                 X509_free(extra_cert);
             }
             BIO_free(cert_bio);
@@ -317,6 +288,7 @@ bool Origin::getNewVersions()
             BIO *key_bio = BIO_new_mem_buf(tlsPrivateKeyRaw.data(), static_cast<int>(tlsPrivateKeyRaw.size()));
             if (!key_bio)
             {
+                SSL_CTX_free(zoneCtx);
                 return false;
             }
 
@@ -325,20 +297,25 @@ bool Origin::getNewVersions()
 
             if (!pkey)
             {
+                SSL_CTX_free(zoneCtx);
                 return false;
             }
 
-            if (SSL_CTX_use_PrivateKey(Gen::zones[domain].ctx, pkey) <= 0)
+            if (SSL_CTX_use_PrivateKey(zoneCtx, pkey) <= 0)
             {
                 EVP_PKEY_free(pkey);
+                SSL_CTX_free(zoneCtx);
                 return false;
             }
             EVP_PKEY_free(pkey);
 
-            if (!SSL_CTX_check_private_key(Gen::zones[domain].ctx))
+            if (!SSL_CTX_check_private_key(zoneCtx))
             {
+                SSL_CTX_free(zoneCtx);
                 return false;
             }
+
+            Gen::zones.replaceCtx(zone, zoneCtx);
         }
 
         cass_iterator_free(iterator);
@@ -445,9 +422,6 @@ bool Origin::loadSSLCertForDomain(const std::string &domain)
         if (tlsPrivateKeyRaw.empty())
             break;
 
-        if (Gen::zones[domain].ctx)
-            SSL_CTX_free(Gen::zones[domain].ctx);
-
         OSSL_PROVIDER *defprov = OSSL_PROVIDER_load(NULL, "default");
         OSSL_PROVIDER *oqsprov = OSSL_PROVIDER_load(NULL, "oqsprovider");
 
@@ -456,16 +430,17 @@ bool Origin::loadSSLCertForDomain(const std::string &domain)
             std::cout << "OQS PROVIDER CANNOT BE LOADED" << std::endl;
         }
 
-        Gen::zones[domain].domain = domain;
-        Gen::zones[domain].ctx = SSL_CTX_new(TLS_server_method());
+        Zone *zone = Gen::zones.findOrCreate(domain);
+        SSL_CTX *zoneCtx = SSL_CTX_new(TLS_server_method());
 
         BIO *cert_bio = BIO_new_mem_buf(certificate, static_cast<int>(certLen));
         X509 *cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr);
-        if (!cert || SSL_CTX_use_certificate(Gen::zones[domain].ctx, cert) <= 0)
+        if (!cert || SSL_CTX_use_certificate(zoneCtx, cert) <= 0)
         {
             if (cert)
                 X509_free(cert);
             BIO_free(cert_bio);
+            SSL_CTX_free(zoneCtx);
             break;
         }
         X509_free(cert);
@@ -473,36 +448,48 @@ bool Origin::loadSSLCertForDomain(const std::string &domain)
         X509 *extra_cert = nullptr;
         while ((extra_cert = PEM_read_bio_X509(cert_bio, nullptr, nullptr, nullptr)) != nullptr)
         {
-            SSL_CTX_add1_chain_cert(Gen::zones[domain].ctx, extra_cert);
+            SSL_CTX_add1_chain_cert(zoneCtx, extra_cert);
             X509_free(extra_cert);
         }
         BIO_free(cert_bio);
 
         BIO *key_bio = BIO_new_mem_buf(tlsPrivateKeyRaw.data(), static_cast<int>(tlsPrivateKeyRaw.size()));
         if (!key_bio)
+        {
+            SSL_CTX_free(zoneCtx);
             break;
+        }
 
         EVP_PKEY *pkey = PEM_read_bio_PrivateKey(key_bio, nullptr, nullptr, nullptr);
         BIO_free(key_bio);
 
         if (!pkey)
+        {
+            SSL_CTX_free(zoneCtx);
             break;
+        }
 
-        if (SSL_CTX_use_PrivateKey(Gen::zones[domain].ctx, pkey) <= 0)
+        if (SSL_CTX_use_PrivateKey(zoneCtx, pkey) <= 0)
         {
             EVP_PKEY_free(pkey);
+            SSL_CTX_free(zoneCtx);
             break;
         }
         EVP_PKEY_free(pkey);
 
-        if (!SSL_CTX_check_private_key(Gen::zones[domain].ctx))
+        if (!SSL_CTX_check_private_key(zoneCtx))
+        {
+            SSL_CTX_free(zoneCtx);
             break;
+        }
 
-        SSL_CTX_set_cipher_list(Gen::zones[domain].ctx, "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305");
-        if (SSL_CTX_set1_groups_list(Gen::zones[domain].ctx, "X25519MLKEM768:SecP256r1MLKEM768:x25519:P-256") != 1)
+        SSL_CTX_set_cipher_list(zoneCtx, "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305");
+        if (SSL_CTX_set1_groups_list(zoneCtx, "X25519MLKEM768:SecP256r1MLKEM768:x25519:P-256") != 1)
         {
             std::cout << "FAILED TO SET PQC GROUPS" << std::endl;
         }
+
+        Gen::zones.replaceCtx(zone, zoneCtx);
 
         loaded = true;
     }
@@ -538,12 +525,12 @@ bool Origin::insertStatsSync()
 
     CassBatch *batch = cass_batch_new(CASS_BATCH_TYPE_UNLOGGED);
 
-    for (const auto &[domain, stats] : Gen::zones)
-    {
+    Gen::zones.forEach([&](const std::string &domain, Zone &zone)
+                       {
         const std::pair<int, int64_t> metrics[] = {
-            {1, stats.dnsQueries},
-            {2, stats.inbound},
-            {3, stats.outbound}};
+            {1, zone.dnsQueries.exchange(0, std::memory_order_relaxed)},
+            {2, zone.inbound.exchange(0, std::memory_order_relaxed)},
+            {3, zone.outbound.exchange(0, std::memory_order_relaxed)}};
 
         for (const auto &[type, value] : metrics)
         {
@@ -555,12 +542,7 @@ bool Origin::insertStatsSync()
 
             cass_batch_add_statement(batch, statement);
             cass_statement_free(statement);
-        }
-
-        Gen::zones[domain].dnsQueries = 0;
-        Gen::zones[domain].inbound = 0;
-        Gen::zones[domain].outbound = 0;
-    }
+        } });
 
     CassFuture *future = cass_session_execute_batch(Main::cas->session, batch);
     cass_batch_free(batch);

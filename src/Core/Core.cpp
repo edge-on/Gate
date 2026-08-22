@@ -16,8 +16,7 @@ void Core::start()
 {
     ctx = Ssl::initSSL();
 
-    Gen::zones["localhost"].ctx = ctx;
-    Gen::zones["localhost"].domain = "domain";
+    Gen::zones.replaceCtx(Gen::zones.findOrCreate("localhost"), ctx);
 
     int threadCount = std::stoi(Main::dotenv->map["concurrency"]) + 1;
 
@@ -619,8 +618,8 @@ void Core::worker(int thread)
         {
             conn.isReadingClient = false;
 
-            if (!conn.domain.empty())
-                Gen::zones[conn.domain].inbound += res;
+            if (conn.zone)
+                conn.zone->inbound.fetch_add(res, std::memory_order_relaxed);
 
             if (res == 0)
             {
@@ -773,8 +772,8 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_CLIENT:
         {
-            if (!conn.domain.empty())
-                Gen::zones[conn.domain].outbound += res;
+            if (conn.zone)
+                conn.zone->outbound.fetch_add(res, std::memory_order_relaxed);
 
             if (!conn.writeQueue.empty())
             {
@@ -836,8 +835,8 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_ORIGIN:
         {
-            if (!conn.domain.empty())
-                Gen::zones[conn.domain].outbound += res;
+            if (conn.zone)
+                conn.zone->outbound.fetch_add(res, std::memory_order_relaxed);
 
             if (!conn.writeOriginQueue.empty())
             {
@@ -875,8 +874,8 @@ void Core::worker(int thread)
 
         case Gen::STATE_READ_ORIGIN:
         {
-            if (!conn.domain.empty())
-                Gen::zones[conn.domain].inbound += res;
+            if (conn.zone)
+                conn.zone->inbound.fetch_add(res, std::memory_order_relaxed);
 
             conn.isReadingOrigin = false;
 
@@ -993,8 +992,8 @@ void Core::worker(int thread)
 
         case Gen::STATE_WRITE_RESOLVER:
         {
-            if (!conn.domain.empty())
-                Gen::zones[conn.domain].inbound += res;
+            if (conn.zone)
+                conn.zone->inbound.fetch_add(res, std::memory_order_relaxed);
 
             pipeline->queueReadResolver(conn);
             io_uring_submit(ring);
@@ -1112,10 +1111,10 @@ void Core::worker(int thread)
                 break;
             }
 
-            if (!conn.domain.empty())
+            if (conn.zone)
             {
-                Gen::zones[conn.domain].inbound += res;
-                Gen::zones[conn.domain].dnsQueries++;
+                conn.zone->inbound.fetch_add(res, std::memory_order_relaxed);
+                conn.zone->dnsQueries.fetch_add(1, std::memory_order_relaxed);
             }
 
             if (conn.peerFd == -1)

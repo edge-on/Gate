@@ -17,7 +17,6 @@
 class Origin
 {
 public:
-    static std::string getOrigin(std::string host);
     static bool getSSLCerts();
     static bool getNewVersions();
 
