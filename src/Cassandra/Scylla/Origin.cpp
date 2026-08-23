@@ -548,6 +548,9 @@ bool Origin::insertStatsSync()
 
         for (const auto &[type, value] : metrics)
         {
+            if(value <= 0)
+                continue;
+
             CassStatement *statement = cass_prepared_bind(prepared);
 
             cass_statement_bind_string(statement, 0, zone.domain.c_str());
