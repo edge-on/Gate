@@ -183,8 +183,21 @@ void Pipeline::writePage(Gen::Connection &conn, std::string p)
 
         if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
         {
-            SSL_write(Gen::activeThreads[thread].ssl[conn.fd].ssl, req.data() + offset, len);
-            int bytes = BIO_read(Gen::activeThreads[thread].ssl[conn.fd].wbio, chunk.first.data(), BUFFER_SIZE);
+            auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+            int written = 0;
+            while (written < len)
+            {
+                int r = SSL_write(ssl.ssl, req.data() + offset + written, len - written);
+                if (r <= 0)
+                {
+                    int err = SSL_get_error(ssl.ssl, r);
+                    if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE)
+                        break;
+                    continue;
+                }
+                written += r;
+            }
+            int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
             chunk.second = bytes;
         }
         else

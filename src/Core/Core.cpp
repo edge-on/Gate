@@ -907,21 +907,25 @@ void Core::worker(int thread)
                 break;
             }
 
-            char *header_end = (char *)memmem(conn.out_plain_buffer, res, "\r\n\r\n", 4);
-            if (header_end != NULL)
+            if (res >= 12 && strncmp(conn.out_plain_buffer, "HTTP/1.", 7) == 0)
             {
-                if (Utils::Http::getHeader(conn.out_plain_buffer, res, "location:") != "undefined")
+                char *header_end = (char *)memmem(conn.out_plain_buffer, res, "\r\n\r\n", 4);
+                if (header_end != NULL)
                 {
-                    const char *hsts_header = "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n";
-
-                    size_t hsts_len = strlen(hsts_header);
                     size_t header_bytes = header_end - conn.out_plain_buffer;
-                    size_t body_bytes = res - header_bytes;
+                    if (Utils::Http::getHeader(conn.out_plain_buffer, header_bytes, "location:") != "undefined")
+                    {
+                        const char *hsts_header = "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n";
+                        size_t hsts_len = strlen(hsts_header);
+                        size_t body_bytes = res - header_bytes;
 
-                    memmove(header_end + hsts_len, header_end, body_bytes);
-                    memcpy(header_end, hsts_header, hsts_len);
-
-                    res += hsts_len;
+                        if (res + hsts_len <= BUFFER_SIZE)
+                        {
+                            memmove(header_end + hsts_len, header_end, body_bytes);
+                            memcpy(header_end, hsts_header, hsts_len);
+                            res += hsts_len;
+                        }
+                    }
                 }
             }
 
@@ -929,8 +933,19 @@ void Core::worker(int thread)
             {
                 auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
 
-                int r = SSL_write(ssl.ssl, conn.out_plain_buffer, res);
-                (void)r;
+                int written = 0;
+                while (written < res)
+                {
+                    int r = SSL_write(ssl.ssl, conn.out_plain_buffer + written, res - written);
+                    if (r <= 0)
+                    {
+                        int err = SSL_get_error(ssl.ssl, r);
+                        if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE)
+                            break;
+                        continue;
+                    }
+                    written += r;
+                }
 
                 while (BIO_pending(ssl.wbio) > 0)
                 {
