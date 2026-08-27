@@ -55,6 +55,12 @@ public:
 
     typedef enum
     {
+        CONTINUE,
+        BREAK
+    };
+
+    typedef enum
+    {
         H2,
         H1
     } Protocol;
@@ -184,6 +190,8 @@ public:
 
     typedef struct
     {
+        int udpFd = -1;
+        
         std::thread::id id;
 
         ssize_t activeConnections = 0;

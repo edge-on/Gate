@@ -31,6 +31,29 @@ int Proxy::initServer(int port)
     return sockFd;
 }
 
+int Proxy::initUdpServer(int port)
+{
+    int sockFd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+
+    int opt = 1;
+    setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(sockFd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+    setsockopt(sockFd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+
+    if (bind(sockFd, (sockaddr *)&addr, sizeof(addr)) < 0)
+    {
+        perror("initUdpSerber bind");
+        return -1;
+    }
+
+    return sockFd;
+}
+
 int Proxy::createOriginSocket(char *ip, int port, sockaddr_in &outAddr)
 {
     int sockFd = socket(AF_INET, SOCK_STREAM, 0);

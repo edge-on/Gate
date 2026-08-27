@@ -12,7 +12,6 @@
 
 #include "Core/Ssl/Ssl.hpp"
 #include "Core/Gen/Gen.hpp"
-#include "Core/Uring/Pipeline.hpp"
 #include "Core/Proxy/Proxy.hpp"
 
 #include "Cassandra/Scylla/Origin.hpp"
@@ -23,6 +22,9 @@
 #include "Utils/Http.hpp"
 
 #include "Core/Thread/Operational.hpp"
+
+#include "Core/Protocols/H1/Uring/Pipeline.hpp"
+#include "Core/Protocols/H1/H1.hpp"
 
 #include "Main.hpp"
 
