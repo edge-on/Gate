@@ -23,6 +23,8 @@
 
 #include "Core/Thread/Operational.hpp"
 
+#include "Core/Protocols/H3/Uring/Pipeline.hpp"
+
 #include "Core/Protocols/H1/Uring/Pipeline.hpp"
 #include "Core/Protocols/H1/H1.hpp"
 
