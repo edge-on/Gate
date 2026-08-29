@@ -2,6 +2,7 @@
 
 #include <quiche.h>
 #include <liburing.h>
+#include <openssl/ssl.h>
 
 #include "Core/Protocols/H3/Uring/Pipeline.hpp"
 

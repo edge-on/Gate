@@ -11,7 +11,10 @@
 #include <unordered_map>
 
 #include "Core/Ssl/Ssl.hpp"
-#include "Core/Gen/Gen.hpp"
+
+#include "Core/Gen/H1/Gen.hpp"
+#include "Core/Gen/H1/Gen.hpp"
+
 #include "Core/Proxy/Proxy.hpp"
 
 #include "Cassandra/Scylla/Origin.hpp"
@@ -24,7 +27,6 @@
 #include "Core/Thread/Operational.hpp"
 
 #include "Core/Protocols/H3/Uring/Pipeline.hpp"
-
 #include "Core/Protocols/H1/Uring/Pipeline.hpp"
 #include "Core/Protocols/H1/H1.hpp"
 

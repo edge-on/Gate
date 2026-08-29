@@ -15,7 +15,8 @@
 
 #include <string>
 
-#include "Core/Gen/Gen.hpp"
+#include "Core/Gen/H1/Gen.hpp"
+#include "Core/Gen/H3/Gen.hpp"
 
 #include "Utils/Http.hpp"
 
