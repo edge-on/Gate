@@ -1,4 +1,4 @@
-#include "Utils/Uring.hpp"
+#include "Utils/Uring/H1.hpp"
 
 struct io_uring_sqe *Utils::Uring::getSqe(struct io_uring *ring)
 {
@@ -29,31 +29,31 @@ void Utils::Uring::makeNonBlocking(int fd)
     }
 }
 
-void Utils::Uring::closeConn(int thread, Gen::Connection &conn)
+void Utils::Uring::closeConn(int thread, Gen::H1::H1Connection &conn)
 {
-    auto sslIt = Gen::activeThreads[thread].ssl.find(conn.fd);
-    if (sslIt != Gen::activeThreads[thread].ssl.end())
+    auto sslIt = Gen::H1::activeThreads[thread].ssl.find(conn.fd);
+    if (sslIt != Gen::H1::activeThreads[thread].ssl.end())
     {
         if (sslIt->second.ssl)
             SSL_free(sslIt->second.ssl);
-        Gen::activeThreads[thread].ssl.erase(sslIt);
+        Gen::H1::activeThreads[thread].ssl.erase(sslIt);
     }
 
-    if (conn.type == Gen::TYPE_CLIENT && Gen::activeThreads[thread].activeConnections > 0)
-        Gen::activeThreads[thread].activeConnections--;
+    if (conn.type == Gen::H1::TYPE_CLIENT && Gen::H1::activeThreads[thread].activeConnections > 0)
+        Gen::H1::activeThreads[thread].activeConnections--;
 
     int fd = conn.fd;
     close(fd);
-    Gen::activeThreads[thread].connections.erase(fd);
+    Gen::H1::activeThreads[thread].connections.erase(fd);
 }
 
 void Utils::Uring::closeConnectionFull(int thread, int fd)
 {
-    auto it = Gen::activeThreads[thread].connections.find(fd);
-    if (it == Gen::activeThreads[thread].connections.end())
+    auto it = Gen::H1::activeThreads[thread].connections.find(fd);
+    if (it == Gen::H1::activeThreads[thread].connections.end())
         return;
 
-    Gen::Connection &conn = it->second;
+    Gen::H1::H1Connection &conn = it->second;
     int peerFd = conn.peerFd;
 
     if (conn.resolverFd != -1)
@@ -64,8 +64,8 @@ void Utils::Uring::closeConnectionFull(int thread, int fd)
 
     if (peerFd != -1)
     {
-        auto peerIt = Gen::activeThreads[thread].connections.find(peerFd);
-        if (peerIt != Gen::activeThreads[thread].connections.end())
+        auto peerIt = Gen::H1::activeThreads[thread].connections.find(peerFd);
+        if (peerIt != Gen::H1::activeThreads[thread].connections.end())
         {
             if (peerIt->second.resolverFd != -1)
             {

@@ -1,0 +1,30 @@
+#pragma once
+
+#include <cstdint>
+
+namespace Gen
+{
+    class H3
+    {
+        typedef enum
+        {
+            /* ================ HTTP/3 ================ */
+            // Client
+            H3_STATE_READ_CLIENT,
+            H3_STATE_WRITE_CLIENT,
+
+            // Origin
+            H3_STATE_ORIGIN_CONNECTING,
+            H3_STATE_READ_ORIGIN,
+            H3_STATE_WRITE_ORIGIN
+            /* ================ HTTP/3 ================ */
+        } State;
+
+        typedef struct
+        {
+            uint32_t streamId;
+
+            State state; 
+        } H3Connection;
+    };
+} // namespace Gen

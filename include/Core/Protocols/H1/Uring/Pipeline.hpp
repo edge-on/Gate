@@ -3,8 +3,8 @@
 #include <liburing.h>
 #include <iostream>
 
-#include "Core/Gen/Gen.hpp"
-#include "Utils/Uring.hpp"
+#include "Core/Gen/H1/Gen.hpp"
+#include "Utils/Uring/H1.hpp"
 #include "Utils/Pages.hpp"
 
 namespace Pipeline
@@ -16,19 +16,19 @@ namespace Pipeline
 
         void queueMultishotAccept(int serverFd);
 
-        void queueTlsConnecting(Gen::Connection &conn);
-        void queueReadClient(Gen::Connection &conn);
-        void queueWriteClient(Gen::Connection &conn);
+        void queueTlsConnecting(Gen::H1::H1Connection &conn);
+        void queueReadClient(Gen::H1::H1Connection &conn);
+        void queueWriteClient(Gen::H1::H1Connection &conn);
 
-        void queueConnectOrigin(Gen::Connection &originConn);
-        void queueWriteOrigin(Gen::Connection &conn);
-        void queueReadOrigin(Gen::Connection &conn);
+        void queueConnectOrigin(Gen::H1::H1Connection &originConn);
+        void queueWriteOrigin(Gen::H1::H1Connection &conn);
+        void queueReadOrigin(Gen::H1::H1Connection &conn);
 
-        void queueConnectResolver(Gen::Connection &conn, char* ip);
-        void queueWriteResolver(Gen::Connection &conn);
-        void queueReadResolver(Gen::Connection &conn);
+        void queueConnectResolver(Gen::H1::H1Connection &conn, char* ip);
+        void queueWriteResolver(Gen::H1::H1Connection &conn);
+        void queueReadResolver(Gen::H1::H1Connection &conn);
 
-        void writePage(Gen::Connection &conn, std::string page);
+        void writePage(Gen::H1::H1Connection &conn, std::string page);
 
     private:
         struct io_uring *ring;
