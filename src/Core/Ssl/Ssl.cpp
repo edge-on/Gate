@@ -43,7 +43,7 @@ quiche_config *Ssl::initQuicheSSL() {
 
 int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg)
 {
-    auto *connDbg = static_cast<Gen::H1::H1Connection *>(SSL_get_app_data(ssl));
+    auto *connDbg = static_cast<::H1::Gen::H1Connection *>(SSL_get_app_data(ssl));
     int *force_flag = (int *)SSL_get_app_data(ssl);
 
     if (force_flag && *force_flag == 1)
@@ -64,7 +64,7 @@ int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, con
 
 int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
 {
-    auto *conn = static_cast<Gen::H1::H1Connection *>(SSL_get_app_data(ssl));
+    auto *conn = static_cast<::H1::Gen::H1Connection *>(SSL_get_app_data(ssl));
     if (!conn)
     {
         *al = SSL_AD_INTERNAL_ERROR;
@@ -88,7 +88,7 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
     }
 
     std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
-    conn->zone = Gen::Global::zones.findOrCreate(domain);
+    conn->zone = Gen::zones.findOrCreate(domain);
 
     const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
     std::string rootDomain(root, domain.c_str() + domain.size() - root);
@@ -96,7 +96,7 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
     conn->zone->domain = rootDomain;
     conn->zone->host = domain;
 
-    Zone *zone = Gen::Global::zones.find(rootDomain);
+    Zone *zone = Gen::zones.find(rootDomain);
     if (zone)
     {
         SSL_CTX *zoneCtx = zone->ctx.load(std::memory_order_acquire);
@@ -107,16 +107,16 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
         }
     }
 
-    if (conn->protocolState == Gen::H1::TCP_PENDING_SSL)
+    if (conn->protocolState == ::H1::Gen::TCP_PENDING_SSL)
         return SSL_CLIENT_HELLO_RETRY;
 
-    conn->protocolState = Gen::H1::TCP_PENDING_SSL;
+    conn->protocolState = ::H1::Gen::TCP_PENDING_SSL;
 
     int threadId = conn->thread;
     int fd = conn->fd;
 
     Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, fd](bool success)
-                       { Gen::Global::activeThreads[threadId].wakeup.push({threadId, fd, success}); });
+                       { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });
 
     return SSL_CLIENT_HELLO_RETRY;
 }

@@ -9,6 +9,7 @@
 
 #include "Utils/Uring/H1/H1.hpp"
 #include "Utils/Uring/H3/H3.hpp"
+#include "Utils/Uring/Uring.hpp"
 
 class Proxy
 {

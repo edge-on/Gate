@@ -14,10 +14,7 @@ namespace Utils
         class Uring
         {
         public:
-            static struct io_uring_sqe *getSqe(struct io_uring *ring);
-
-            static void makeNonBlocking(int fd);
-            static void closeConn(int thread, Gen::H1::H1Connection &conn);
+            static void closeConn(int thread, ::H1::Gen::H1Connection &conn);
             static void closeConnectionFull(int thread, int fd);
         };
     }

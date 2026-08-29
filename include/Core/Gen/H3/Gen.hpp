@@ -5,9 +5,9 @@
 #define LOCAL_CONN_ID_LEN 16
 #define MAX_DATAGRAM_SIZE 1350
 
-namespace Gen
+namespace H3
 {
-    class H3
+    class Gen
     {
     public:
         typedef enum

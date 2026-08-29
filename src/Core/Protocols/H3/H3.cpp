@@ -16,7 +16,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
     switch (opType)
     {
-    case Gen::H3::H3_STATE_READ_CLIENT:
+    case ::H3::Gen::H3_STATE_READ_CLIENT:
     {
         if (res <= 0)
             break;

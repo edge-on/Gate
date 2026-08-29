@@ -26,9 +26,9 @@
 #define BUFFER_SIZE 16384
 #define QUEUE_DEPTH 4096
 
-namespace Gen
+namespace H1
 {
-    class H1
+    class Gen
     {
     public:
         typedef enum
