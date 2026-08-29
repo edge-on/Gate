@@ -31,26 +31,26 @@ void Utils::Uring::makeNonBlocking(int fd)
 
 void Utils::Uring::closeConn(int thread, Gen::H1::H1Connection &conn)
 {
-    auto sslIt = Gen::H1::activeThreads[thread].ssl.find(conn.fd);
-    if (sslIt != Gen::H1::activeThreads[thread].ssl.end())
+    auto sslIt = Gen::Global::activeThreads[thread].ssl.find(conn.fd);
+    if (sslIt != Gen::Global::activeThreads[thread].ssl.end())
     {
         if (sslIt->second.ssl)
             SSL_free(sslIt->second.ssl);
-        Gen::H1::activeThreads[thread].ssl.erase(sslIt);
+        Gen::Global::activeThreads[thread].ssl.erase(sslIt);
     }
 
-    if (conn.type == Gen::H1::TYPE_CLIENT && Gen::H1::activeThreads[thread].activeConnections > 0)
-        Gen::H1::activeThreads[thread].activeConnections--;
+    if (conn.type == Gen::Global::TYPE_CLIENT && Gen::Global::activeThreads[thread].activeConnections > 0)
+        Gen::Global::activeThreads[thread].activeConnections--;
 
     int fd = conn.fd;
     close(fd);
-    Gen::H1::activeThreads[thread].connections.erase(fd);
+    Gen::Global::activeThreads[thread].connections.erase(fd);
 }
 
 void Utils::Uring::closeConnectionFull(int thread, int fd)
 {
-    auto it = Gen::H1::activeThreads[thread].connections.find(fd);
-    if (it == Gen::H1::activeThreads[thread].connections.end())
+    auto it = Gen::Global::activeThreads[thread].connections.find(fd);
+    if (it == Gen::Global::activeThreads[thread].connections.end())
         return;
 
     Gen::H1::H1Connection &conn = it->second;
@@ -64,8 +64,8 @@ void Utils::Uring::closeConnectionFull(int thread, int fd)
 
     if (peerFd != -1)
     {
-        auto peerIt = Gen::H1::activeThreads[thread].connections.find(peerFd);
-        if (peerIt != Gen::H1::activeThreads[thread].connections.end())
+        auto peerIt = Gen::Global::activeThreads[thread].connections.find(peerFd);
+        if (peerIt != Gen::Global::activeThreads[thread].connections.end())
         {
             if (peerIt->second.resolverFd != -1)
             {

@@ -1,6 +1,6 @@
-#include "Core/Gen/H1/Gen.hpp"
+#include "Core/Gen/Gen.hpp"
 
-std::vector<std::thread> Gen::H1::threads;
-std::unordered_map<int, Gen::H1::Thread> Gen::H1::activeThreads;
+std::vector<std::thread> Gen::Global::threads;
+std::unordered_map<int, Gen::Global::Thread> Gen::Global::activeThreads;
 
-ZoneMap Gen::H1::zones;
+ZoneMap Gen::Global::zones;

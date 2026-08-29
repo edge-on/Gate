@@ -1,0 +1,111 @@
+#pragma once
+
+#include "Core/Gen/H1/Gen.hpp"
+
+namespace Gen
+{
+    class Global
+    {
+    public:
+        typedef enum
+        {
+            CONTINUE,
+            BREAK
+        };
+
+        typedef enum
+        {
+            TYPE_CLIENT,
+            TYPE_ORIGIN
+        } Type;
+
+        typedef struct
+        {
+            SSL *ssl;
+            BIO *rbio;
+            BIO *wbio;
+
+            bool handshakeDone = false;
+        } SslStructure;
+
+        typedef struct
+        {
+            int connFd;
+            int gen = 0;
+        } Generation;
+
+        struct PendingTlsResumeItem
+        {
+            int thread;
+            int fd;
+            bool success;
+        };
+
+        struct ThreadWakeup
+        {
+            int eventFd = -1;
+            std::mutex queueMutex;
+            std::deque<PendingTlsResumeItem> resumeQueue;
+
+            void init()
+            {
+                eventFd = eventfd(0, EFD_NONBLOCK);
+            }
+
+            void push(PendingTlsResumeItem item)
+            {
+                {
+                    std::lock_guard<std::mutex> lock(queueMutex);
+                    resumeQueue.push_back(item);
+                }
+                uint64_t one = 1;
+                write(eventFd, &one, sizeof(one));
+            }
+
+            std::deque<PendingTlsResumeItem> drain()
+            {
+                uint64_t val;
+                read(eventFd, &val, sizeof(val));
+
+                std::deque<PendingTlsResumeItem> out;
+                {
+                    std::lock_guard<std::mutex> lock(queueMutex);
+                    out.swap(resumeQueue);
+                }
+                return out;
+            }
+        };
+
+        using Zone = ::Zone;
+
+        typedef struct
+        {
+            int udpFd = -1;
+
+            std::thread::id id;
+
+            ssize_t activeConnections = 0;
+
+            ThreadWakeup wakeup;
+
+            // FD -> Connection
+            std::unordered_map<int, Gen::H1::H1Connection> connections;
+            // FD -> SSL
+            std::unordered_map<int, SslStructure> ssl;
+            // FD -> Gen
+            std::unordered_map<int, Generation> generations;
+
+            struct io_uring ring;
+
+            // Port -> FD
+            std::unordered_map<int, int> listeners;
+
+            bool isShutdown = false;
+        } Thread;
+
+        static std::vector<std::thread> threads;
+        static std::unordered_map<int, Thread> activeThreads;
+
+        static ZoneMap zones;
+    };
+} // namespace Gen

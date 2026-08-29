@@ -22,7 +22,7 @@ void Pipeline::H1::queueTlsConnecting(Gen::H1::H1Connection &conn)
     if (conn.isReadingClient)
         return;
 
-    if (Gen::H1::activeThreads[thread].ssl[conn.fd].handshakeDone)
+    if (Gen::Global::activeThreads[thread].ssl[conn.fd].handshakeDone)
         return;
 
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
@@ -181,9 +181,9 @@ void Pipeline::H1::writePage(Gen::H1::H1Connection &conn, std::string p)
 
         std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
 
-        if (Gen::H1::activeThreads[thread].ssl[conn.fd].handshakeDone)
+        if (Gen::Global::activeThreads[thread].ssl[conn.fd].handshakeDone)
         {
-            auto &ssl = Gen::H1::activeThreads[thread].ssl[conn.fd];
+            auto &ssl = Gen::Global::activeThreads[thread].ssl[conn.fd];
             int written = 0;
             while (written < len)
             {
