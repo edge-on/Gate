@@ -6,7 +6,7 @@ Core::Core()
 
 Core::~Core()
 {
-    for (auto &thread : Gen::activeThreads)
+    for (auto &thread : Gen::H1::activeThreads)
     {
         thread.second.isShutdown = true;
     }
@@ -16,21 +16,21 @@ void Core::start()
 {
     ctx = Ssl::initSSL();
 
-    Gen::zones.replaceCtx(Gen::zones.findOrCreate("localhost"), ctx);
+    Gen::H1::zones.replaceCtx(Gen::H1::zones.findOrCreate("localhost"), ctx);
 
     int threadCount = std::stoi(Main::dotenv->map["concurrency"]) + 1;
 
     for (int i = 0; i < threadCount; ++i)
     {
         if (i + 1 == threadCount)
-            Gen::threads.emplace_back(&Thread::Operational::operationalWorker, i);
+            Gen::H1::threads.emplace_back(&Thread::Operational::operationalWorker, i);
         else
-            Gen::threads.emplace_back(&Core::worker, this, i);
+            Gen::H1::threads.emplace_back(&Core::worker, this, i);
 
-        Gen::activeThreads[i].id = Gen::threads[i].get_id();
+        Gen::H1::activeThreads[i].id = Gen::H1::threads[i].get_id();
     }
 
-    for (auto &thread : Gen::threads)
+    for (auto &thread : Gen::H1::threads)
     {
         thread.join();
     }
@@ -38,7 +38,7 @@ void Core::start()
 
 void Core::worker(int thread)
 {
-    struct io_uring *ring = &Gen::activeThreads[thread].ring;
+    struct io_uring *ring = &Gen::H1::activeThreads[thread].ring;
     if (io_uring_queue_init(QUEUE_DEPTH, ring, 0) < 0)
     {
         perror("uring queue init failed.");
@@ -52,26 +52,26 @@ void Core::worker(int thread)
     for (int port : Main::listeners)
     {
         int fd = Proxy::initServer(port);
-        Gen::activeThreads[thread].listeners.emplace(port, fd);
+        Gen::H1::activeThreads[thread].listeners.emplace(port, fd);
         pipelineH1->queueMultishotAccept(fd);
 
         if (port == 443)
         {
             int udpFd = Proxy::initUdpServer(port);
-            Gen::activeThreads[thread].udpFd = udpFd;
+            Gen::H1::activeThreads[thread].udpFd = udpFd;
         }
     }
 
-    Gen::activeThreads[thread].wakeup.init();
+    Gen::H1::activeThreads[thread].wakeup.init();
 
     auto *sqe = Utils::Uring::getSqe(ring);
-    uint64_t data = ((uint64_t)Gen::H1_STATE_TLS_WAKEUP << 32) | (uint32_t)0;
-    io_uring_prep_poll_multishot(sqe, Gen::activeThreads[thread].wakeup.eventFd, POLLIN);
+    uint64_t data = ((uint64_t)Gen::H1::H1_STATE_TLS_WAKEUP << 32) | (uint32_t)0;
+    io_uring_prep_poll_multishot(sqe, Gen::H1::activeThreads[thread].wakeup.eventFd, POLLIN);
     io_uring_sqe_set_data(sqe, (void *)data);
 
     io_uring_submit(ring);
 
-    while (!Gen::activeThreads[thread].isShutdown)
+    while (!Gen::H1::activeThreads[thread].isShutdown)
     {
         struct io_uring_cqe *cqe;
         int ret = io_uring_wait_cqe(ring, &cqe);
@@ -85,12 +85,12 @@ void Core::worker(int thread)
 
         int result = -1;
 
-        if (fd == Gen::activeThreads[thread].udpFd)
+        if (fd == Gen::H1::activeThreads[thread].udpFd)
             result = Protocols::H1::run(cqe, ring, thread, pipelineH1, ctx);
         else
             result = Protocols::H1::run(cqe, ring, thread, pipelineH1, ctx);
 
-        if (result == Gen::CONTINUE)
+        if (result == Gen::H1::CONTINUE)
             continue;
     }
 }

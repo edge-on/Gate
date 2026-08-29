@@ -96,7 +96,7 @@ bool Origin::getSSLCerts()
 
             std::string tlsPrivateKeyPem(tlsPrivateKeyRaw.begin(), tlsPrivateKeyRaw.end());
 
-            Zone *zone = Gen::zones.findOrCreate(std::string_view(domain, domainLen));
+            Zone *zone = Gen::H1::zones.findOrCreate(std::string_view(domain, domainLen));
             SSL_CTX *zoneCtx = SSL_CTX_new(TLS_server_method());
 
             BIO *cert_bio = BIO_new_mem_buf(certificate, certLen);
@@ -147,7 +147,7 @@ bool Origin::getSSLCerts()
                 return false;
             }
 
-            Gen::zones.replaceCtx(zone, zoneCtx);
+            Gen::H1::zones.replaceCtx(zone, zoneCtx);
         }
 
         cass_iterator_free(iterator);
@@ -264,7 +264,7 @@ bool Origin::getNewVersions()
 
             std::string tlsPrivateKeyPem(tlsPrivateKeyRaw.begin(), tlsPrivateKeyRaw.end());
 
-            Zone *zone = Gen::zones.findOrCreate(std::string_view(domain, domainLen));
+            Zone *zone = Gen::H1::zones.findOrCreate(std::string_view(domain, domainLen));
             SSL_CTX *zoneCtx = SSL_CTX_new(TLS_server_method());
 
             BIO *cert_bio = BIO_new_mem_buf(certificate, certLen);
@@ -315,7 +315,7 @@ bool Origin::getNewVersions()
                 return false;
             }
 
-            Gen::zones.replaceCtx(zone, zoneCtx);
+            Gen::H1::zones.replaceCtx(zone, zoneCtx);
         }
 
         cass_iterator_free(iterator);
@@ -430,7 +430,7 @@ bool Origin::loadSSLCertForDomain(const std::string &domain, const std::string &
             std::cout << "OQS PROVIDER CANNOT BE LOADED" << std::endl;
         }
 
-        Zone *zone = Gen::zones.findOrCreate(domain);
+        Zone *zone = Gen::H1::zones.findOrCreate(domain);
         SSL_CTX *zoneCtx = SSL_CTX_new(TLS_server_method());
 
         BIO *cert_bio = BIO_new_mem_buf(certificate, static_cast<int>(certLen));
@@ -489,7 +489,7 @@ bool Origin::loadSSLCertForDomain(const std::string &domain, const std::string &
             std::cout << "FAILED TO SET PQC GROUPS" << std::endl;
         }
 
-        Gen::zones.replaceCtx(zone, zoneCtx);
+        Gen::H1::zones.replaceCtx(zone, zoneCtx);
 
         loaded = true;
     }
@@ -539,7 +539,7 @@ bool Origin::insertStatsSync()
                               std::chrono::system_clock::now().time_since_epoch())
                               .count();
 
-    Gen::zones.forEach([&](const std::string &domain, Zone &zone)
+    Gen::H1::zones.forEach([&](const std::string &domain, Zone &zone)
                        {
         const std::pair<int, int64_t> metrics[] = {
             {1, zone.dnsQueries.exchange(0, std::memory_order_relaxed)},

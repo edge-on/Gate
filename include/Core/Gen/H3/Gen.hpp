@@ -6,6 +6,7 @@ namespace Gen
 {
     class H3
     {
+    public:
         typedef enum
         {
             /* ================ HTTP/3 ================ */
@@ -24,7 +25,7 @@ namespace Gen
         {
             uint32_t streamId;
 
-            State state; 
+            State state;
         } H3Connection;
     };
 } // namespace Gen

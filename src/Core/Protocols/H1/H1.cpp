@@ -12,9 +12,9 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
     if (res < 0)
     {
-        if (opType == Gen::H1_STATE_CONNECT_RESOLVER || opType == Gen::H1_STATE_WRITE_RESOLVER || opType == Gen::H1_STATE_READ_RESOLVER)
+        if (opType == Gen::H1::H1_STATE_CONNECT_RESOLVER || opType == Gen::H1::H1_STATE_WRITE_RESOLVER || opType == Gen::H1::H1_STATE_READ_RESOLVER)
         {
-            Gen::H1Connection &conn = Gen::activeThreads[thread].connections[fd];
+            Gen::H1::H1Connection &conn = Gen::H1::activeThreads[thread].connections[fd];
             close(conn.resolverFd);
 
             if (conn.missingSni)
@@ -29,13 +29,13 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             }
             io_uring_submit(ring);
 
-            return Gen::CONTINUE;
+            return Gen::H1::CONTINUE;
         }
 
-        if (opType == Gen::H1_STATE_ORIGIN_CONNECTING)
+        if (opType == Gen::H1::H1_STATE_ORIGIN_CONNECTING)
         {
-            Gen::H1Connection &conn = Gen::activeThreads[thread].connections[fd];
-            Gen::H1Connection &originConn = Gen::activeThreads[thread].connections[conn.peerFd];
+            Gen::H1::H1Connection &conn = Gen::H1::activeThreads[thread].connections[fd];
+            Gen::H1::H1Connection &originConn = Gen::H1::activeThreads[thread].connections[conn.peerFd];
             pipeline->writePage(conn, "502");
 
             Utils::Uring::closeConn(thread, originConn);
@@ -48,14 +48,14 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             }
             io_uring_submit(ring);
 
-            return Gen::CONTINUE;
+            return Gen::H1::CONTINUE;
         }
 
-        auto it = Gen::activeThreads[thread].connections.find(fd);
-        if (it != Gen::activeThreads[thread].connections.end())
+        auto it = Gen::H1::activeThreads[thread].connections.find(fd);
+        if (it != Gen::H1::activeThreads[thread].connections.end())
         {
-            auto peerIt = Gen::activeThreads[thread].connections.find(it->second.peerFd);
-            if (peerIt != Gen::activeThreads[thread].connections.end())
+            auto peerIt = Gen::H1::activeThreads[thread].connections.find(it->second.peerFd);
+            if (peerIt != Gen::H1::activeThreads[thread].connections.end())
             {
                 Utils::Uring::closeConn(thread, peerIt->second);
             }
@@ -63,46 +63,46 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             Utils::Uring::closeConn(thread, it->second);
         }
 
-        if (opType == Gen::H1_STATE_ACCEPT_MULTISHOT)
+        if (opType == Gen::H1::H1_STATE_ACCEPT_MULTISHOT)
         {
             pipeline->queueMultishotAccept(fd);
             io_uring_submit(ring);
         }
 
-        return Gen::CONTINUE;
+        return Gen::H1::CONTINUE;
     }
 
     // ===========================================
     //                SOCKET
     // ===========================================
-    if (opType == Gen::H1_STATE_ACCEPT_MULTISHOT)
+    if (opType == Gen::H1::H1_STATE_ACCEPT_MULTISHOT)
     {
         int clientFd = res;
 
-        Gen::H1Connection tempConn{};
+        Gen::H1::H1Connection tempConn{};
         tempConn.fd = clientFd;
         tempConn.thread = thread;
-        tempConn.type = Gen::TYPE_CLIENT;
+        tempConn.type = Gen::H1::TYPE_CLIENT;
 
-        Gen::activeThreads[thread].generations[clientFd].connFd = clientFd;
-        Gen::activeThreads[thread].generations[clientFd].gen += 1;
+        Gen::H1::activeThreads[thread].generations[clientFd].connFd = clientFd;
+        Gen::H1::activeThreads[thread].generations[clientFd].gen += 1;
 
-        tempConn.gen = Gen::activeThreads[thread].generations[clientFd].gen;
+        tempConn.gen = Gen::H1::activeThreads[thread].generations[clientFd].gen;
 
-        Gen::activeThreads[thread].connections.erase(clientFd);
-        Gen::activeThreads[thread].connections.emplace(clientFd, std::move(tempConn));
+        Gen::H1::activeThreads[thread].connections.erase(clientFd);
+        Gen::H1::activeThreads[thread].connections.emplace(clientFd, std::move(tempConn));
 
-        auto &conn = Gen::activeThreads[thread].connections[clientFd];
+        auto &conn = Gen::H1::activeThreads[thread].connections[clientFd];
 
-        if (fd == Gen::activeThreads[thread].listeners[80])
+        if (fd == Gen::H1::activeThreads[thread].listeners[80])
         {
-            conn.protocolState = Gen::TCP_RAW;
+            conn.protocolState = Gen::H1::TCP_RAW;
 
             pipeline->queueReadClient(conn);
         }
-        else if (fd == Gen::activeThreads[thread].listeners[443])
+        else if (fd == Gen::H1::activeThreads[thread].listeners[443])
         {
-            auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+            auto &ssl = Gen::H1::activeThreads[thread].ssl[conn.fd];
 
             ssl.ssl = SSL_new(ctx);
             ssl.rbio = BIO_new(BIO_s_mem());
@@ -110,7 +110,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
             SSL_set_app_data(ssl.ssl, &conn);
 
-            conn.protocolState = Gen::TCP_TLS;
+            conn.protocolState = Gen::H1::TCP_TLS;
 
             SSL_set_bio(ssl.ssl, ssl.rbio, ssl.wbio);
             SSL_set_accept_state(ssl.ssl);
@@ -140,32 +140,32 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             }
         }
 
-        Gen::activeThreads[thread].activeConnections++;
+        Gen::H1::activeThreads[thread].activeConnections++;
 
         io_uring_submit(ring);
-        conn.lastOpType = Gen::H1_STATE_ACCEPT_MULTISHOT;
+        conn.lastOpType = Gen::H1::H1_STATE_ACCEPT_MULTISHOT;
 
-        return Gen::CONTINUE;
+        return Gen::H1::CONTINUE;
     }
 
-    if (opType == Gen::H1_STATE_TLS_WAKEUP)
+    if (opType == Gen::H1::H1_STATE_TLS_WAKEUP)
     {
-        auto items = Gen::activeThreads[thread].wakeup.drain();
+        auto items = Gen::H1::activeThreads[thread].wakeup.drain();
 
         for (auto &item : items)
         {
             if (!item.success)
                 continue;
 
-            auto it = Gen::activeThreads[thread].connections.find(item.fd);
-            if (it == Gen::activeThreads[thread].connections.end())
+            auto it = Gen::H1::activeThreads[thread].connections.find(item.fd);
+            if (it == Gen::H1::activeThreads[thread].connections.end())
                 continue;
 
             auto &conn = it->second;
 
-            conn.lastOpType = Gen::H1_STATE_TLS_CONNECTING;
+            conn.lastOpType = Gen::H1::H1_STATE_TLS_CONNECTING;
 
-            auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+            auto &ssl = Gen::H1::activeThreads[thread].ssl[conn.fd];
             int r = SSL_accept(ssl.ssl);
             if (r > 0)
             {
@@ -174,24 +174,6 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                 const unsigned char *alpn_proto;
                 unsigned int alpn_len;
                 SSL_get0_alpn_selected(ssl.ssl, &alpn_proto, &alpn_len);
-
-                if (alpn_len > 0)
-                {
-                    std::string selected_proto((char *)alpn_proto, alpn_len);
-
-                    if (selected_proto == "h2")
-                    {
-                        conn.protocol = Gen::H2;
-                    }
-                    else
-                    {
-                        conn.protocol = Gen::H1;
-                    }
-                }
-                else
-                {
-                    conn.protocol = Gen::H1;
-                }
             }
             else
             {
@@ -316,7 +298,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
                     pipeline->queueConnectResolver(conn, Main::resolverIp);
                     io_uring_submit(ring);
-                    conn.lastOpType = Gen::H1_STATE_TLS_CONNECTING;
+                    conn.lastOpType = Gen::H1::H1_STATE_TLS_CONNECTING;
                     continue;
                 }
 
@@ -327,7 +309,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                 }
 
                 io_uring_submit(ring);
-                conn.lastOpType = Gen::H1_STATE_TLS_CONNECTING;
+                conn.lastOpType = Gen::H1::H1_STATE_TLS_CONNECTING;
                 continue;
             }
             else if (ssl.handshakeDone)
@@ -337,26 +319,26 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         }
 
         io_uring_submit(ring);
-        return Gen::CONTINUE;
+        return Gen::H1::CONTINUE;
     }
 
-    auto it = Gen::activeThreads[thread].connections.find(fd);
-    if (it == Gen::activeThreads[thread].connections.end())
-        return Gen::CONTINUE;
+    auto it = Gen::H1::activeThreads[thread].connections.find(fd);
+    if (it == Gen::H1::activeThreads[thread].connections.end())
+        return Gen::H1::CONTINUE;
 
-    Gen::H1Connection &conn = it->second;
+    Gen::H1::H1Connection &conn = it->second;
 
-    if (conn.gen != Gen::activeThreads[thread].generations[conn.fd].gen)
-        return Gen::CONTINUE;
+    if (conn.gen != Gen::H1::activeThreads[thread].generations[conn.fd].gen)
+        return Gen::H1::CONTINUE;
 
     switch (opType)
     {
     // ===========================================
     //                CLIENT
     // ===========================================
-    case Gen::H1_STATE_TLS_CONNECTING:
+    case Gen::H1::H1_STATE_TLS_CONNECTING:
     {
-        auto &sslDbg = Gen::activeThreads[thread].ssl[conn.fd];
+        auto &sslDbg = Gen::H1::activeThreads[thread].ssl[conn.fd];
         conn.isReadingClient = false;
 
         if (res == 0)
@@ -366,7 +348,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             break;
         }
 
-        auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+        auto &ssl = Gen::H1::activeThreads[thread].ssl[conn.fd];
 
         int written = BIO_write(ssl.rbio, conn.in_raw_buffer, res);
         int r = SSL_accept(ssl.ssl);
@@ -377,24 +359,6 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             const unsigned char *alpn_proto;
             unsigned int alpn_len;
             SSL_get0_alpn_selected(ssl.ssl, &alpn_proto, &alpn_len);
-
-            if (alpn_len > 0)
-            {
-                std::string selected_proto((char *)alpn_proto, alpn_len);
-
-                if (selected_proto == "h2")
-                {
-                    conn.protocol = Gen::H2;
-                }
-                else
-                {
-                    conn.protocol = Gen::H1;
-                }
-            }
-            else
-            {
-                conn.protocol = Gen::H1;
-            }
         }
         else
         {
@@ -404,7 +368,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             {
                 Utils::Uring::closeConn(thread, conn);
                 io_uring_submit(ring);
-                return Gen::CONTINUE;
+                return Gen::H1::CONTINUE;
             }
 
             if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
@@ -424,7 +388,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         {
             Utils::Uring::closeConn(thread, conn);
             io_uring_submit(ring);
-            return Gen::CONTINUE;
+            return Gen::H1::CONTINUE;
         }
 
         while (BIO_pending(ssl.wbio) > 0)
@@ -521,7 +485,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
                 pipeline->queueConnectResolver(conn, Main::resolverIp);
                 io_uring_submit(ring);
-                conn.lastOpType = Gen::H1_STATE_TLS_CONNECTING;
+                conn.lastOpType = Gen::H1::H1_STATE_TLS_CONNECTING;
                 break;
             }
 
@@ -532,7 +496,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             }
 
             io_uring_submit(ring);
-            conn.lastOpType = Gen::H1_STATE_TLS_CONNECTING;
+            conn.lastOpType = Gen::H1::H1_STATE_TLS_CONNECTING;
             break;
         }
 
@@ -541,11 +505,11 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         io_uring_submit(ring);
 
-        conn.lastOpType = Gen::H1_STATE_TLS_CONNECTING;
+        conn.lastOpType = Gen::H1::H1_STATE_TLS_CONNECTING;
         break;
     }
 
-    case Gen::H1_STATE_READ_CLIENT:
+    case Gen::H1::H1_STATE_READ_CLIENT:
     {
         conn.isReadingClient = false;
 
@@ -564,9 +528,9 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         memset(conn.in_plain_buffer, 0, BUFFER_SIZE);
 
         // TCP TLS
-        if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+        if (Gen::H1::activeThreads[thread].ssl[conn.fd].handshakeDone)
         {
-            auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+            auto &ssl = Gen::H1::activeThreads[thread].ssl[conn.fd];
             int q = BIO_write(ssl.rbio, conn.in_raw_buffer, res);
 
             while (true)
@@ -630,7 +594,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         // At least for now
 
         // If request from port 80
-        if (!Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+        if (!Gen::H1::activeThreads[thread].ssl[conn.fd].handshakeDone)
         {
             std::string host = Utils::Http::getHost(conn.in_raw_buffer, res);
             std::string permanentlyMoved = "HTTP/1.1 301 Moved Permanently\r\n"
@@ -686,7 +650,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
             pipeline->queueConnectResolver(conn, Main::resolverIp);
             io_uring_submit(ring);
-            conn.lastOpType = Gen::H1_STATE_READ_CLIENT;
+            conn.lastOpType = Gen::H1::H1_STATE_READ_CLIENT;
             break;
         }
 
@@ -697,11 +661,11 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         }
 
         io_uring_submit(ring);
-        conn.lastOpType = Gen::H1_STATE_READ_CLIENT;
+        conn.lastOpType = Gen::H1::H1_STATE_READ_CLIENT;
         break;
     }
 
-    case Gen::H1_STATE_WRITE_CLIENT:
+    case Gen::H1::H1_STATE_WRITE_CLIENT:
     {
         if (conn.zone)
             conn.zone->outbound.fetch_add(res, std::memory_order_relaxed);
@@ -741,14 +705,14 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         pipeline->queueReadClient(conn);
         io_uring_submit(ring);
-        conn.lastOpType = Gen::H1_STATE_WRITE_CLIENT;
+        conn.lastOpType = Gen::H1::H1_STATE_WRITE_CLIENT;
         break;
     }
 
     // ===========================================
     //                ORIGIN
     // ===========================================
-    case Gen::H1_STATE_ORIGIN_CONNECTING:
+    case Gen::H1::H1_STATE_ORIGIN_CONNECTING:
     {
         pipeline->queueReadOrigin(conn);
 
@@ -760,11 +724,11 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         io_uring_submit(ring);
 
-        conn.lastOpType = Gen::H1_STATE_ORIGIN_CONNECTING;
+        conn.lastOpType = Gen::H1::H1_STATE_ORIGIN_CONNECTING;
         break;
     }
 
-    case Gen::H1_STATE_WRITE_ORIGIN:
+    case Gen::H1::H1_STATE_WRITE_ORIGIN:
     {
         if (conn.zone)
             conn.zone->outbound.fetch_add(res, std::memory_order_relaxed);
@@ -790,7 +754,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             pipeline->queueWriteOrigin(conn);
             io_uring_submit(ring);
 
-            conn.lastOpType = Gen::H1_STATE_WRITE_ORIGIN;
+            conn.lastOpType = Gen::H1::H1_STATE_WRITE_ORIGIN;
             break;
         }
 
@@ -799,11 +763,11 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         io_uring_submit(ring);
 
-        conn.lastOpType = Gen::H1_STATE_WRITE_ORIGIN;
+        conn.lastOpType = Gen::H1::H1_STATE_WRITE_ORIGIN;
         break;
     }
 
-    case Gen::H1_STATE_READ_ORIGIN:
+    case Gen::H1::H1_STATE_READ_ORIGIN:
     {
         if (conn.zone)
             conn.zone->inbound.fetch_add(res, std::memory_order_relaxed);
@@ -814,8 +778,8 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         {
             if (conn.peerFd != -1)
             {
-                auto originIt = Gen::activeThreads[thread].connections.find(conn.peerFd);
-                if (originIt != Gen::activeThreads[thread].connections.end())
+                auto originIt = Gen::H1::activeThreads[thread].connections.find(conn.peerFd);
+                if (originIt != Gen::H1::activeThreads[thread].connections.end())
                     Utils::Uring::closeConn(thread, originIt->second);
                 conn.peerFd = -1;
             }
@@ -860,9 +824,9 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             }
         }
 
-        if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+        if (Gen::H1::activeThreads[thread].ssl[conn.fd].handshakeDone)
         {
-            auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+            auto &ssl = Gen::H1::activeThreads[thread].ssl[conn.fd];
 
             int written = 0;
             while (written < res)
@@ -905,14 +869,14 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         pipeline->queueReadOrigin(conn);
         io_uring_submit(ring);
 
-        conn.lastOpType = Gen::H1_STATE_READ_ORIGIN;
+        conn.lastOpType = Gen::H1::H1_STATE_READ_ORIGIN;
         break;
     }
 
     // ===========================================
     //                RESOLVER
     // ===========================================
-    case Gen::H1_STATE_CONNECT_RESOLVER:
+    case Gen::H1::H1_STATE_CONNECT_RESOLVER:
     {
         conn.resolverPacket[0] = 0x12;
         conn.resolverPacket[1] = 0x34;
@@ -931,12 +895,12 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         pipeline->queueWriteResolver(conn);
         io_uring_submit(ring);
 
-        conn.lastOpType = Gen::H1_STATE_CONNECT_RESOLVER;
+        conn.lastOpType = Gen::H1::H1_STATE_CONNECT_RESOLVER;
 
         break;
     }
 
-    case Gen::H1_STATE_WRITE_RESOLVER:
+    case Gen::H1::H1_STATE_WRITE_RESOLVER:
     {
         if (conn.zone)
             conn.zone->inbound.fetch_add(res, std::memory_order_relaxed);
@@ -944,12 +908,12 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         pipeline->queueReadResolver(conn);
         io_uring_submit(ring);
 
-        conn.lastOpType = Gen::H1_STATE_WRITE_RESOLVER;
+        conn.lastOpType = Gen::H1::H1_STATE_WRITE_RESOLVER;
 
         break;
     }
 
-    case Gen::H1_STATE_READ_RESOLVER:
+    case Gen::H1::H1_STATE_READ_RESOLVER:
     {
         if (res == 0 && conn.resolverFd != -1)
             close(conn.resolverFd);
@@ -1079,10 +1043,10 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                 break;
             }
 
-            Gen::H1Connection peerConn{};
+            Gen::H1::H1Connection peerConn{};
             peerConn.fd = peerFd;
             peerConn.peerFd = conn.fd;
-            peerConn.type = Gen::TYPE_ORIGIN;
+            peerConn.type = Gen::H1::TYPE_ORIGIN;
             peerConn.originAddr = originAddr;
             conn.peerFd = peerFd;
 
@@ -1092,12 +1056,12 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                 conn.resolverFd = -1;
             }
 
-            Gen::activeThreads[thread].connections.emplace(peerFd, std::move(peerConn));
+            Gen::H1::activeThreads[thread].connections.emplace(peerFd, std::move(peerConn));
 
-            pipeline->queueConnectOrigin(Gen::activeThreads[thread].connections.at(peerFd));
+            pipeline->queueConnectOrigin(Gen::H1::activeThreads[thread].connections.at(peerFd));
             io_uring_submit(ring);
 
-            conn.lastOpType = Gen::H1_STATE_READ_RESOLVER;
+            conn.lastOpType = Gen::H1::H1_STATE_READ_RESOLVER;
             break;
         }
 
@@ -1108,7 +1072,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         }
 
         io_uring_submit(ring);
-        conn.lastOpType = Gen::H1_STATE_READ_RESOLVER;
+        conn.lastOpType = Gen::H1::H1_STATE_READ_RESOLVER;
         break;
     }
     }
