@@ -1,6 +1,6 @@
-#include "Utils/Uring/H1.hpp"
+#include "Utils/Uring/H1/H1.hpp"
 
-struct io_uring_sqe *Utils::Uring::getSqe(struct io_uring *ring)
+struct io_uring_sqe *Utils::H1::Uring::getSqe(struct io_uring *ring)
 {
     if (!ring)
         return nullptr;
@@ -15,7 +15,7 @@ struct io_uring_sqe *Utils::Uring::getSqe(struct io_uring *ring)
     return sqe;
 }
 
-void Utils::Uring::makeNonBlocking(int fd)
+void Utils::H1::Uring::makeNonBlocking(int fd)
 {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1)
@@ -29,7 +29,7 @@ void Utils::Uring::makeNonBlocking(int fd)
     }
 }
 
-void Utils::Uring::closeConn(int thread, Gen::H1::H1Connection &conn)
+void Utils::H1::Uring::closeConn(int thread, Gen::H1::H1Connection &conn)
 {
     auto sslIt = Gen::Global::activeThreads[thread].ssl.find(conn.fd);
     if (sslIt != Gen::Global::activeThreads[thread].ssl.end())
@@ -47,7 +47,7 @@ void Utils::Uring::closeConn(int thread, Gen::H1::H1Connection &conn)
     Gen::Global::activeThreads[thread].connections.erase(fd);
 }
 
-void Utils::Uring::closeConnectionFull(int thread, int fd)
+void Utils::H1::Uring::closeConnectionFull(int thread, int fd)
 {
     auto it = Gen::Global::activeThreads[thread].connections.find(fd);
     if (it == Gen::Global::activeThreads[thread].connections.end())

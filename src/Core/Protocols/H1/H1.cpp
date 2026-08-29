@@ -38,7 +38,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             Gen::H1::H1Connection &originConn = Gen::Global::activeThreads[thread].connections[conn.peerFd];
             pipeline->writePage(conn, "502");
 
-            Utils::Uring::closeConn(thread, originConn);
+            Utils::H1::Uring::closeConn(thread, originConn);
             conn.peerFd = -1;
 
             if (!conn.isWritingClient)
@@ -57,10 +57,10 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             auto peerIt = Gen::Global::activeThreads[thread].connections.find(it->second.peerFd);
             if (peerIt != Gen::Global::activeThreads[thread].connections.end())
             {
-                Utils::Uring::closeConn(thread, peerIt->second);
+                Utils::H1::Uring::closeConn(thread, peerIt->second);
             }
 
-            Utils::Uring::closeConn(thread, it->second);
+            Utils::H1::Uring::closeConn(thread, it->second);
         }
 
         if (opType == Gen::H1::H1_STATE_ACCEPT_MULTISHOT)
@@ -181,7 +181,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
                 if (err == SSL_ERROR_SYSCALL || err == SSL_ERROR_SSL || err == SSL_ERROR_ZERO_RETURN)
                 {
-                    Utils::Uring::closeConn(thread, conn);
+                    Utils::H1::Uring::closeConn(thread, conn);
                     io_uring_submit(ring);
                     continue;
                 }
@@ -195,12 +195,12 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                 if (err == SSL_ERROR_WANT_READ)
                     pipeline->queueTlsConnecting(conn);
                 else
-                    Utils::Uring::closeConnectionFull(thread, conn.fd);
+                    Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
             }
 
             if (!ssl.wbio || !ssl.rbio || !ssl.ssl)
             {
-                Utils::Uring::closeConn(thread, conn);
+                Utils::H1::Uring::closeConn(thread, conn);
                 io_uring_submit(ring);
                 continue;
             }
@@ -265,7 +265,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                     }
                     else
                     {
-                        Utils::Uring::closeConnectionFull(thread, conn.fd);
+                        Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
                     }
 
                     break;
@@ -343,7 +343,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         if (res == 0)
         {
-            Utils::Uring::closeConnectionFull(thread, conn.fd);
+            Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
             io_uring_submit(ring);
             break;
         }
@@ -366,7 +366,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
             if (err == SSL_ERROR_SYSCALL || err == SSL_ERROR_SSL || err == SSL_ERROR_ZERO_RETURN)
             {
-                Utils::Uring::closeConn(thread, conn);
+                Utils::H1::Uring::closeConn(thread, conn);
                 io_uring_submit(ring);
                 return Gen::Global::CONTINUE;
             }
@@ -381,12 +381,12 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             if (err == SSL_ERROR_WANT_READ)
                 pipeline->queueTlsConnecting(conn);
             else
-                Utils::Uring::closeConnectionFull(thread, conn.fd);
+                Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
         }
 
         if (!ssl.wbio || !ssl.rbio || !ssl.ssl)
         {
-            Utils::Uring::closeConn(thread, conn);
+            Utils::H1::Uring::closeConn(thread, conn);
             io_uring_submit(ring);
             return Gen::Global::CONTINUE;
         }
@@ -452,7 +452,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                 }
                 else
                 {
-                    Utils::Uring::closeConnectionFull(thread, conn.fd);
+                    Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
                 }
 
                 break;
@@ -518,7 +518,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         if (res == 0)
         {
-            Utils::Uring::closeConnectionFull(thread, conn.fd);
+            Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
             io_uring_submit(ring);
             break;
         }
@@ -574,7 +574,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                     }
                     else
                     {
-                        Utils::Uring::closeConnectionFull(thread, conn.fd);
+                        Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
                     }
 
                     break;
@@ -698,7 +698,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         if (conn.pendingClose)
         {
-            Utils::Uring::closeConnectionFull(thread, fd);
+            Utils::H1::Uring::closeConnectionFull(thread, fd);
             io_uring_submit(ring);
             break;
         }
@@ -780,7 +780,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             {
                 auto originIt = Gen::Global::activeThreads[thread].connections.find(conn.peerFd);
                 if (originIt != Gen::Global::activeThreads[thread].connections.end())
-                    Utils::Uring::closeConn(thread, originIt->second);
+                    Utils::H1::Uring::closeConn(thread, originIt->second);
                 conn.peerFd = -1;
             }
 
@@ -795,7 +795,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             }
             else
             {
-                Utils::Uring::closeConn(thread, conn);
+                Utils::H1::Uring::closeConn(thread, conn);
             }
 
             io_uring_submit(ring);

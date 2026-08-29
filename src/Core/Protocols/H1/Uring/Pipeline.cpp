@@ -8,7 +8,7 @@ Pipeline::H1::H1(struct io_uring *ring, int thread)
 
 void Pipeline::H1::queueMultishotAccept(int serverFd)
 {
-    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    struct io_uring_sqe *sqe = Utils::H1::Uring::getSqe(ring);
     if (!sqe)
         return;
 
@@ -25,7 +25,7 @@ void Pipeline::H1::queueTlsConnecting(Gen::H1::H1Connection &conn)
     if (Gen::Global::activeThreads[thread].ssl[conn.fd].handshakeDone)
         return;
 
-    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    struct io_uring_sqe *sqe = Utils::H1::Uring::getSqe(ring);
     if (!sqe)
         return;
 
@@ -41,7 +41,7 @@ void Pipeline::H1::queueReadClient(Gen::H1::H1Connection &conn)
     if (conn.isReadingClient)
         return;
 
-    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    struct io_uring_sqe *sqe = Utils::H1::Uring::getSqe(ring);
     if (!sqe)
         return;
 
@@ -54,7 +54,7 @@ void Pipeline::H1::queueReadClient(Gen::H1::H1Connection &conn)
 
 void Pipeline::H1::queueConnectOrigin(Gen::H1::H1Connection &originConn)
 {
-    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    struct io_uring_sqe *sqe = Utils::H1::Uring::getSqe(ring);
     if (!sqe)
         return;
 
@@ -70,7 +70,7 @@ void Pipeline::H1::queueWriteOrigin(Gen::H1::H1Connection &conn)
     if (conn.writeOriginQueue.empty())
         return;
 
-    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    struct io_uring_sqe *sqe = Utils::H1::Uring::getSqe(ring);
     if (!sqe)
         return;
 
@@ -89,7 +89,7 @@ void Pipeline::H1::queueReadOrigin(Gen::H1::H1Connection &conn)
     if (conn.isReadingOrigin)
         return;
 
-    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    struct io_uring_sqe *sqe = Utils::H1::Uring::getSqe(ring);
     if (!sqe)
         return;
 
@@ -105,7 +105,7 @@ void Pipeline::H1::queueWriteClient(Gen::H1::H1Connection &conn)
     if (conn.writeQueue.empty())
         return;
 
-    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    struct io_uring_sqe *sqe = Utils::H1::Uring::getSqe(ring);
     if (!sqe)
         return;
 
@@ -121,7 +121,7 @@ void Pipeline::H1::queueWriteClient(Gen::H1::H1Connection &conn)
 
 void Pipeline::H1::queueConnectResolver(Gen::H1::H1Connection &conn, char *ip)
 {
-    io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    io_uring_sqe *sqe = Utils::H1::Uring::getSqe(ring);
     if (!sqe)
         return;
 
@@ -137,7 +137,7 @@ void Pipeline::H1::queueConnectResolver(Gen::H1::H1Connection &conn, char *ip)
 
 void Pipeline::H1::queueWriteResolver(Gen::H1::H1Connection &conn)
 {
-    io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    io_uring_sqe *sqe = Utils::H1::Uring::getSqe(ring);
     if (!sqe)
         return;
 
@@ -148,7 +148,7 @@ void Pipeline::H1::queueWriteResolver(Gen::H1::H1Connection &conn)
 
 void Pipeline::H1::queueReadResolver(Gen::H1::H1Connection &conn)
 {
-    io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    io_uring_sqe *sqe = Utils::H1::Uring::getSqe(ring);
     if (!sqe)
         return;
 

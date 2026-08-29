@@ -13,6 +13,8 @@
 
 #include <iostream>
 
+#include <quiche.h>
+
 #include <string>
 
 #include "Core/Gen/H1/Gen.hpp"

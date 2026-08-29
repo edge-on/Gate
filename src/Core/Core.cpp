@@ -65,7 +65,7 @@ void Core::worker(int thread)
 
     Gen::Global::activeThreads[thread].wakeup.init();
 
-    auto *sqe = Utils::Uring::getSqe(ring);
+    auto *sqe = Utils::H1::Uring::getSqe(ring);
     uint64_t data = ((uint64_t)Gen::H1::H1_STATE_TLS_WAKEUP << 32) | (uint32_t)0;
     io_uring_prep_poll_multishot(sqe, Gen::Global::activeThreads[thread].wakeup.eventFd, POLLIN);
     io_uring_sqe_set_data(sqe, (void *)data);
