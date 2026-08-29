@@ -45,14 +45,15 @@ void Core::worker(int thread)
         return;
     }
 
-    Pipeline::H1 *pipeline = new Pipeline::H1(ring, thread);
+    Pipeline::H1 *pipelineH1 = new Pipeline::H1(ring, thread);
+    Pipeline::H3 *pipelineH3 = new Pipeline::H3(ring, thread);
 
     // Port inits
     for (int port : Main::listeners)
     {
         int fd = Proxy::initServer(port);
         Gen::activeThreads[thread].listeners.emplace(port, fd);
-        pipeline->queueMultishotAccept(fd);
+        pipelineH1->queueMultishotAccept(fd);
 
         if (port == 443)
         {
@@ -64,7 +65,7 @@ void Core::worker(int thread)
     Gen::activeThreads[thread].wakeup.init();
 
     auto *sqe = Utils::Uring::getSqe(ring);
-    uint64_t data = ((uint64_t)Gen::STATE_TLS_WAKEUP << 32) | (uint32_t)0;
+    uint64_t data = ((uint64_t)Gen::H1_STATE_TLS_WAKEUP << 32) | (uint32_t)0;
     io_uring_prep_poll_multishot(sqe, Gen::activeThreads[thread].wakeup.eventFd, POLLIN);
     io_uring_sqe_set_data(sqe, (void *)data);
 
@@ -84,8 +85,10 @@ void Core::worker(int thread)
 
         int result = -1;
 
-        if (fd != Gen::activeThreads[thread].udpFd)
-            result = Protocols::H1::run(cqe, ring, thread, pipeline, ctx);
+        if (fd == Gen::activeThreads[thread].udpFd)
+            result = Protocols::H1::run(cqe, ring, thread, pipelineH1, ctx);
+        else
+            result = Protocols::H1::run(cqe, ring, thread, pipelineH1, ctx);
 
         if (result == Gen::CONTINUE)
             continue;

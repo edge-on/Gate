@@ -31,26 +31,39 @@ class Gen
 public:
     typedef enum
     {
+        /* ================ HTTP/1.1 ================ */
         // Socket
-        STATE_ACCEPT_MULTISHOT,
+        H1_STATE_ACCEPT_MULTISHOT,
 
         // Client
-        STATE_TLS_CONNECTING,
-        STATE_READ_CLIENT,
-        STATE_WRITE_CLIENT,
+        H1_STATE_TLS_CONNECTING,
+        H1_STATE_READ_CLIENT,
+        H1_STATE_WRITE_CLIENT,
 
         // Origin
-        STATE_ORIGIN_CONNECTING,
-        STATE_WRITE_ORIGIN,
-        STATE_READ_ORIGIN,
+        H1_STATE_ORIGIN_CONNECTING,
+        H1_STATE_WRITE_ORIGIN,
+        H1_STATE_READ_ORIGIN,
 
         // DNS
-        STATE_CONNECT_RESOLVER,
-        STATE_WRITE_RESOLVER,
-        STATE_READ_RESOLVER,
+        H1_STATE_CONNECT_RESOLVER,
+        H1_STATE_WRITE_RESOLVER,
+        H1_STATE_READ_RESOLVER,
 
         // TLS
-        STATE_TLS_WAKEUP
+        H1_STATE_TLS_WAKEUP,
+        /* ================ HTTP/1.1 ================ */
+
+        /* ================ HTTP/3 ================ */
+        // Client
+        H3_STATE_READ_CLIENT,
+        H3_STATE_WRITE_CLIENT,
+
+        // Origin
+        H3_STATE_ORIGIN_CONNECTING,
+        H3_STATE_READ_ORIGIN,
+        H3_STATE_WRITE_ORIGIN
+        /* ================ HTTP/3 ================ */
     } State;
 
     typedef enum
@@ -171,7 +184,7 @@ public:
 
         std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeQueue;
         std::list<std::pair<std::array<char, BUFFER_SIZE>, int>> writeOriginQueue;
-    } Connection;
+    } H1Connection;
 
     typedef struct
     {
@@ -199,7 +212,7 @@ public:
         ThreadWakeup wakeup;
 
         // FD -> Connection
-        std::unordered_map<int, Connection> connections;
+        std::unordered_map<int, H1Connection> connections;
         // FD -> SSL
         std::unordered_map<int, SslStructure> ssl;
         // FD -> Gen
