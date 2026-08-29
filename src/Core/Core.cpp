@@ -15,7 +15,8 @@ Core::~Core()
 void Core::start()
 {
     ctx = Ssl::initSSL();
-
+    quicheConf = Ssl::initQuicheSSL();
+    
     Gen::Global::zones.replaceCtx(Gen::Global::zones.findOrCreate("localhost"), ctx);
 
     int threadCount = std::stoi(Main::dotenv->map["concurrency"]) + 1;

@@ -2,6 +2,9 @@
 
 #include <cstdint>
 
+#define LOCAL_CONN_ID_LEN 16
+#define MAX_DATAGRAM_SIZE 1350
+
 namespace Gen
 {
     class H3

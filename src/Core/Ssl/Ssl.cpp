@@ -33,6 +33,14 @@ SSL_CTX *Ssl::initSSL()
     return ctx;
 }
 
+quiche_config *Ssl::initQuicheSSL() {
+    quiche_config *conf = quiche_config_new(QUICHE_PROTOCOL_VERSION);
+    quiche_config_load_cert_chain_from_pem_file(conf, "SSL/localhost.pem");
+    quiche_config_load_priv_key_from_pem_file(conf, "SSL/localhost-key.pem");
+
+    return conf;
+}
+
 int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg)
 {
     auto *connDbg = static_cast<Gen::H1::H1Connection *>(SSL_get_app_data(ssl));

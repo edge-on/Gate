@@ -1,5 +1,7 @@
 #pragma once
 
+#include <quiche.h>
+
 #include "Core/Gen/H1/Gen.hpp"
 
 namespace Gen
@@ -21,11 +23,17 @@ namespace Gen
 
         typedef struct
         {
+            /* ================== HTTP/3 ================== */
+            quiche_config *config;
+            /* ================== HTTP/3 ================== */
+
+            /* ================== HTTP/1.1 ================== */
             SSL *ssl;
             BIO *rbio;
             BIO *wbio;
 
             bool handshakeDone = false;
+            /* ================== HTTP/1.1 ================== */
         } SslStructure;
 
         typedef struct
