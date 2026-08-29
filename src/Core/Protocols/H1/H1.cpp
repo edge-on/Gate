@@ -804,21 +804,22 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         if (res >= 12 && strncmp(conn.out_plain_buffer, "HTTP/1.", 7) == 0)
         {
-            char *header_end = (char *)memmem(conn.out_plain_buffer, res, "\r\n\r\n", 4);
-            if (header_end != NULL)
+            char *headerEnd = (char *)memmem(conn.out_plain_buffer, res, "\r\n\r\n", 4);
+            if (headerEnd != NULL)
             {
-                size_t header_bytes = header_end - conn.out_plain_buffer;
-                if (Utils::Http::getHeader(conn.out_plain_buffer, header_bytes, "location:") != "undefined")
+                size_t headerBytes = headerEnd - conn.out_plain_buffer;
+                if (Utils::Http::getHeader(conn.out_plain_buffer, headerBytes, "location:") != "undefined")
                 {
-                    const char *hsts_header = "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n";
-                    size_t hsts_len = strlen(hsts_header);
-                    size_t body_bytes = res - header_bytes;
+                    const char *header = "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n"
+                                         "Alt-Svc: h3=\":443\"; ma=2592000\r\n";
+                    size_t len = strlen(header);
+                    size_t bodyBytes = res - headerBytes;
 
-                    if (res + hsts_len <= BUFFER_SIZE)
+                    if (res + len <= BUFFER_SIZE)
                     {
-                        memmove(header_end + hsts_len, header_end, body_bytes);
-                        memcpy(header_end, hsts_header, hsts_len);
-                        res += hsts_len;
+                        memmove(headerEnd + len, headerEnd, bodyBytes);
+                        memcpy(headerEnd, header, len);
+                        res += len;
                     }
                 }
             }
