@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <queue>
+
+#include "Core/Gen/Gen.hpp"
 
 #define LOCAL_CONN_ID_LEN 16
 #define MAX_DATAGRAM_SIZE 1350
@@ -30,5 +33,14 @@ namespace H3
 
             State state;
         } H3Connection;
+
+        typedef struct
+        {
+            char buffer[BUFFER_SIZE];
+            ssize_t len;
+        } IoContext;
+
+        static std::queue<IoContext> clientPool;
+        static std::queue<IoContext> originPool;
     };
 } // namespace Gen

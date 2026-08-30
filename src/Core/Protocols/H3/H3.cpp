@@ -3,8 +3,7 @@
 int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, SSL_CTX *ctx)
 {
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
-    int streamId = (int)(data & 0xFFFFFFFF);
-    int opType = (int)(data >> 32);
+    int opType = (int)(data);
 
     int res = cqe->res;
     bool hasMore = cqe->flags & IORING_CQE_F_MORE;
@@ -12,6 +11,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
     if (res < 0)
     {
+        std::cout << "Res is minus!" << std::endl;
     }
 
     switch (opType)
@@ -21,8 +21,12 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         if (res <= 0)
             break;
 
-        // SSL_CTX *ctx = quiche_config_get_ssl_ctx();
-        // quiche_conn_recv(nullptr, )
+        std::cout << "I recv from client " << res << " bytes!" << std::endl;
+
+        auto &ref = ::H3::Gen::clientPool.front();
+        ref.len = res;
+
+        quiche_header_info((uint8_t*)ref.buffer, ref.len, LOCAL_CONN_ID_LEN, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
         break;
     }

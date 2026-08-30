@@ -13,7 +13,10 @@ void Pipeline::H3::queueReadClient()
     if (!sqe)
         return;
 
-    io_uring_prep_recv_multishot(sqe, fd, nullptr, BUFFER_SIZE, 0);
+    ::H3::Gen::clientPool.push({"", 0});
+    auto &ref = ::H3::Gen::clientPool.back();
+
+    io_uring_prep_recv_multishot(sqe, fd, &ref.buffer, BUFFER_SIZE, 0);
     uint64_t data = (uint64_t)::H3::Gen::H3_STATE_READ_CLIENT;
     io_uring_sqe_set_data64(sqe, data);
 }
