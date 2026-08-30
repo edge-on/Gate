@@ -63,12 +63,12 @@ The following shared libraries must be available in your build environment:
 Compile and install the necessary submodules before compiling the primary proxy binary.
 
 ```bash
-git clone [https://github.com/wyrexdev/Dotenv.git](https://github.com/wyrexdev/Dotenv.git)
+git clone https://github.com/wyrexdev/Dotenv.git
 cd Dotenv
 sudo make && sudo make install
 cd ..
 
-git clone [https://github.com/edge-on/quiche.git](https://github.com/edge-on/quiche.git)
+git clone https://github.com/edge-on/quiche.git
 cd quiche
 cargo build --release --features ffi
 sudo make install-deps
@@ -80,7 +80,7 @@ cd ..
 Clone the main repository and initialize the build sequence.
 
 ```bash
-git clone [https://github.com/wyrexdev/Gate.git](https://github.com/wyrexdev/Gate.git)
+git clone https://github.com/wyrexdev/Gate.git
 cd Gate
 
 sudo make
