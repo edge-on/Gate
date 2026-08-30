@@ -167,6 +167,7 @@ void Pipeline::H1::writePage(::H1::Gen::H1Connection &conn, std::string p)
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html; charset=UTF-8\r\n"
         "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n"
+        "Alt-Svc: h3=\":443\"; ma=2592000\r\n"
         "Content-Length: " +
         std::to_string(page.size()) + "\r\n"
                                       "Connection: close\r\n"

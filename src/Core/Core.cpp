@@ -16,7 +16,7 @@ void Core::start()
 {
     ctx = Ssl::initSSL();
     quicheConf = Ssl::initQuicheSSL();
-    
+
     Gen::zones.replaceCtx(Gen::zones.findOrCreate("localhost"), ctx);
 
     int threadCount = std::stoi(Main::dotenv->map["concurrency"]) + 1;
@@ -46,8 +46,15 @@ void Core::worker(int thread)
         return;
     }
 
+    int udpFd = Proxy::initUdpServer(443);
+    Gen::activeThreads[thread].udpFd = udpFd;
+
     Pipeline::H1 *pipelineH1 = new Pipeline::H1(ring, thread);
-    Pipeline::H3 *pipelineH3 = new Pipeline::H3(ring, thread);
+    Pipeline::H3 *pipelineH3 = new Pipeline::H3(ring, thread, Gen::activeThreads[thread].udpFd);
+
+    pipelineH3->queueReadClient();
+
+    std::cout << "UDP FD " << Gen::activeThreads[thread].udpFd << " queued to recv" << std::endl;
 
     // Port inits
     for (int port : Main::listeners)
@@ -55,12 +62,6 @@ void Core::worker(int thread)
         int fd = Proxy::initServer(port);
         Gen::activeThreads[thread].listeners.emplace(port, fd);
         pipelineH1->queueMultishotAccept(fd);
-
-        if (port == 443)
-        {
-            int udpFd = Proxy::initUdpServer(port);
-            Gen::activeThreads[thread].udpFd = udpFd;
-        }
     }
 
     Gen::activeThreads[thread].wakeup.init();
@@ -87,7 +88,7 @@ void Core::worker(int thread)
         int result = -1;
 
         if (fd == Gen::activeThreads[thread].udpFd)
-            result = Protocols::H1::run(cqe, ring, thread, pipelineH1, ctx);
+            result = Protocols::H3::run(cqe, ring, thread, pipelineH3, ctx);
         else
             result = Protocols::H1::run(cqe, ring, thread, pipelineH1, ctx);
 

@@ -43,8 +43,7 @@ int Proxy::initUdpServer(int port)
     int opt = 1;
     setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     setsockopt(sockFd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
-    setsockopt(sockFd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
-
+    
     if (bind(sockFd, (sockaddr *)&addr, sizeof(addr)) < 0)
     {
         perror("initUdpSerber bind");

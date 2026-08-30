@@ -2,8 +2,11 @@
 
 int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, SSL_CTX *ctx)
 {
+    std::cout << "I TAKE FROM UDP" << std::endl;
+
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
-    int opType = (int)(data);
+    int fd = (int)(data & 0xFFFFFFFF);
+    int opType = (int)(data >> 32);
 
     int res = cqe->res;
     bool hasMore = cqe->flags & IORING_CQE_F_MORE;
@@ -11,7 +14,8 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
     if (res < 0)
     {
-        std::cout << "Res is minus!" << std::endl;
+        std::cout << "Res is minus! " << res << std::endl;
+        return Gen::CONTINUE;
     }
 
     switch (opType)
@@ -23,10 +27,10 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         std::cout << "I recv from client " << res << " bytes!" << std::endl;
 
-        auto &ref = ::H3::Gen::clientPool.front();
-        ref.len = res;
+        uint32_t version;
+        // quiche_header_info((uint8_t*)ref.buffer, ref.len, LOCAL_CONN_ID_LEN, &version, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
-        quiche_header_info((uint8_t*)ref.buffer, ref.len, LOCAL_CONN_ID_LEN, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+        std::cout << "Version " << version << std::endl;
 
         break;
     }

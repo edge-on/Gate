@@ -33,14 +33,5 @@ namespace H3
 
             State state;
         } H3Connection;
-
-        typedef struct
-        {
-            char buffer[BUFFER_SIZE];
-            ssize_t len;
-        } IoContext;
-
-        static std::queue<IoContext> clientPool;
-        static std::queue<IoContext> originPool;
     };
 } // namespace Gen

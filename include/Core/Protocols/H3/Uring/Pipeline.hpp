@@ -8,6 +8,7 @@
 #include "Utils/Pages.hpp"
 
 #include "Utils/Uring/Uring.hpp"
+#include "Utils/Uring/BufferPool.hpp"
 
 namespace Pipeline
 {
@@ -26,5 +27,7 @@ namespace Pipeline
         struct io_uring *ring;
         int thread;
         int fd;
+
+        Uring::BufferPool *pool;
     };
 } // namespace Pipeline
