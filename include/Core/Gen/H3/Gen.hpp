@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstring>
 #include <cstdint>
 #include <queue>
+#include <sys/socket.h>
 
 #include "Core/Gen/Gen.hpp"
 
@@ -33,5 +35,13 @@ namespace H3
 
             State state;
         } H3Connection;
+
+        typedef struct
+        {
+            int bufGroup;
+            struct msghdr msgHdr;
+        } ThreadUDPConfig;
+
+        inline static thread_local ThreadUDPConfig localUdpConfig;
     };
 } // namespace Gen

@@ -6,6 +6,10 @@ Pipeline::H3::H3(struct io_uring *ring, int thread, int fd)
     this->thread = thread;
     this->fd = fd;
 
+    ::H3::Gen::localUdpConfig.msgHdr.msg_name = nullptr;
+    ::H3::Gen::localUdpConfig.msgHdr.msg_namelen = 0;
+    ::H3::Gen::localUdpConfig.msgHdr.msg_controllen = 0;
+
     pool = new Uring::BufferPool();
     pool->setup(this->ring, 1024 * 1024, 2048, 1, 32768);
 }
@@ -18,14 +22,13 @@ void Pipeline::H3::queueReadClient()
 
     uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_READ_CLIENT << 32) | (uint32_t)fd;
 
-    conn.msgHdr.msg_namelen = sizeof(struct sockaddr_storage);
-    conn.msgHdr.msg_controllen = 0;
+    ::H3::Gen::localUdpConfig.bufGroup = pool->pickGroup();
 
-    conn.buf_group = pool->pickGroup();
+    io_uring_prep_recvmsg_multishot(sqe, fd, &::H3::Gen::localUdpConfig.msgHdr, 0);
 
-    io_uring_prep_recvmsg_multishot(sqe, conn.fd, &conn.msgHdr, 0);
     sqe->flags |= IOSQE_BUFFER_SELECT;
-    sqe->buf_group = (uint16_t)conn.buf_group;
+    sqe->buf_group = (uint16_t)::H3::Gen::localUdpConfig.bufGroup;
+
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
@@ -36,7 +39,7 @@ void Pipeline::H3::queueWriteClient()
         return;
 
     uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_WRITE_CLIENT << 32) | (uint32_t)fd;
-    io_uring_sqe_set_data64(sqe, data);
+    io_uring_sqe_set_data(sqe, (void *)data);
 }
 
 void Pipeline::H3::queueReadOrigin()
@@ -46,7 +49,7 @@ void Pipeline::H3::queueReadOrigin()
         return;
 
     uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_READ_ORIGIN << 32) | (uint32_t)fd;
-    io_uring_sqe_set_data64(sqe, data);
+    io_uring_sqe_set_data(sqe, (void *)data);
 }
 
 void Pipeline::H3::queueWriteOrigin()
@@ -56,5 +59,5 @@ void Pipeline::H3::queueWriteOrigin()
         return;
 
     uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_WRITE_ORIGIN << 32) | (uint32_t)fd;
-    io_uring_sqe_set_data64(sqe, data);
+    io_uring_sqe_set_data(sqe, (void *)data);
 }

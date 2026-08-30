@@ -23,11 +23,11 @@ namespace Pipeline
         void queueReadOrigin();
         void queueWriteOrigin();
 
+        Uring::BufferPool *pool;
+
     private:
         struct io_uring *ring;
         int thread;
         int fd;
-
-        Uring::BufferPool *pool;
     };
 } // namespace Pipeline

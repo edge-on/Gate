@@ -2,8 +2,6 @@
 
 int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, SSL_CTX *ctx)
 {
-    std::cout << "I TAKE FROM UDP" << std::endl;
-
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
     int fd = (int)(data & 0xFFFFFFFF);
     int opType = (int)(data >> 32);
@@ -14,7 +12,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
     if (res < 0)
     {
-        std::cout << "Res is minus! " << res << std::endl;
         return Gen::CONTINUE;
     }
 
@@ -25,14 +22,48 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         if (res <= 0)
             break;
 
-        std::cout << "I recv from client " << res << " bytes!" << std::endl;
+        int bufId = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+        int groupId = ::H3::Gen::localUdpConfig.bufGroup;
+        char *raw = pipeline->pool->getBufferAddress(groupId, bufId);
 
-        uint32_t version;
-        // quiche_header_info((uint8_t*)ref.buffer, ref.len, LOCAL_CONN_ID_LEN, &version, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+        struct io_uring_recvmsg_out *hdr = reinterpret_cast<struct io_uring_recvmsg_out *>(raw);
 
-        std::cout << "Version " << version << std::endl;
+        uint8_t *quicPayload = reinterpret_cast<uint8_t *>(raw + sizeof(struct io_uring_recvmsg_out) + hdr->namelen);
+        size_t quicPayloadLen = hdr->payloadlen;
+
+        uint32_t version = 0;
+        uint8_t type = 0;
+
+        uint8_t scid[QUICHE_MAX_CONN_ID_LEN];
+        size_t scidLen = sizeof(scid);
+
+        uint8_t dcid[QUICHE_MAX_CONN_ID_LEN];
+        size_t dcidLen = sizeof(dcid);
+
+        uint8_t token[256];
+        size_t tokenLen = sizeof(token);
+
+        int rc = quiche_header_info(quicPayload, quicPayloadLen, LOCAL_CONN_ID_LEN,
+                                    &version, &type,
+                                    scid, &scidLen,
+                                    dcid, &dcidLen,
+                                    token, &tokenLen);
+
+        /*
+            TYPES
+               0x01 = HEADER INITIAL 
+               0x02 = RETRY 
+               0x03 = HANDSHAKE
+               0x04 = 0-RTT
+        */
+        if(rc == 0 && type == 0x01)
+        {
+            std::cout << "This is an initial pack" << std::endl;
+        }
 
         break;
     }
     }
+
+    return 0;
 }

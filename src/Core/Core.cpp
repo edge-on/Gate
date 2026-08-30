@@ -54,8 +54,6 @@ void Core::worker(int thread)
 
     pipelineH3->queueReadClient();
 
-    std::cout << "UDP FD " << Gen::activeThreads[thread].udpFd << " queued to recv" << std::endl;
-
     // Port inits
     for (int port : Main::listeners)
     {
