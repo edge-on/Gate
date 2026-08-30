@@ -13,7 +13,7 @@ SSL_CTX *Ssl::initSSL()
     SSL_CTX_use_PrivateKey_file(ctx, "SSL/localhost-key.pem", SSL_FILETYPE_PEM);
 
     SSL_CTX_set_cipher_list(ctx, "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305");
-    if (SSL_CTX_set1_groups_list(ctx, "X25519MLKEM768:SecP256r1MLKEM768:x25519:P-256") != 1)
+    if (SSL_CTX_set1_groups_list(ctx, "X25519Kyber768Draft00:x25519:P-256") != 1)
     {
         std::cout << "FAILED TO SET PQC GROUPS" << std::endl;
     }

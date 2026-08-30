@@ -476,7 +476,7 @@ bool Origin::loadSSLCertForDomain(const std::string &domain, const std::string &
         }
 
         SSL_CTX_set_cipher_list(zoneCtx, "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305");
-        if (SSL_CTX_set1_groups_list(zoneCtx, "X25519MLKEM768:SecP256r1MLKEM768:x25519:P-256") != 1)
+        if (SSL_CTX_set1_groups_list(zoneCtx, "X25519Kyber768Draft00:x25519:P-256") != 1)
         {
             std::cout << "FAILED TO SET PQC GROUPS" << std::endl;
         }
