@@ -80,7 +80,7 @@ cd ..
 Clone the main repository and initialize the build sequence.
 
 ```bash
-git clone https://github.com/wyrexdev/Gate.git
+git clone https://github.com/edge-on/Gate.git
 cd Gate
 
 sudo make
