@@ -14,19 +14,29 @@ std::vector<unsigned char> Aes::hex_to_bytes(const std::string &hex)
 
 std::vector<unsigned char> Aes::base64_decode(const std::string &in)
 {
-    BIO *bio, *b64;
-    std::vector<unsigned char> buffer(in.size());
+    if (in.empty())
+        return {};
 
-    b64 = BIO_new(BIO_f_base64());
-    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-    bio = BIO_new_mem_buf(in.data(), static_cast<int>(in.size()));
-    bio = BIO_push(b64, bio);
+    if (in.size() % 4 != 0)
+        return {};
 
-    int decoded_len = BIO_read(bio, buffer.data(), static_cast<int>(in.size()));
-    BIO_free_all(bio);
+    std::vector<unsigned char> buffer(in.size() / 4 * 3);
+
+    int decoded_len = EVP_DecodeBlock(buffer.data(), reinterpret_cast<const unsigned char *>(in.data()), static_cast<int>(in.size()));
 
     if (decoded_len < 0)
         return {};
+
+    int padding = 0;
+    if (in.size() >= 1 && in[in.size() - 1] == '=')
+        padding++;
+    if (in.size() >= 2 && in[in.size() - 2] == '=')
+        padding++;
+
+    decoded_len -= padding;
+    if (decoded_len < 0)
+        return {};
+
     buffer.resize(decoded_len);
     return buffer;
 }

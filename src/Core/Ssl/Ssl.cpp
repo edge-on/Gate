@@ -8,14 +8,6 @@ SSL_CTX *Ssl::initSSL()
     OpenSSL_add_ssl_algorithms();
     SSL_load_error_strings();
 
-    OSSL_PROVIDER *defprov = OSSL_PROVIDER_load(NULL, "default");
-    OSSL_PROVIDER *oqsprov = OSSL_PROVIDER_load(NULL, "oqsprovider");
-
-    if (!oqsprov)
-    {
-        std::cout << "OQS PROVIDER CANNOT BE LOADED" << std::endl;
-    }
-
     ctx = SSL_CTX_new(TLS_server_method());
     SSL_CTX_use_certificate_chain_file(ctx, "SSL/localhost.pem");
     SSL_CTX_use_PrivateKey_file(ctx, "SSL/localhost-key.pem", SSL_FILETYPE_PEM);
@@ -28,12 +20,13 @@ SSL_CTX *Ssl::initSSL()
 
     SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
-    SSL_CTX_set_client_hello_cb(ctx, Ssl::client_hello_cb, nullptr);
+    SSL_CTX_set_select_certificate_cb(ctx, Ssl::client_hello_cb);
 
     return ctx;
 }
 
-quiche_config *Ssl::initQuicheSSL() {
+quiche_config *Ssl::initQuicheSSL()
+{
     quiche_config *conf = quiche_config_new(QUICHE_PROTOCOL_VERSION);
     quiche_config_load_cert_chain_from_pem_file(conf, "SSL/localhost.pem");
     quiche_config_load_priv_key_from_pem_file(conf, "SSL/localhost-key.pem");
@@ -62,29 +55,29 @@ int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, con
     return SSL_TLSEXT_ERR_NOACK;
 }
 
-int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
+enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *client_hello)
 {
+    SSL *ssl = client_hello->ssl;
+
     auto *conn = static_cast<::H1::Gen::H1Connection *>(SSL_get_app_data(ssl));
     if (!conn)
     {
-        *al = SSL_AD_INTERNAL_ERROR;
-        return SSL_CLIENT_HELLO_ERROR;
+        return ssl_select_cert_error;
     }
 
     const unsigned char *extData = nullptr;
     size_t extLen = 0;
 
-    if (!SSL_client_hello_get0_ext(ssl, TLSEXT_TYPE_server_name, &extData, &extLen) || extLen < 5)
+    if (!SSL_early_callback_ctx_extension_get(client_hello, TLSEXT_TYPE_server_name, &extData, &extLen) || extLen < 5)
     {
         conn->missingSni = true;
-        return SSL_CLIENT_HELLO_SUCCESS;
+        return ssl_select_cert_success;
     }
 
     size_t nameLen = (static_cast<size_t>(extData[3]) << 8) | extData[4];
     if (5 + nameLen > extLen)
     {
-        *al = SSL_AD_UNRECOGNIZED_NAME;
-        return SSL_CLIENT_HELLO_ERROR;
+        return ssl_select_cert_error;
     }
 
     std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
@@ -103,12 +96,12 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
         if (zoneCtx)
         {
             SSL_set_SSL_CTX(ssl, zoneCtx);
-            return SSL_CLIENT_HELLO_SUCCESS;
+            return ssl_select_cert_success;
         }
     }
 
     if (conn->protocolState == ::H1::Gen::TCP_PENDING_SSL)
-        return SSL_CLIENT_HELLO_RETRY;
+        return ssl_select_cert_retry;
 
     conn->protocolState = ::H1::Gen::TCP_PENDING_SSL;
 
@@ -118,5 +111,5 @@ int Ssl::client_hello_cb(SSL *ssl, int *al, void *arg)
     Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, fd](bool success)
                        { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });
 
-    return SSL_CLIENT_HELLO_RETRY;
+    return ssl_select_cert_retry;
 }

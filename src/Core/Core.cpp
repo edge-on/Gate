@@ -86,7 +86,7 @@ void Core::worker(int thread)
         int result = -1;
 
         if (fd == Gen::activeThreads[thread].udpFd)
-            result = Protocols::H3::run(cqe, ring, thread, pipelineH3, ctx);
+            result = Protocols::H3::run(cqe, ring, thread, pipelineH3, quicheConf);
         else
             result = Protocols::H1::run(cqe, ring, thread, pipelineH1, ctx);
 

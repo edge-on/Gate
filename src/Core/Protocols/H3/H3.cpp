@@ -1,6 +1,6 @@
 #include "Core/Protocols/H3/H3.hpp"
 
-int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, SSL_CTX *ctx)
+int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, struct quiche_config *conf)
 {
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
     int fd = (int)(data & 0xFFFFFFFF);
@@ -51,15 +51,40 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         /*
             TYPES
-               0x01 = HEADER INITIAL 
-               0x02 = RETRY 
+               0x01 = HEADER INITIAL
+               0x02 = RETRY
                0x03 = HANDSHAKE
                0x04 = 0-RTT
         */
-        if(rc == 0 && type == 0x01)
+        if (rc == 0 && type == 0x01)
         {
             std::cout << "This is an initial pack" << std::endl;
         }
+
+        struct sockaddr_in dummyPeerAddr{};
+        dummyPeerAddr.sin_family = AF_INET;
+        socklen_t dummyPeerAddrLen = sizeof(dummyPeerAddr);
+
+        struct sockaddr_in localAddr{};
+        localAddr.sin_family = AF_INET;
+        socklen_t localAddrLen = sizeof(localAddr);
+
+        quiche_conn *conn = quiche_accept(scid, scidLen,
+                                          dcid, dcidLen,
+                                          (struct sockaddr *)&localAddr, localAddrLen,
+                                          (struct sockaddr *)&dummyPeerAddr, dummyPeerAddrLen,
+                                          conf);
+
+        if (conn == nullptr)
+            std::cout << "accept is not successfull" << std::endl;
+
+        auto *ctx = (SSL_CTX *)quiche_config_get_ssl_ctx(conf);
+
+        if (ctx != nullptr)
+            std::cout << "I take ssl pointer from rust" << std::endl;
+
+        if (SSL_CTX_get0_certificate(ctx) != nullptr)
+            std::cout << "VALID" << std::endl;
 
         break;
     }

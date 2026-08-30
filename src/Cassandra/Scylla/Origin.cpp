@@ -422,14 +422,6 @@ bool Origin::loadSSLCertForDomain(const std::string &domain, const std::string &
         if (tlsPrivateKeyRaw.empty())
             break;
 
-        OSSL_PROVIDER *defprov = OSSL_PROVIDER_load(NULL, "default");
-        OSSL_PROVIDER *oqsprov = OSSL_PROVIDER_load(NULL, "oqsprovider");
-
-        if (!oqsprov)
-        {
-            std::cout << "OQS PROVIDER CANNOT BE LOADED" << std::endl;
-        }
-
         Zone *zone = Gen::zones.findOrCreate(domain);
         SSL_CTX *zoneCtx = SSL_CTX_new(TLS_server_method());
 

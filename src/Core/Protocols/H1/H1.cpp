@@ -186,7 +186,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                     continue;
                 }
 
-                if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
+                if (err == SSL_ERROR_PENDING_CERTIFICATE)
                 {
                     pipeline->queueTlsConnecting(conn);
                     continue;
@@ -371,7 +371,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                 return Gen::CONTINUE;
             }
 
-            if (err == SSL_ERROR_WANT_CLIENT_HELLO_CB)
+            if (err == SSL_ERROR_PENDING_CERTIFICATE)
             {
                 pipeline->queueTlsConnecting(conn);
                 io_uring_submit(ring);

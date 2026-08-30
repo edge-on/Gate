@@ -5,7 +5,6 @@
 #include <openssl/sha.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
-#include <openssl/provider.h>
 
 #include <thread>
 #include <future>
@@ -32,5 +31,5 @@ public:
 
 private:
     static int alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg);
-    static int client_hello_cb(SSL *ssl, int *al, void *arg);
+    static enum ssl_select_cert_result_t client_hello_cb(const SSL_CLIENT_HELLO *client_hello);
 };

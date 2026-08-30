@@ -2,6 +2,8 @@
 
 #include <liburing.h>
 #include <iostream>
+#include <cstdint>
+#include <cstring>
 
 #include "Core/Gen/Gen.hpp"
 #include "Utils/Uring/Uring.hpp"
