@@ -16,6 +16,9 @@ void Core::start()
 {
     ctx = Ssl::initSSL();
     quicheConf = Ssl::initQuicheSSL();
+    quicheCtx = (SSL_CTX *)quiche_config_get_ssl_ctx(quicheConf);
+
+    SSL_CTX_set_select_certificate_cb(quicheCtx, Ssl::client_hello_cb);
 
     Gen::zones.replaceCtx(Gen::zones.findOrCreate("localhost"), ctx);
 
@@ -86,7 +89,7 @@ void Core::worker(int thread)
         int result = -1;
 
         if (fd == Gen::activeThreads[thread].udpFd)
-            result = Protocols::H3::run(cqe, ring, thread, pipelineH3, quicheConf);
+            result = Protocols::H3::run(cqe, ring, thread, pipelineH3, quicheConf, quicheCtx);
         else
             result = Protocols::H1::run(cqe, ring, thread, pipelineH1, ctx);
 

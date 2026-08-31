@@ -29,7 +29,6 @@ public:
     static SSL_CTX *initSSL();
     static quiche_config *initQuicheSSL();
 
-private:
     static int alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg);
     static enum ssl_select_cert_result_t client_hello_cb(const SSL_CLIENT_HELLO *client_hello);
 };

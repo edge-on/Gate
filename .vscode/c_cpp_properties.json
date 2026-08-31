@@ -7,10 +7,10 @@
                 "/usr/local/include/quiche-boringssl"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/clang",
+            "compilerPath": "/usr/sbin/clang",
             "cStandard": "c17",
             "cppStandard": "c++17",
-            "intelliSenseMode": "linux-clang-x64"
+            "intelliSenseMode": "linux-clang-arm64"
         }
     ],
     "version": 4

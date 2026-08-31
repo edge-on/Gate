@@ -44,6 +44,7 @@ public:
 
 private:
     SSL_CTX *ctx;
+    SSL_CTX *quicheCtx;
     quiche_config *quicheConf;
 
     void worker(int thread);

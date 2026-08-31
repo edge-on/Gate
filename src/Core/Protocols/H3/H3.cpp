@@ -1,6 +1,6 @@
 #include "Core/Protocols/H3/H3.hpp"
 
-int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, struct quiche_config *conf)
+int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, struct quiche_config *conf, SSL_CTX* ctx)
 {
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
     int fd = (int)(data & 0xFFFFFFFF);
@@ -77,14 +77,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
 
         if (conn == nullptr)
             std::cout << "accept is not successfull" << std::endl;
-
-        auto *ctx = (SSL_CTX *)quiche_config_get_ssl_ctx(conf);
-
-        if (ctx != nullptr)
-            std::cout << "I take ssl pointer from rust" << std::endl;
-
-        if (SSL_CTX_get0_certificate(ctx) != nullptr)
-            std::cout << "VALID" << std::endl;
 
         break;
     }
