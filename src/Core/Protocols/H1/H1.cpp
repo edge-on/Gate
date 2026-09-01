@@ -116,13 +116,10 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
             ssl.rbio = BIO_new(BIO_s_mem());
             ssl.wbio = BIO_new(BIO_s_mem());
 
-            Gen::IoContext ioCtx;
-            Gen::IoContext *appCtx = &ioCtx;
+            ssl.ioCtx.h1conn = &conn;
+            ssl.ioCtx.protocol = Gen::H1;
 
-            appCtx->h1conn = &conn;
-            appCtx->protocol = Gen::H1;
-
-            SSL_set_app_data(ssl.ssl, &appCtx);
+            SSL_set_app_data(ssl.ssl, &ssl.ioCtx);
 
             conn.protocolState = ::H1::Gen::TCP_TLS;
 

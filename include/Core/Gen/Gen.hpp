@@ -25,6 +25,20 @@ public:
         TYPE_ORIGIN
     } Type;
 
+    typedef enum
+    {
+        H1,
+        H3
+    } Protocol;
+
+    typedef struct
+    {
+        Protocol protocol;
+
+        H1::Gen::H1Connection *h1conn;
+        H3::Gen::H3Connection *h3conn;
+    } IoContext;
+
     typedef struct
     {
         /* ================== HTTP/3 ================== */
@@ -38,6 +52,8 @@ public:
 
         bool handshakeDone = false;
         /* ================== HTTP/1.1 ================== */
+
+        IoContext ioCtx;
     } SslStructure;
 
     typedef struct
@@ -119,18 +135,4 @@ public:
     static std::unordered_map<int, Thread> activeThreads;
 
     static ZoneMap zones;
-
-    typedef enum
-    {
-        H1,
-        H3
-    } Protocol;
-
-    typedef struct
-    {
-        Protocol protocol;
-
-        H1::Gen::H1Connection *h1conn;
-        H3::Gen::H3Connection *h3conn;
-    } IoContext;
 };
