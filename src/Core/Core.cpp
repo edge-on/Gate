@@ -90,6 +90,16 @@ void Core::worker(int thread)
 
         int result = -1;
 
+        if (opType == Gen::STATE_TLS_WAKEUP)
+        {
+            if (fd == Gen::activeThreads[thread].udpFd)
+                h1->wakeup(res);
+            else
+                h1->wakeup(res);
+
+            continue;
+        }
+
         if (fd == Gen::activeThreads[thread].udpFd)
             result = Protocols::H3::run(cqe, ring, thread, pipelineH3, quicheConf, quicheCtx);
         else

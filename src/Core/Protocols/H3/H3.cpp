@@ -58,38 +58,38 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         */
         if (rc == 0 && type == 0x01)
         {
-            std::cout << "This is an initial pack" << std::endl;
+            struct sockaddr_in dummyPeerAddr{};
+            dummyPeerAddr.sin_family = AF_INET;
+            socklen_t dummyPeerAddrLen = sizeof(dummyPeerAddr);
+
+            struct sockaddr_in localAddr{};
+            localAddr.sin_family = AF_INET;
+            socklen_t localAddrLen = sizeof(localAddr);
+
+            quiche_conn *conn = quiche_accept(scid, scidLen,
+                                              dcid, dcidLen,
+                                              (struct sockaddr *)&localAddr, localAddrLen,
+                                              (struct sockaddr *)&dummyPeerAddr, dummyPeerAddrLen,
+                                              conf);
+
+            SSL *ssl = (SSL *)quiche_conn_get_ssl(conn);
+
+            ::H3::Gen::H3Connection h3conn;
+            h3conn.state = Gen::STATE_TLS_WAKEUP;
+            h3conn.streamId = 0;
+
+            Gen::IoContext ioCtx;
+            Gen::IoContext *appCtx = &ioCtx;
+
+            appCtx->h3conn = &h3conn;
+            appCtx->protocol = Gen::H3;
+
+            SSL_set_app_data(ssl, &appCtx);
+
+            return Gen::CONTINUE;
         }
 
-        struct sockaddr_in dummyPeerAddr{};
-        dummyPeerAddr.sin_family = AF_INET;
-        socklen_t dummyPeerAddrLen = sizeof(dummyPeerAddr);
-
-        struct sockaddr_in localAddr{};
-        localAddr.sin_family = AF_INET;
-        socklen_t localAddrLen = sizeof(localAddr);
-
-        quiche_conn *conn = quiche_accept(scid, scidLen,
-                                          dcid, dcidLen,
-                                          (struct sockaddr *)&localAddr, localAddrLen,
-                                          (struct sockaddr *)&dummyPeerAddr, dummyPeerAddrLen,
-                                          conf);
-
-        SSL *ssl = (SSL *)quiche_conn_get_ssl(conn);
-
-        ::H3::Gen::H3Connection h3conn;
-        h3conn.state = Gen::STATE_TLS_WAKEUP;
-        h3conn.streamId = 0;
-
-        Gen::IoContext ioCtx;
-        Gen::IoContext *appCtx = &ioCtx;
-
-        appCtx->h3conn = &h3conn;
-        appCtx->protocol = Gen::H3;
-
-        SSL_set_app_data(ssl, &appCtx);
-
-        break;
+        return Gen::CONTINUE;
     }
     }
 

@@ -161,12 +161,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
 
         return Gen::CONTINUE;
     }
-
-    if (opType == Gen::STATE_TLS_WAKEUP)
-    {
-        return wakeup(res);
-    }
-
+    
     auto it = Gen::activeThreads[thread].connections.find(fd);
     if (it == Gen::activeThreads[thread].connections.end())
         return Gen::CONTINUE;
