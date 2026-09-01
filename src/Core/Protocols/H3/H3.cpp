@@ -1,6 +1,6 @@
 #include "Core/Protocols/H3/H3.hpp"
 
-int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, struct quiche_config *conf, SSL_CTX* ctx)
+int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, struct quiche_config *conf, SSL_CTX *ctx)
 {
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
     int fd = (int)(data & 0xFFFFFFFF);
@@ -75,8 +75,19 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                                           (struct sockaddr *)&dummyPeerAddr, dummyPeerAddrLen,
                                           conf);
 
-        if (conn == nullptr)
-            std::cout << "accept is not successfull" << std::endl;
+        SSL *ssl = (SSL *)quiche_conn_get_ssl(conn);
+
+        ::H3::Gen::H3Connection h3conn;
+        h3conn.state = Gen::STATE_TLS_WAKEUP;
+        h3conn.streamId = 0;
+
+        Gen::IoContext ioCtx;
+        Gen::IoContext *appCtx = &ioCtx;
+
+        appCtx->h3conn = &h3conn;
+        appCtx->protocol = Gen::H3;
+
+        SSL_set_app_data(ssl, &appCtx);
 
         break;
     }

@@ -3,10 +3,16 @@
 #include <quiche.h>
 
 #include "Core/Gen/H1/Gen.hpp"
+#include "Core/Gen/H3/Gen.hpp"
 
 class Gen
 {
 public:
+    typedef enum
+    {
+        STATE_TLS_WAKEUP = 15
+    } State;
+
     typedef enum
     {
         CONTINUE,
@@ -113,4 +119,18 @@ public:
     static std::unordered_map<int, Thread> activeThreads;
 
     static ZoneMap zones;
+
+    typedef enum
+    {
+        H1,
+        H3
+    } Protocol;
+
+    typedef struct
+    {
+        Protocol protocol;
+
+        H1::Gen::H1Connection *h1conn;
+        H3::Gen::H3Connection *h3conn;
+    } IoContext;
 };

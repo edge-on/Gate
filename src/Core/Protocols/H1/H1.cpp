@@ -1,6 +1,14 @@
 #include "Core/Protocols/H1/H1.hpp"
 
-int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H1 *pipeline, SSL_CTX *ctx)
+Protocols::H1::H1(struct io_uring *ring, int thread, Pipeline::H1 *pipeline, SSL_CTX *ctx)
+{
+    this->ring = ring;
+    this->thread = thread;
+    this->pipeline = pipeline;
+    this->ctx = ctx;
+}
+
+int Protocols::H1::run(struct io_uring_cqe *cqe)
 {
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
     int fd = (int)(data & 0xFFFFFFFF);
@@ -108,7 +116,13 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
             ssl.rbio = BIO_new(BIO_s_mem());
             ssl.wbio = BIO_new(BIO_s_mem());
 
-            SSL_set_app_data(ssl.ssl, &conn);
+            Gen::IoContext ioCtx;
+            Gen::IoContext *appCtx = &ioCtx;
+
+            appCtx->h1conn = &conn;
+            appCtx->protocol = Gen::H1;
+
+            SSL_set_app_data(ssl.ssl, &appCtx);
 
             conn.protocolState = ::H1::Gen::TCP_TLS;
 
@@ -148,178 +162,9 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
         return Gen::CONTINUE;
     }
 
-    if (opType == ::H1::Gen::H1_STATE_TLS_WAKEUP)
+    if (opType == Gen::STATE_TLS_WAKEUP)
     {
-        auto items = Gen::activeThreads[thread].wakeup.drain();
-
-        for (auto &item : items)
-        {
-            if (!item.success)
-                continue;
-
-            auto it = Gen::activeThreads[thread].connections.find(item.fd);
-            if (it == Gen::activeThreads[thread].connections.end())
-                continue;
-
-            auto &conn = it->second;
-
-            conn.lastOpType = ::H1::Gen::H1_STATE_TLS_CONNECTING;
-
-            auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
-            int r = SSL_accept(ssl.ssl);
-            if (r > 0)
-            {
-                ssl.handshakeDone = true;
-
-                const unsigned char *alpn_proto;
-                unsigned int alpn_len;
-                SSL_get0_alpn_selected(ssl.ssl, &alpn_proto, &alpn_len);
-            }
-            else
-            {
-                int err = SSL_get_error(ssl.ssl, r);
-
-                if (err == SSL_ERROR_SYSCALL || err == SSL_ERROR_SSL || err == SSL_ERROR_ZERO_RETURN)
-                {
-                    Utils::H1::Uring::closeConn(thread, conn);
-                    io_uring_submit(ring);
-                    continue;
-                }
-
-                if (err == SSL_ERROR_PENDING_CERTIFICATE)
-                {
-                    pipeline->queueTlsConnecting(conn);
-                    continue;
-                }
-
-                if (err == SSL_ERROR_WANT_READ)
-                    pipeline->queueTlsConnecting(conn);
-                else
-                    Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
-            }
-
-            if (!ssl.wbio || !ssl.rbio || !ssl.ssl)
-            {
-                Utils::H1::Uring::closeConn(thread, conn);
-                io_uring_submit(ring);
-                continue;
-            }
-
-            while (BIO_pending(ssl.wbio) > 0)
-            {
-                std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
-                int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
-
-                if (bytes > 0)
-                {
-                    chunk.second = bytes;
-                    conn.writeQueue.push_back(std::move(chunk));
-                }
-            }
-
-            if (!conn.writeQueue.empty() && !conn.isWritingClient)
-            {
-                conn.isWritingClient = true;
-                pipeline->queueWriteClient(conn);
-            }
-
-            while (true && ssl.handshakeDone)
-            {
-                std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
-
-                int bytes = SSL_read(ssl.ssl, chunk.first.data(), BUFFER_SIZE);
-
-                if (bytes > 0)
-                {
-                    if (conn.isBlocked ||
-                        Security::Headers::validateReq(chunk.first.data(), bytes) == Security::Headers::RequestStatus::BLOCKED)
-                    {
-                        pipeline->writePage(conn, "403");
-
-                        if (!conn.isWritingClient)
-                        {
-                            conn.isWritingClient = true;
-                            pipeline->queueWriteClient(conn);
-                        }
-
-                        io_uring_submit(ring);
-                        break;
-                    }
-
-                    if (conn.resolverFd == -1 && conn.host.empty())
-                    {
-                        std::string host = Utils::Http::getHost(chunk.first.data(), bytes);
-                        if (host != "undefined" && !host.empty())
-                            conn.host = host;
-                    }
-
-                    chunk.second = bytes;
-                    conn.writeOriginQueue.push_back(std::move(chunk));
-                }
-                else
-                {
-                    int err = SSL_get_error(ssl.ssl, bytes);
-                    if (err == SSL_ERROR_WANT_READ)
-                    {
-                        pipeline->queueReadClient(conn);
-                    }
-                    else
-                    {
-                        Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
-                    }
-
-                    break;
-                }
-            }
-
-            if (conn.writeOriginQueue.size() > 0 && ssl.handshakeDone)
-            {
-                if (conn.resolverFd == -1)
-                {
-                    int resolverFd = Proxy::createResolverSocket();
-                    if (resolverFd == -1)
-                    {
-                        conn.backendIsUnreachable = true;
-
-                        pipeline->writePage(conn, "502");
-
-                        if (!conn.isWritingClient)
-                        {
-                            conn.isWritingClient = true;
-                            pipeline->queueWriteClient(conn);
-                        }
-                        io_uring_submit(ring);
-
-                        continue;
-                    }
-
-                    conn.resolverFd = resolverFd;
-                    conn.out_len = res;
-
-                    pipeline->queueConnectResolver(conn, Main::resolverIp);
-                    io_uring_submit(ring);
-                    conn.lastOpType = ::H1::Gen::H1_STATE_TLS_CONNECTING;
-                    continue;
-                }
-
-                if (!conn.isWritingOrigin && conn.writeOriginQueue.size() > 0)
-                {
-                    conn.isWritingOrigin = true;
-                    pipeline->queueWriteOrigin(conn);
-                }
-
-                io_uring_submit(ring);
-                conn.lastOpType = ::H1::Gen::H1_STATE_TLS_CONNECTING;
-                continue;
-            }
-            else if (ssl.handshakeDone)
-            {
-                pipeline->queueReadClient(conn);
-            }
-        }
-
-        io_uring_submit(ring);
-        return Gen::CONTINUE;
+        return wakeup(res);
     }
 
     auto it = Gen::activeThreads[thread].connections.find(fd);
@@ -811,7 +656,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
                 if (Utils::Http::getHeader(conn.out_plain_buffer, headerBytes, "location:") != "undefined")
                 {
                     const char *header = "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n"
-                                         "Alt-Svc: h3=\":443\"; ma=2592000\r\n";
+                        /*"Alt-Svc: h3=\":443\"; ma=2592000\r\n"*/;
                     size_t len = strlen(header);
                     size_t bodyBytes = res - headerBytes;
 
@@ -1079,4 +924,178 @@ int Protocols::H1::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
     }
 
     return 0;
+}
+
+int Protocols::H1::wakeup(int res)
+{
+    auto items = Gen::activeThreads[thread].wakeup.drain();
+
+    for (auto &item : items)
+    {
+        if (!item.success)
+            continue;
+
+        auto it = Gen::activeThreads[thread].connections.find(item.fd);
+        if (it == Gen::activeThreads[thread].connections.end())
+            continue;
+
+        auto &conn = it->second;
+
+        conn.lastOpType = ::H1::Gen::H1_STATE_TLS_CONNECTING;
+
+        auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+        int r = SSL_accept(ssl.ssl);
+        if (r > 0)
+        {
+            ssl.handshakeDone = true;
+
+            const unsigned char *alpn_proto;
+            unsigned int alpn_len;
+            SSL_get0_alpn_selected(ssl.ssl, &alpn_proto, &alpn_len);
+        }
+        else
+        {
+            int err = SSL_get_error(ssl.ssl, r);
+
+            if (err == SSL_ERROR_SYSCALL || err == SSL_ERROR_SSL || err == SSL_ERROR_ZERO_RETURN)
+            {
+                Utils::H1::Uring::closeConn(thread, conn);
+                io_uring_submit(ring);
+                continue;
+            }
+
+            if (err == SSL_ERROR_PENDING_CERTIFICATE)
+            {
+                pipeline->queueTlsConnecting(conn);
+                continue;
+            }
+
+            if (err == SSL_ERROR_WANT_READ)
+                pipeline->queueTlsConnecting(conn);
+            else
+                Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
+        }
+
+        if (!ssl.wbio || !ssl.rbio || !ssl.ssl)
+        {
+            Utils::H1::Uring::closeConn(thread, conn);
+            io_uring_submit(ring);
+            continue;
+        }
+
+        while (BIO_pending(ssl.wbio) > 0)
+        {
+            std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
+            int bytes = BIO_read(ssl.wbio, chunk.first.data(), BUFFER_SIZE);
+
+            if (bytes > 0)
+            {
+                chunk.second = bytes;
+                conn.writeQueue.push_back(std::move(chunk));
+            }
+        }
+
+        if (!conn.writeQueue.empty() && !conn.isWritingClient)
+        {
+            conn.isWritingClient = true;
+            pipeline->queueWriteClient(conn);
+        }
+
+        while (true && ssl.handshakeDone)
+        {
+            std::pair<std::array<char, BUFFER_SIZE>, int> chunk;
+
+            int bytes = SSL_read(ssl.ssl, chunk.first.data(), BUFFER_SIZE);
+
+            if (bytes > 0)
+            {
+                if (conn.isBlocked ||
+                    Security::Headers::validateReq(chunk.first.data(), bytes) == Security::Headers::RequestStatus::BLOCKED)
+                {
+                    pipeline->writePage(conn, "403");
+
+                    if (!conn.isWritingClient)
+                    {
+                        conn.isWritingClient = true;
+                        pipeline->queueWriteClient(conn);
+                    }
+
+                    io_uring_submit(ring);
+                    break;
+                }
+
+                if (conn.resolverFd == -1 && conn.host.empty())
+                {
+                    std::string host = Utils::Http::getHost(chunk.first.data(), bytes);
+                    if (host != "undefined" && !host.empty())
+                        conn.host = host;
+                }
+
+                chunk.second = bytes;
+                conn.writeOriginQueue.push_back(std::move(chunk));
+            }
+            else
+            {
+                int err = SSL_get_error(ssl.ssl, bytes);
+                if (err == SSL_ERROR_WANT_READ)
+                {
+                    pipeline->queueReadClient(conn);
+                }
+                else
+                {
+                    Utils::H1::Uring::closeConnectionFull(thread, conn.fd);
+                }
+
+                break;
+            }
+        }
+
+        if (conn.writeOriginQueue.size() > 0 && ssl.handshakeDone)
+        {
+            if (conn.resolverFd == -1)
+            {
+                int resolverFd = Proxy::createResolverSocket();
+                if (resolverFd == -1)
+                {
+                    conn.backendIsUnreachable = true;
+
+                    pipeline->writePage(conn, "502");
+
+                    if (!conn.isWritingClient)
+                    {
+                        conn.isWritingClient = true;
+                        pipeline->queueWriteClient(conn);
+                    }
+                    io_uring_submit(ring);
+
+                    continue;
+                }
+
+                conn.resolverFd = resolverFd;
+                conn.out_len = res;
+
+                pipeline->queueConnectResolver(conn, Main::resolverIp);
+                io_uring_submit(ring);
+                conn.lastOpType = ::H1::Gen::H1_STATE_TLS_CONNECTING;
+                continue;
+            }
+
+            if (!conn.isWritingOrigin && conn.writeOriginQueue.size() > 0)
+            {
+                conn.isWritingOrigin = true;
+                pipeline->queueWriteOrigin(conn);
+            }
+
+            io_uring_submit(ring);
+            conn.lastOpType = ::H1::Gen::H1_STATE_TLS_CONNECTING;
+            continue;
+        }
+        else if (ssl.handshakeDone)
+        {
+            pipeline->queueReadClient(conn);
+        }
+    }
+
+    io_uring_submit(ring);
+    return Gen::CONTINUE;
 }

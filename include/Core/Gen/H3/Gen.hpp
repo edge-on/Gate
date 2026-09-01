@@ -5,7 +5,7 @@
 #include <queue>
 #include <sys/socket.h>
 
-#include "Core/Gen/Gen.hpp"
+#include "Core/Gen/ZoneMap.hpp"
 
 #define LOCAL_CONN_ID_LEN 16
 #define MAX_DATAGRAM_SIZE 1350
@@ -19,13 +19,13 @@ namespace H3
         {
             /* ================ HTTP/3 ================ */
             // Client
-            H3_STATE_READ_CLIENT,
-            H3_STATE_WRITE_CLIENT,
+            H3_STATE_READ_CLIENT = 10,
+            H3_STATE_WRITE_CLIENT = 11,
 
             // Origin
-            H3_STATE_ORIGIN_CONNECTING,
-            H3_STATE_READ_ORIGIN,
-            H3_STATE_WRITE_ORIGIN
+            H3_STATE_ORIGIN_CONNECTING = 12,
+            H3_STATE_READ_ORIGIN = 13,
+            H3_STATE_WRITE_ORIGIN = 14
             /* ================ HTTP/3 ================ */
         } State;
 
@@ -33,7 +33,14 @@ namespace H3
         {
             uint32_t streamId;
 
-            State state;
+            int state;
+
+            bool missingSni = false;
+            char resolverPacket[512];
+            std::string host;
+
+            std::string domain;
+            Zone *zone = nullptr;
         } H3Connection;
 
         typedef struct
