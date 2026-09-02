@@ -59,15 +59,19 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
 {
     SSL *ssl = client_hello->ssl;
 
+        std::cout << "HERE WORKS" << std::endl;
     auto *ctx = static_cast<Gen::IoContext *>(SSL_get_app_data(ssl));
     if (!ctx)
     {
         return ssl_select_cert_error;
     }
+        std::cout << "TWO WORKS" << std::endl;
 
     if (ctx->protocol == Gen::H1)
     {
         auto *conn = ctx->h1conn;
+
+        std::cout << "H1" << std::endl;
 
         const unsigned char *extData = nullptr;
         size_t extLen = 0;
@@ -120,6 +124,8 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
     else
     {
         auto *conn = ctx->h3conn;
+
+        std::cout << "H3" << std::endl;
 
         const unsigned char *extData = nullptr;
         size_t extLen = 0;

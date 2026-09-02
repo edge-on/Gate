@@ -58,7 +58,7 @@ void Core::worker(int thread)
     Protocols::H1 *h1 = new Protocols::H1(ring, thread, pipelineH1, ctx);
     Protocols::H3 *h3 = new Protocols::H3(ring, thread, pipelineH3, quicheConf, quicheCtx);
 
-    pipelineH3->queueReadClient();
+    pipelineH3->queueReadClient(0);
 
     // Port inits
     for (int port : Main::listeners)

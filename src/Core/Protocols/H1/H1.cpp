@@ -158,7 +158,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
 
         return Gen::CONTINUE;
     }
-    
+
     auto it = Gen::activeThreads[thread].h1connections.find(fd);
     if (it == Gen::activeThreads[thread].h1connections.end())
         return Gen::CONTINUE;
@@ -648,7 +648,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
                 if (Utils::Http::getHeader(conn.out_plain_buffer, headerBytes, "location:") != "undefined")
                 {
                     const char *header = "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n"
-                        /*"Alt-Svc: h3=\":443\"; ma=2592000\r\n"*/;
+                                         "Alt-Svc: h3=\":443\"; ma=2592000\r\n";
                     size_t len = strlen(header);
                     size_t bodyBytes = res - headerBytes;
 

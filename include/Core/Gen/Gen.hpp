@@ -45,7 +45,7 @@ public:
         /* ================== HTTP/3 ================== */
         quiche_config *config;
 
-        std::array<char, 18> dcid;
+        uint32_t dcid;
         /* ================== HTTP/3 ================== */
 
         /* ================== HTTP/1.1 ================== */
@@ -122,12 +122,12 @@ public:
         // FD -> Connection
         std::unordered_map<int, H1::Gen::H1Connection> h1connections;
         // DCID -> Connection
-        std::map<std::array<char, 18>, H3::Gen::H3Connection> h3connections;
+        std::map<uint32_t, H3::Gen::H3Connection> h3connections;
 
         // FD -> SSL
         std::unordered_map<int, SslStructure> h1ssl;
         // DCID -> SSL
-        std::map<std::array<char, 18>, SslStructure> h3ssl;
+        std::map<uint32_t, SslStructure> h3ssl;
 
         // FD -> Gen
         std::unordered_map<int, Generation> generations;

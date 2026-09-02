@@ -7,20 +7,20 @@ Pipeline::H3::H3(struct io_uring *ring, int thread, int fd)
     this->fd = fd;
 
     ::H3::Gen::localUdpConfig.msgHdr.msg_name = nullptr;
-    ::H3::Gen::localUdpConfig.msgHdr.msg_namelen = 0;
+    ::H3::Gen::localUdpConfig.msgHdr.msg_namelen = sizeof(struct sockaddr_storage);
     ::H3::Gen::localUdpConfig.msgHdr.msg_controllen = 0;
 
     pool = new Uring::BufferPool();
     pool->setup(this->ring, 1024 * 1024, 2048, 1, 32768);
 }
 
-void Pipeline::H3::queueReadClient()
+void Pipeline::H3::queueReadClient(uint32_t dcid)
 {
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
 
-    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_READ_CLIENT << 32) | (uint32_t)fd;
+    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_READ_CLIENT << 32) | (uint32_t)dcid;
 
     ::H3::Gen::localUdpConfig.bufGroup = pool->pickGroup();
 

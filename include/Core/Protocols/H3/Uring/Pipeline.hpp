@@ -17,7 +17,7 @@ namespace Pipeline
     public:
         H3(struct io_uring *ring, int thread, int fd);
 
-        void queueReadClient();
+        void queueReadClient(uint32_t dcid);
         void queueWriteClient();
 
         void queueReadOrigin();
