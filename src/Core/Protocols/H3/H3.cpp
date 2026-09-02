@@ -78,25 +78,34 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             localAddr.sin_family = AF_INET;
             socklen_t localAddrLen = sizeof(localAddr);
 
-            quiche_conn *conn = quiche_accept(scid, scidLen,
-                                              dcid, dcidLen,
-                                              (struct sockaddr *)&localAddr, localAddrLen,
-                                              (struct sockaddr *)&dummyPeerAddr, dummyPeerAddrLen,
-                                              conf);
+            std::array<char, 18> id;
+            memcpy(id.data(), generateDcid().data(), 18);
+
+            quiche_conn *conn = quiche_accept(
+                reinterpret_cast<const uint8_t *>(id.data()), id.size(),
+                dcid, dcidLen,
+                (struct sockaddr *)&localAddr, localAddrLen,
+                (struct sockaddr *)&dummyPeerAddr, dummyPeerAddrLen,
+                conf);
+
+            if (conn == nullptr)
+            {
+                return Gen::CONTINUE;
+            }
 
             SSL *ssl = (SSL *)quiche_conn_get_ssl(conn);
 
-            ::H3::Gen::H3Connection h3conn;
-            h3conn.state = Gen::STATE_TLS_WAKEUP;
-            h3conn.streamId = 0;
+            Gen::activeThreads[thread].h3ssl[id].dcid = id;
+            Gen::activeThreads[thread].h3ssl[id].ssl = ssl;
 
-            Gen::IoContext ioCtx;
-            Gen::IoContext *appCtx = &ioCtx;
+            auto *h3conn = new ::H3::Gen::H3Connection();
+            h3conn->state = Gen::STATE_TLS_WAKEUP;
+            h3conn->streamId = 0;
 
-            appCtx->h3conn = &h3conn;
-            appCtx->protocol = Gen::H3;
+            Gen::activeThreads[thread].h3ssl[id].ioCtx.h3conn = h3conn;
+            Gen::activeThreads[thread].h3ssl[id].ioCtx.protocol = Gen::H3;
 
-            SSL_set_app_data(ssl, &appCtx);
+            SSL_set_app_data(ssl, &Gen::activeThreads[thread].h3ssl[id].ioCtx);
 
             return Gen::CONTINUE;
         }
@@ -110,4 +119,23 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
 int Protocols::H3::wakeup(int res)
 {
+}
+
+std::string Protocols::H3::generateDcid()
+{
+    constexpr char charset[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    constexpr size_t length = 18;
+
+    std::string result;
+    result.resize(length);
+
+    thread_local std::mt19937_64 rng(std::random_device{}());
+    std::uniform_int_distribution<size_t> dist(0, sizeof(charset) - 2);
+
+    for (size_t i = 0; i < length; ++i)
+    {
+        result[i] = charset[dist(rng)];
+    }
+
+    return result;
 }
