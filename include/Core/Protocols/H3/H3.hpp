@@ -11,6 +11,18 @@ namespace Protocols
     class H3
     {
     public:
-        static int run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, struct quiche_config *conf, SSL_CTX* ctx);
+        H3(struct io_uring *ring, int thread, Pipeline::H3 *pipeline, struct quiche_config *conf, SSL_CTX *ctx);
+        int run(struct io_uring_cqe *cqe);
+        int wakeup(int res);
+
+    private:
+        int thread;
+        
+        Pipeline::H3 *pipeline;
+
+        struct io_uring *ring;
+        struct quiche_config *conf;
+        
+        SSL_CTX *ctx;
     };
 } // namespace HTTP

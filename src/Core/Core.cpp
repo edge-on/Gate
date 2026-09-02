@@ -56,6 +56,7 @@ void Core::worker(int thread)
     Pipeline::H3 *pipelineH3 = new Pipeline::H3(ring, thread, Gen::activeThreads[thread].udpFd);
 
     Protocols::H1 *h1 = new Protocols::H1(ring, thread, pipelineH1, ctx);
+    Protocols::H3 *h3 = new Protocols::H3(ring, thread, pipelineH3, quicheConf, quicheCtx);
 
     pipelineH3->queueReadClient();
 
@@ -101,7 +102,7 @@ void Core::worker(int thread)
         }
 
         if (fd == Gen::activeThreads[thread].udpFd)
-            result = Protocols::H3::run(cqe, ring, thread, pipelineH3, quicheConf, quicheCtx);
+            result = h3->run(cqe);
         else
             result = h1->run(cqe);
 

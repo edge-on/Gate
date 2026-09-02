@@ -24,7 +24,7 @@ void Thread::Operational::operationalWorker(int thread)
 
             for (const auto &[threadId, threadObj] : Gen::activeThreads)
             {
-                rpsCount += threadObj.connections.size();
+                rpsCount += threadObj.h1connections.size();
                 acCount += threadObj.activeConnections;
             }
 

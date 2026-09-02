@@ -1,6 +1,18 @@
 #include "Core/Protocols/H3/H3.hpp"
 
-int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thread, Pipeline::H3 *pipeline, struct quiche_config *conf, SSL_CTX *ctx)
+Protocols::H3::H3(struct io_uring *ring, int thread, Pipeline::H3 *pipeline, struct quiche_config *conf, SSL_CTX *ctx)
+{
+    this->ring = ring;
+    this->conf = conf;
+
+    this->thread = thread;
+
+    this->pipeline = pipeline;
+
+    this->ctx = ctx;
+}
+
+int Protocols::H3::run(struct io_uring_cqe *cqe)
 {
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
     int fd = (int)(data & 0xFFFFFFFF);
@@ -94,4 +106,8 @@ int Protocols::H3::run(struct io_uring_cqe *cqe, struct io_uring *ring, int thre
     }
 
     return 0;
+}
+
+int Protocols::H3::wakeup(int res)
+{
 }

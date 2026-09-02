@@ -65,58 +65,111 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
         return ssl_select_cert_error;
     }
 
-    if (ctx->protocol == Gen::H3)
+    if (ctx->protocol == Gen::H1)
     {
-        return ssl_select_cert_error;
-    }
+        auto *conn = ctx->h1conn;
 
-    auto *conn = ctx->h1conn;
+        const unsigned char *extData = nullptr;
+        size_t extLen = 0;
 
-    const unsigned char *extData = nullptr;
-    size_t extLen = 0;
-
-    if (!SSL_early_callback_ctx_extension_get(client_hello, TLSEXT_TYPE_server_name, &extData, &extLen) || extLen < 5)
-    {
-        conn->missingSni = true;
-        return ssl_select_cert_success;
-    }
-
-    size_t nameLen = (static_cast<size_t>(extData[3]) << 8) | extData[4];
-    if (5 + nameLen > extLen)
-    {
-        return ssl_select_cert_error;
-    }
-
-    std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
-    conn->zone = Gen::zones.findOrCreate(domain);
-
-    const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
-    std::string rootDomain(root, domain.c_str() + domain.size() - root);
-    conn->domain = rootDomain;
-    conn->zone->domain = rootDomain;
-    conn->zone->host = domain;
-
-    Zone *zone = Gen::zones.find(rootDomain);
-    if (zone)
-    {
-        SSL_CTX *zoneCtx = zone->ctx.load(std::memory_order_acquire);
-        if (zoneCtx)
+        if (!SSL_early_callback_ctx_extension_get(client_hello, TLSEXT_TYPE_server_name, &extData, &extLen) || extLen < 5)
         {
-            SSL_set_SSL_CTX(ssl, zoneCtx);
+            conn->missingSni = true;
             return ssl_select_cert_success;
         }
-    }
 
-    if (conn->protocolState == ::H1::Gen::TCP_PENDING_SSL)
+        size_t nameLen = (static_cast<size_t>(extData[3]) << 8) | extData[4];
+        if (5 + nameLen > extLen)
+        {
+            return ssl_select_cert_error;
+        }
+
+        std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
+        conn->zone = Gen::zones.findOrCreate(domain);
+
+        const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
+        std::string rootDomain(root, domain.c_str() + domain.size() - root);
+        conn->domain = rootDomain;
+        conn->zone->domain = rootDomain;
+        conn->zone->host = domain;
+
+        Zone *zone = Gen::zones.find(rootDomain);
+        if (zone)
+        {
+            SSL_CTX *zoneCtx = zone->ctx.load(std::memory_order_acquire);
+            if (zoneCtx)
+            {
+                SSL_set_SSL_CTX(ssl, zoneCtx);
+                return ssl_select_cert_success;
+            }
+        }
+
+        if (conn->protocolState == ::H1::Gen::TCP_PENDING_SSL)
+            return ssl_select_cert_retry;
+
+        conn->protocolState = ::H1::Gen::TCP_PENDING_SSL;
+
+        int threadId = conn->thread;
+        int fd = conn->fd;
+
+        Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, fd](bool success)
+                           { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });
+
         return ssl_select_cert_retry;
+    }
+    else
+    {
+        auto *conn = ctx->h3conn;
 
-    conn->protocolState = ::H1::Gen::TCP_PENDING_SSL;
+        const unsigned char *extData = nullptr;
+        size_t extLen = 0;
 
-    int threadId = conn->thread;
-    int fd = conn->fd;
+        if (!SSL_early_callback_ctx_extension_get(client_hello, TLSEXT_TYPE_server_name, &extData, &extLen) || extLen < 5)
+        {
+            conn->missingSni = true;
+            return ssl_select_cert_success;
+        }
 
-    Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, fd](bool success)
-                       { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });
+        size_t nameLen = (static_cast<size_t>(extData[3]) << 8) | extData[4];
+        if (5 + nameLen > extLen)
+        {
+            return ssl_select_cert_error;
+        }
 
-    return ssl_select_cert_retry;
+        std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
+
+        std::cout << "H3: " << domain << std::endl;
+
+        conn->zone = Gen::zones.findOrCreate(domain);
+
+        const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
+        std::string rootDomain(root, domain.c_str() + domain.size() - root);
+        conn->domain = rootDomain;
+        conn->zone->domain = rootDomain;
+        conn->zone->host = domain;
+
+        Zone *zone = Gen::zones.find(rootDomain);
+        if (zone)
+        {
+            SSL_CTX *zoneCtx = zone->ctx.load(std::memory_order_acquire);
+            if (zoneCtx)
+            {
+                SSL_set_SSL_CTX(ssl, zoneCtx);
+                return ssl_select_cert_success;
+            }
+        }
+
+        /*if (conn->protocolState == ::H1::Gen::TCP_PENDING_SSL)
+            return ssl_select_cert_retry;
+
+        conn->protocolState = ::H1::Gen::TCP_PENDING_SSL;
+
+        int threadId = conn->thread;
+        int fd = conn->fd;
+
+        Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, fd](bool success)
+                           { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });*/
+
+        return ssl_select_cert_retry;
+    }
 }

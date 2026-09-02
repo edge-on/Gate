@@ -1,6 +1,7 @@
 #pragma once
 
 #include <quiche.h>
+#include <map>
 
 #include "Core/Gen/H1/Gen.hpp"
 #include "Core/Gen/H3/Gen.hpp"
@@ -43,6 +44,8 @@ public:
     {
         /* ================== HTTP/3 ================== */
         quiche_config *config;
+
+        int dcid = -1;
         /* ================== HTTP/3 ================== */
 
         /* ================== HTTP/1.1 ================== */
@@ -117,9 +120,15 @@ public:
         ThreadWakeup wakeup;
 
         // FD -> Connection
-        std::unordered_map<int, H1::Gen::H1Connection> connections;
+        std::unordered_map<int, H1::Gen::H1Connection> h1connections;
+        // DCID -> Connection
+        std::map<std::array<char, 18>, H3::Gen::H3Connection> h3connections;
+
         // FD -> SSL
-        std::unordered_map<int, SslStructure> ssl;
+        std::unordered_map<int, SslStructure> h1ssl;
+        // DCID -> SSL
+        std::map<std::array<char, 18>, SslStructure> h3ssl;
+
         // FD -> Gen
         std::unordered_map<int, Generation> generations;
 

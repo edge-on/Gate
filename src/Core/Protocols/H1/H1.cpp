@@ -22,7 +22,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
     {
         if (opType == ::H1::Gen::H1_STATE_CONNECT_RESOLVER || opType == ::H1::Gen::H1_STATE_WRITE_RESOLVER || opType == ::H1::Gen::H1_STATE_READ_RESOLVER)
         {
-            ::H1::Gen::H1Connection &conn = Gen::activeThreads[thread].connections[fd];
+            ::H1::Gen::H1Connection &conn = Gen::activeThreads[thread].h1connections[fd];
             close(conn.resolverFd);
 
             if (conn.missingSni)
@@ -42,8 +42,8 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
 
         if (opType == ::H1::Gen::H1_STATE_ORIGIN_CONNECTING)
         {
-            ::H1::Gen::H1Connection &conn = Gen::activeThreads[thread].connections[fd];
-            ::H1::Gen::H1Connection &originConn = Gen::activeThreads[thread].connections[conn.peerFd];
+            ::H1::Gen::H1Connection &conn = Gen::activeThreads[thread].h1connections[fd];
+            ::H1::Gen::H1Connection &originConn = Gen::activeThreads[thread].h1connections[conn.peerFd];
             pipeline->writePage(conn, "502");
 
             Utils::H1::Uring::closeConn(thread, originConn);
@@ -59,11 +59,11 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
             return Gen::CONTINUE;
         }
 
-        auto it = Gen::activeThreads[thread].connections.find(fd);
-        if (it != Gen::activeThreads[thread].connections.end())
+        auto it = Gen::activeThreads[thread].h1connections.find(fd);
+        if (it != Gen::activeThreads[thread].h1connections.end())
         {
-            auto peerIt = Gen::activeThreads[thread].connections.find(it->second.peerFd);
-            if (peerIt != Gen::activeThreads[thread].connections.end())
+            auto peerIt = Gen::activeThreads[thread].h1connections.find(it->second.peerFd);
+            if (peerIt != Gen::activeThreads[thread].h1connections.end())
             {
                 Utils::H1::Uring::closeConn(thread, peerIt->second);
             }
@@ -97,10 +97,10 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
 
         tempConn.gen = Gen::activeThreads[thread].generations[clientFd].gen;
 
-        Gen::activeThreads[thread].connections.erase(clientFd);
-        Gen::activeThreads[thread].connections.emplace(clientFd, std::move(tempConn));
+        Gen::activeThreads[thread].h1connections.erase(clientFd);
+        Gen::activeThreads[thread].h1connections.emplace(clientFd, std::move(tempConn));
 
-        auto &conn = Gen::activeThreads[thread].connections[clientFd];
+        auto &conn = Gen::activeThreads[thread].h1connections[clientFd];
 
         if (fd == Gen::activeThreads[thread].listeners[80])
         {
@@ -110,7 +110,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
         }
         else if (fd == Gen::activeThreads[thread].listeners[443])
         {
-            auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+            auto &ssl = Gen::activeThreads[thread].h1ssl[conn.fd];
 
             ssl.ssl = SSL_new(ctx);
             ssl.rbio = BIO_new(BIO_s_mem());
@@ -159,8 +159,8 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
         return Gen::CONTINUE;
     }
     
-    auto it = Gen::activeThreads[thread].connections.find(fd);
-    if (it == Gen::activeThreads[thread].connections.end())
+    auto it = Gen::activeThreads[thread].h1connections.find(fd);
+    if (it == Gen::activeThreads[thread].h1connections.end())
         return Gen::CONTINUE;
 
     ::H1::Gen::H1Connection &conn = it->second;
@@ -175,7 +175,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
     // ===========================================
     case ::H1::Gen::H1_STATE_TLS_CONNECTING:
     {
-        auto &sslDbg = Gen::activeThreads[thread].ssl[conn.fd];
+        auto &sslDbg = Gen::activeThreads[thread].h1ssl[conn.fd];
         conn.isReadingClient = false;
 
         if (res == 0)
@@ -185,7 +185,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
             break;
         }
 
-        auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+        auto &ssl = Gen::activeThreads[thread].h1ssl[conn.fd];
 
         int written = BIO_write(ssl.rbio, conn.in_raw_buffer, res);
         int r = SSL_accept(ssl.ssl);
@@ -365,9 +365,9 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
         memset(conn.in_plain_buffer, 0, BUFFER_SIZE);
 
         // TCP TLS
-        if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+        if (Gen::activeThreads[thread].h1ssl[conn.fd].handshakeDone)
         {
-            auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+            auto &ssl = Gen::activeThreads[thread].h1ssl[conn.fd];
             int q = BIO_write(ssl.rbio, conn.in_raw_buffer, res);
 
             while (true)
@@ -431,7 +431,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
         // At least for now
 
         // If request from port 80
-        if (!Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+        if (!Gen::activeThreads[thread].h1ssl[conn.fd].handshakeDone)
         {
             std::string host = Utils::Http::getHost(conn.in_raw_buffer, res);
             std::string permanentlyMoved = "HTTP/1.1 301 Moved Permanently\r\n"
@@ -615,8 +615,8 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
         {
             if (conn.peerFd != -1)
             {
-                auto originIt = Gen::activeThreads[thread].connections.find(conn.peerFd);
-                if (originIt != Gen::activeThreads[thread].connections.end())
+                auto originIt = Gen::activeThreads[thread].h1connections.find(conn.peerFd);
+                if (originIt != Gen::activeThreads[thread].h1connections.end())
                     Utils::H1::Uring::closeConn(thread, originIt->second);
                 conn.peerFd = -1;
             }
@@ -662,9 +662,9 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
             }
         }
 
-        if (Gen::activeThreads[thread].ssl[conn.fd].handshakeDone)
+        if (Gen::activeThreads[thread].h1ssl[conn.fd].handshakeDone)
         {
-            auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+            auto &ssl = Gen::activeThreads[thread].h1ssl[conn.fd];
 
             int written = 0;
             while (written < res)
@@ -894,9 +894,9 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
                 conn.resolverFd = -1;
             }
 
-            Gen::activeThreads[thread].connections.emplace(peerFd, std::move(peerConn));
+            Gen::activeThreads[thread].h1connections.emplace(peerFd, std::move(peerConn));
 
-            pipeline->queueConnectOrigin(Gen::activeThreads[thread].connections.at(peerFd));
+            pipeline->queueConnectOrigin(Gen::activeThreads[thread].h1connections.at(peerFd));
             io_uring_submit(ring);
 
             conn.lastOpType = ::H1::Gen::H1_STATE_READ_RESOLVER;
@@ -927,15 +927,15 @@ int Protocols::H1::wakeup(int res)
         if (!item.success)
             continue;
 
-        auto it = Gen::activeThreads[thread].connections.find(item.fd);
-        if (it == Gen::activeThreads[thread].connections.end())
+        auto it = Gen::activeThreads[thread].h1connections.find(item.fd);
+        if (it == Gen::activeThreads[thread].h1connections.end())
             continue;
 
         auto &conn = it->second;
 
         conn.lastOpType = ::H1::Gen::H1_STATE_TLS_CONNECTING;
 
-        auto &ssl = Gen::activeThreads[thread].ssl[conn.fd];
+        auto &ssl = Gen::activeThreads[thread].h1ssl[conn.fd];
         int r = SSL_accept(ssl.ssl);
         if (r > 0)
         {
