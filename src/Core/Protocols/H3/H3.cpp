@@ -19,7 +19,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
     int res = cqe->res;
     bool hasMore = cqe->flags & IORING_CQE_F_MORE;
-    io_uring_cqe_seen(ring, cqe);
 
     if (res < 0)
     {
@@ -30,6 +29,8 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
     {
     case ::H3::Gen::H3_STATE_READ_CLIENT:
     {
+        std::cout << "I RECV " << res << " BYTES" << std::endl;
+
         if (res <= 0)
             break;
 
@@ -66,9 +67,9 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                                     dcid, &dcidLen,
                                     token, &tokenLen);
 
-        for (auto c : dcid)
+        for (int i = 0; i < quicPayloadLen; ++i)
         {
-            printf("%d", c);
+            printf("%d", quicPayload[i]);
             std::cout << " ";
         }
 
@@ -81,6 +82,10 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                0x03 = HANDSHAKE
                0x04 = 0-RTT
         */
+        std::cout << "TYPE: ";
+        printf("%d", type);
+        std::cout << std::endl;
+
         if (rc == 0 && type == 0x01)
         {
             if (hdr->namelen < sizeof(struct sockaddr_in))
@@ -190,15 +195,19 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             }
         }
 
+        if (!hasMore)
+            pipeline->queueReadClient();
+
         io_uring_submit(ring);
-        return Gen::CONTINUE;
+
+        break;
     }
 
     case ::H3::Gen::H3_STATE_WRITE_CLIENT:
     {
-        std::cout << "I WROTE SUCCESSFULLY" << std::endl;
+        std::cout << "I WROTE SUCCESSFULLY FOR " << res << " BYTES " << std::endl;
         io_uring_submit(ring);
-        return Gen::CONTINUE;
+        break;
     }
     }
 

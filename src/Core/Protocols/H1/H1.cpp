@@ -16,7 +16,6 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
 
     int res = cqe->res;
     bool hasMore = cqe->flags & IORING_CQE_F_MORE;
-    io_uring_cqe_seen(ring, cqe);
 
     if (res < 0)
     {

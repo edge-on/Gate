@@ -59,6 +59,8 @@ void Core::start()
         Gen::activeThreads[i].id = Gen::threads[i].get_id();
     }
 
+    std::cout << " ================ WORKERS ================ " << std::endl;
+
     for (auto &thread : Gen::threads)
     {
         thread.join();
@@ -108,6 +110,8 @@ void Core::workerH1(int thread)
         int fd = (int)(data & 0xFFFFFFFF);
         int opType = (int)(data >> 32);
 
+        io_uring_cqe_seen(ring, cqe);
+
         int res = cqe->res;
 
         int result = -1;
@@ -138,7 +142,6 @@ void Core::workerH3(int thread)
     Gen::activeThreads[thread].udpFd = udpFd;
 
     Pipeline::H3 *pipelineH3 = new Pipeline::H3(ring, thread, Gen::activeThreads[thread].udpFd);
-
     Protocols::H3 *h3 = new Protocols::H3(ring, thread, pipelineH3, quicheConf, quicheCtx);
 
     pipelineH3->queueReadClient();
@@ -146,9 +149,7 @@ void Core::workerH3(int thread)
     Gen::activeThreads[thread].wakeup.init();
 
     auto *sqe = Utils::Uring::getSqe(ring);
-    uint64_t data = ((uint64_t)Gen::STATE_TLS_WAKEUP << 32) |
-                    (((uint64_t)0 & 0x0FFFFFFF) << 4) |
-                    ((uint64_t)Gen::H1 & 0xF);
+    uint64_t data = (uint64_t)Gen::STATE_TLS_WAKEUP;
     io_uring_prep_poll_multishot(sqe, Gen::activeThreads[thread].wakeup.eventFd, POLLIN);
     io_uring_sqe_set_data(sqe, (void *)data);
 
@@ -163,6 +164,8 @@ void Core::workerH3(int thread)
 
         uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
         int opType = (int)data;
+
+        io_uring_cqe_seen(ring, cqe);
 
         int res = cqe->res;
 
