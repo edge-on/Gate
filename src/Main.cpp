@@ -26,18 +26,20 @@ int main(int argc, char *argv[])
 
     Maxmind::DB::init("./GeoDNS/GeoLite2-ASN.mmdb");
 
+    std::cout << " ================ REDISDB ================ " << std::endl;
+
     Main::redis = redisConnect(Main::dotenv->map["redis_host"].data(), 6379);
 
     if (Main::redis == NULL || Main::redis->err)
     {
         if (Main::redis)
         {
-            std::cout << "Redis connection is not successfull." << std::endl;
+            std::cout << "[MAIN] - Redis connection is not successfull." << std::endl;
             redisFree(Main::redis);
         }
         else
         {
-            std::cout << "Redis context is not created successfully." << std::endl;
+            std::cout << "[MAIN] - Redis context is not created successfully." << std::endl;
         }
         return 1;
     }
@@ -48,14 +50,14 @@ int main(int argc, char *argv[])
 
     if (reply == NULL || Main::redis->err)
     {
-        printf("Authentication failed or command error\n");
+        printf("[MAIN] - Authentication failed or command error\n");
         if (reply)
             freeReplyObject(reply);
         redisFree(Main::redis);
         return 1;
     }
 
-    std::cout << "Redis Connection is successfull" << std::endl;
+    std::cout << "[MAIN] - Redis Connection is successfull" << std::endl;
 
     signal(SIGPIPE, SIG_IGN);
 
@@ -66,9 +68,11 @@ int main(int argc, char *argv[])
 
     Main::cas = new Cassandra();
 
+    std::cout << " ================ SCYLLADB ================ " << std::endl;
+
     if (Main::cas->connect())
     {
-        std::cout << "ScyllaDB Connected" << std::endl;
+        std::cout << "[MAIN] - ScyllaDB Connected" << std::endl;
     }
 
     Main::ssl = new Mmap::SSL();

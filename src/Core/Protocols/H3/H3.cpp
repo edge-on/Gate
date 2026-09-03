@@ -15,8 +15,7 @@ Protocols::H3::H3(struct io_uring *ring, int thread, Pipeline::H3 *pipeline, str
 int Protocols::H3::run(struct io_uring_cqe *cqe)
 {
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
-    int id = (int)(data & 0xFFFFFFFF);
-    int opType = (int)(data >> 32);
+    int opType = (int)data;
 
     int res = cqe->res;
     bool hasMore = cqe->flags & IORING_CQE_F_MORE;
@@ -31,8 +30,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
     {
     case ::H3::Gen::H3_STATE_READ_CLIENT:
     {
-        std::cout << "READ: " << id << std::endl;
-
         if (res <= 0)
             break;
 
@@ -41,6 +38,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         char *raw = pipeline->pool->getBufferAddress(groupId, bufId);
 
         struct msghdr *msgHdr = &::H3::Gen::localUdpConfig.msgHdr;
+
         struct io_uring_recvmsg_out *hdr = io_uring_recvmsg_validate(raw, res, msgHdr);
         if (!hdr)
         {
@@ -168,8 +166,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             {
                 ssize_t written = quiche_conn_send(quicConn, out, sizeof(out), &conn.send_info);
 
-                std::cout << "WRITTEN: " << written << std::endl;
-
                 if (written == QUICHE_ERR_DONE)
                 {
                     break;
@@ -179,6 +175,8 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 {
                     break;
                 }
+
+                std::cout << "WRITTEN: " << written << std::endl;
 
                 conn.iov.iov_base = out;
                 conn.iov.iov_len = written;
@@ -190,16 +188,16 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
                 pipeline->queueWriteClient(conn);
             }
-
-            io_uring_submit(ring);
         }
 
+        io_uring_submit(ring);
         return Gen::CONTINUE;
     }
 
     case ::H3::Gen::H3_STATE_WRITE_CLIENT:
     {
         std::cout << "I WROTE SUCCESSFULLY" << std::endl;
+        io_uring_submit(ring);
         return Gen::CONTINUE;
     }
     }

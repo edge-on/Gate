@@ -42,10 +42,14 @@ public:
 
     void start();
 
+    inline static bool isH3Active = false;
+    inline static bool isH1Active = false;
+
 private:
     SSL_CTX *ctx;
     SSL_CTX *quicheCtx;
     quiche_config *quicheConf;
 
-    void worker(int thread);
+    void workerH1(int thread);
+    void workerH3(int thread);
 };

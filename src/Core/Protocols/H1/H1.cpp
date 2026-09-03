@@ -11,9 +11,8 @@ Protocols::H1::H1(struct io_uring *ring, int thread, Pipeline::H1 *pipeline, SSL
 int Protocols::H1::run(struct io_uring_cqe *cqe)
 {
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
+    int fd = (int)(data & 0xFFFFFFFF);
     int opType = (int)(data >> 32);
-    int fd = (int)((data >> 4) & 0x0FFFFFFF);
-    int protocol = (int)(data & 0xF);
 
     int res = cqe->res;
     bool hasMore = cqe->flags & IORING_CQE_F_MORE;
@@ -649,8 +648,12 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
                 size_t headerBytes = headerEnd - conn.out_plain_buffer;
                 if (Utils::Http::getHeader(conn.out_plain_buffer, headerBytes, "location:") != "undefined")
                 {
-                    const char *header = "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n"
-                                         "Alt-Svc: h3=\":443\"; ma=2592000\r\n";
+                    const char *header =
+                        Core::isH3Active
+                            ? "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n"
+                              "Alt-Svc: h3=\":443\"; ma=2592000\r\n"
+                            : "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\r\n";
+
                     size_t len = strlen(header);
                     size_t bodyBytes = res - headerBytes;
 

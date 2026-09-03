@@ -115,6 +115,8 @@ public:
     {
         int udpFd = -1;
 
+        Protocol protocol;
+
         std::thread::id id;
 
         ssize_t activeConnections = 0;

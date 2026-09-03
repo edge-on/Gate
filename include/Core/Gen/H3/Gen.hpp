@@ -5,6 +5,8 @@
 #include <queue>
 #include <sys/socket.h>
 
+#include <quiche.h>
+
 #include "Core/Gen/ZoneMap.hpp"
 
 #define LOCAL_CONN_ID_LEN 16
