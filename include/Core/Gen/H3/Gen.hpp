@@ -41,6 +41,10 @@ namespace H3
 
             std::string domain;
             Zone *zone = nullptr;
+
+            struct msghdr msg{};
+            struct iovec iov;
+            quiche_send_info send_info;
         } H3Connection;
 
         typedef struct

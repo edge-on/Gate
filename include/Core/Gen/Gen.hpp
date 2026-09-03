@@ -36,8 +36,10 @@ public:
     {
         Protocol protocol;
 
-        H1::Gen::H1Connection *h1conn;
-        H3::Gen::H3Connection *h3conn;
+        int thread = -1;
+
+        std::string key;
+        int fd = -1;
     } IoContext;
 
     typedef struct
@@ -45,7 +47,7 @@ public:
         /* ================== HTTP/3 ================== */
         quiche_config *config;
 
-        uint32_t dcid;
+        std::array<uint8_t, 18> dcid;
         /* ================== HTTP/3 ================== */
 
         /* ================== HTTP/1.1 ================== */
@@ -121,13 +123,13 @@ public:
 
         // FD -> Connection
         std::unordered_map<int, H1::Gen::H1Connection> h1connections;
-        // DCID -> Connection
-        std::map<uint32_t, H3::Gen::H3Connection> h3connections;
+        // Conn Key -> Connection
+        std::unordered_map<std::string, H3::Gen::H3Connection> h3connections;
 
         // FD -> SSL
         std::unordered_map<int, SslStructure> h1ssl;
-        // DCID -> SSL
-        std::map<uint32_t, SslStructure> h3ssl;
+        // Conn Key -> SSL
+        std::unordered_map<std::string, SslStructure> h3ssl;
 
         // FD -> Gen
         std::unordered_map<int, Generation> generations;

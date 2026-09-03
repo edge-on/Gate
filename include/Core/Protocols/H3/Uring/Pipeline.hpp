@@ -17,11 +17,11 @@ namespace Pipeline
     public:
         H3(struct io_uring *ring, int thread, int fd);
 
-        void queueReadClient(uint32_t dcid);
-        void queueWriteClient();
+        void queueReadClient();
+        void queueWriteClient(::H3::Gen::H3Connection &conn);
 
-        void queueReadOrigin();
-        void queueWriteOrigin();
+        void queueReadOrigin(::H3::Gen::H3Connection &conn);
+        void queueWriteOrigin(::H3::Gen::H3Connection &conn);
 
         Uring::BufferPool *pool;
 

@@ -27,14 +27,11 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         return Gen::CONTINUE;
     }
 
-    auto gConn = Gen::activeThreads[thread].h3connections.find(id);
-    auto &conn = gConn->second;
-
     switch (opType)
     {
     case ::H3::Gen::H3_STATE_READ_CLIENT:
     {
-        std::cout << "I recv for " << id << std::endl;
+        std::cout << "READ: " << id << std::endl;
 
         if (res <= 0)
             break;
@@ -71,6 +68,14 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                                     dcid, &dcidLen,
                                     token, &tokenLen);
 
+        for (auto c : dcid)
+        {
+            printf("%d", c);
+            std::cout << " ";
+        }
+
+        std::cout << std::endl;
+
         /*
             TYPES
                0x01 = HEADER INITIAL
@@ -78,10 +83,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                0x03 = HANDSHAKE
                0x04 = 0-RTT
         */
-        std::cout << "I RECV";
-        printf("%d", type);
-        std::cout << std::endl;
-
         if (rc == 0 && type == 0x01)
         {
             if (hdr->namelen < sizeof(struct sockaddr_in))
@@ -111,76 +112,94 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 .to_len = localAddrLen,
             };
 
-            uint32_t id = Gen::activeThreads[thread].h3connections.size() + 1;
+            std::array<uint8_t, 18> id;
+            generateDcid(id);
+
+            std::cout << "GENERATED: ";
+
+            for (auto c : id)
+            {
+                printf("%d", c);
+                std::cout << " ";
+            }
+
+            std::cout << std::endl;
+
+            std::string key;
+            key.reserve(sizeof(sockaddr_in) + dcidLen);
+            key.append(reinterpret_cast<const char *>(peerAddr), peerLen);
+            key.append(reinterpret_cast<const char *>(dcid), dcidLen);
 
             quiche_conn *quicConn = quiche_accept(
-                (uint8_t *)id, 5,
+                id.data(), id.size(),
                 dcid, dcidLen,
                 reinterpret_cast<struct sockaddr *>(&localAddr), localAddrLen,
                 peerAddr, peerLen,
                 conf);
 
-            if (quicConn)
+            if (!quicConn)
             {
+                std::cout << "conn is nullptr" << std::endl;
                 return Gen::CONTINUE;
             }
 
             SSL *ssl = (SSL *)quiche_conn_get_ssl(quicConn);
 
-            Gen::activeThreads[thread].h3ssl[id].dcid = id;
-            Gen::activeThreads[thread].h3ssl[id].ssl = ssl;
+            Gen::activeThreads[thread].h3ssl[key].dcid = id;
+            Gen::activeThreads[thread].h3ssl[key].ssl = ssl;
 
-            auto *h3conn = new ::H3::Gen::H3Connection();
-            h3conn->state = Gen::STATE_TLS_WAKEUP;
-            h3conn->streamId = 0;
+            Gen::activeThreads[thread].h3connections[key].state = Gen::STATE_TLS_WAKEUP;
+            Gen::activeThreads[thread].h3connections[key].streamId = 0;
 
-            Gen::activeThreads[thread].h3ssl[id].ioCtx.h3conn = h3conn;
-            Gen::activeThreads[thread].h3ssl[id].ioCtx.protocol = Gen::H3;
+            Gen::activeThreads[thread].h3ssl[key].ioCtx.thread = thread;
+            Gen::activeThreads[thread].h3ssl[key].ioCtx.key = key;
+            Gen::activeThreads[thread].h3ssl[key].ioCtx.protocol = Gen::H3;
 
-            SSL_set_app_data(ssl, &Gen::activeThreads[thread].h3ssl[id].ioCtx);
+            SSL_set_app_data(ssl, &Gen::activeThreads[thread].h3ssl[key].ioCtx);
 
-            quiche_conn_recv(quicConn, quicPayload, quicPayloadLen, &info);
+            auto &conn = Gen::activeThreads[thread].h3connections[key];
 
-            int r = SSL_accept(ssl);
-            int err = SSL_get_error(ssl, r);
+            ssize_t recvLen = quiche_conn_recv(quicConn, quicPayload, quicPayloadLen, &info);
+            std::cout << "RECV RESULT: " << recvLen << " (payload len was " << quicPayloadLen << ")" << std::endl;
 
-            std::cout << err << std::endl;
-            if (err == SSL_ERROR_WANT_READ)
+            uint8_t out[MAX_DATAGRAM_SIZE];
+
+            while (true)
             {
-                pipeline->queueReadClient(id);
-                io_uring_submit(ring);
-            }
-        }
-        else
-        {
-            if (hdr->namelen < sizeof(struct sockaddr_in))
-            {
-                return Gen::CONTINUE;
+                ssize_t written = quiche_conn_send(quicConn, out, sizeof(out), &conn.send_info);
+
+                std::cout << "WRITTEN: " << written << std::endl;
+
+                if (written == QUICHE_ERR_DONE)
+                {
+                    break;
+                }
+
+                if (written < 0)
+                {
+                    break;
+                }
+
+                conn.iov.iov_base = out;
+                conn.iov.iov_len = written;
+
+                conn.msg.msg_name = &conn.send_info.to;
+                conn.msg.msg_namelen = conn.send_info.to_len;
+                conn.msg.msg_iov = &conn.iov;
+                conn.msg.msg_iovlen = 1;
+
+                pipeline->queueWriteClient(conn);
             }
 
-            struct sockaddr *peerAddr = reinterpret_cast<struct sockaddr *>(io_uring_recvmsg_name(hdr));
-            socklen_t peerLen = hdr->namelen;
-
-            if (peerAddr->sa_family != AF_INET)
-            {
-                return Gen::CONTINUE;
-            }
-
-            struct sockaddr_in localAddr{};
-            socklen_t localAddrLen = sizeof(localAddr);
-            if (getsockname(Gen::activeThreads[thread].udpFd, reinterpret_cast<struct sockaddr *>(&localAddr), &localAddrLen) != 0)
-            {
-                return Gen::CONTINUE;
-            }
-
-            quiche_recv_info info = {
-                .from = peerAddr,
-                .from_len = peerLen,
-                .to = reinterpret_cast<struct sockaddr *>(&localAddr),
-                .to_len = localAddrLen,
-            };
+            io_uring_submit(ring);
         }
 
+        return Gen::CONTINUE;
+    }
+
+    case ::H3::Gen::H3_STATE_WRITE_CLIENT:
+    {
+        std::cout << "I WROTE SUCCESSFULLY" << std::endl;
         return Gen::CONTINUE;
     }
     }
@@ -192,21 +211,10 @@ int Protocols::H3::wakeup(int res)
 {
 }
 
-std::string Protocols::H3::generateDcid()
+void Protocols::H3::generateDcid(std::array<uint8_t, 18> &out)
 {
-    constexpr char charset[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    constexpr size_t length = 18;
-
-    std::string result;
-    result.resize(length);
-
     thread_local std::mt19937_64 rng(std::random_device{}());
-    std::uniform_int_distribution<size_t> dist(0, sizeof(charset) - 2);
-
-    for (size_t i = 0; i < length; ++i)
-    {
-        result[i] = charset[dist(rng)];
-    }
-
-    return result;
+    std::uniform_int_distribution<uint16_t> dist(0, 255);
+    for (auto &b : out)
+        b = static_cast<uint8_t>(dist(rng));
 }

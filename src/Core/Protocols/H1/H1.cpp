@@ -11,8 +11,9 @@ Protocols::H1::H1(struct io_uring *ring, int thread, Pipeline::H1 *pipeline, SSL
 int Protocols::H1::run(struct io_uring_cqe *cqe)
 {
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
-    int fd = (int)(data & 0xFFFFFFFF);
     int opType = (int)(data >> 32);
+    int fd = (int)((data >> 4) & 0x0FFFFFFF);
+    int protocol = (int)(data & 0xF);
 
     int res = cqe->res;
     bool hasMore = cqe->flags & IORING_CQE_F_MORE;
@@ -116,7 +117,8 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
             ssl.rbio = BIO_new(BIO_s_mem());
             ssl.wbio = BIO_new(BIO_s_mem());
 
-            ssl.ioCtx.h1conn = &conn;
+            ssl.ioCtx.thread = thread;
+            ssl.ioCtx.fd = conn.fd;
             ssl.ioCtx.protocol = Gen::H1;
 
             SSL_set_app_data(ssl.ssl, &ssl.ioCtx);

@@ -12,7 +12,10 @@ void Pipeline::H1::queueMultishotAccept(int serverFd)
     if (!sqe)
         return;
 
-    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_ACCEPT_MULTISHOT << 32) | (uint32_t)serverFd;
+    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_ACCEPT_MULTISHOT << 32) |
+                    (((uint64_t)serverFd & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
+
     io_uring_prep_multishot_accept(sqe, serverFd, nullptr, nullptr, SOCK_NONBLOCK);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
@@ -31,7 +34,10 @@ void Pipeline::H1::queueTlsConnecting(::H1::Gen::H1Connection &conn)
 
     conn.isReadingClient = true;
 
-    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_TLS_CONNECTING << 32) | (uint32_t)conn.fd;
+    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_TLS_CONNECTING << 32) |
+                    (((uint64_t)conn.fd & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
+
     io_uring_prep_recv(sqe, conn.fd, conn.in_raw_buffer, BUFFER_SIZE, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
@@ -47,7 +53,10 @@ void Pipeline::H1::queueReadClient(::H1::Gen::H1Connection &conn)
 
     conn.isReadingClient = true;
 
-    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_READ_CLIENT << 32) | (uint32_t)conn.fd;
+    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_READ_CLIENT << 32) |
+                    (((uint64_t)conn.fd & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
+
     io_uring_prep_recv(sqe, conn.fd, conn.in_raw_buffer, BUFFER_SIZE, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
@@ -58,7 +67,10 @@ void Pipeline::H1::queueConnectOrigin(::H1::Gen::H1Connection &originConn)
     if (!sqe)
         return;
 
-    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_ORIGIN_CONNECTING << 32) | (uint32_t)originConn.peerFd;
+    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_ORIGIN_CONNECTING << 32) |
+                    (((uint64_t)originConn.peerFd & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
+
     io_uring_prep_connect(sqe, originConn.fd,
                           (struct sockaddr *)&originConn.originAddr,
                           sizeof(originConn.originAddr));
@@ -79,7 +91,10 @@ void Pipeline::H1::queueWriteOrigin(::H1::Gen::H1Connection &conn)
     char *src = front.first.data();
     ssize_t len = front.second;
 
-    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_WRITE_ORIGIN << 32) | (uint32_t)conn.fd;
+    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_WRITE_ORIGIN << 32) |
+                    (((uint64_t)conn.fd & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
+
     io_uring_prep_write(sqe, conn.peerFd, src + conn.writeOriginOffset, len - conn.writeOriginOffset, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
@@ -95,7 +110,10 @@ void Pipeline::H1::queueReadOrigin(::H1::Gen::H1Connection &conn)
 
     conn.isReadingOrigin = true;
 
-    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_READ_ORIGIN << 32) | (uint32_t)conn.fd;
+    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_READ_ORIGIN << 32) |
+                    (((uint64_t)conn.fd & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
+
     io_uring_prep_recv(sqe, conn.peerFd, conn.out_plain_buffer, BUFFER_SIZE, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
@@ -114,7 +132,10 @@ void Pipeline::H1::queueWriteClient(::H1::Gen::H1Connection &conn)
     char *src = front.first.data();
     ssize_t len = front.second;
 
-    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_WRITE_CLIENT << 32) | (uint32_t)conn.fd;
+    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_WRITE_CLIENT << 32) |
+                    (((uint64_t)conn.fd & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
+
     io_uring_prep_write(sqe, conn.fd, src + conn.writeOffset, len - conn.writeOffset, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
@@ -130,7 +151,10 @@ void Pipeline::H1::queueConnectResolver(::H1::Gen::H1Connection &conn, char *ip)
     addr.sin_family = AF_INET;
     addr.sin_port = htons(53);
 
-    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_CONNECT_RESOLVER << 32) | (uint32_t)conn.fd;
+    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_CONNECT_RESOLVER << 32) |
+                    (((uint64_t)conn.fd & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
+
     io_uring_prep_connect(sqe, conn.resolverFd, (sockaddr *)&addr, sizeof(addr));
     io_uring_sqe_set_data(sqe, (void *)data);
 }
@@ -141,7 +165,10 @@ void Pipeline::H1::queueWriteResolver(::H1::Gen::H1Connection &conn)
     if (!sqe)
         return;
 
-    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_WRITE_RESOLVER << 32) | (uint32_t)conn.fd;
+    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_WRITE_RESOLVER << 32) |
+                    (((uint64_t)conn.fd & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
+
     io_uring_prep_write(sqe, conn.resolverFd, conn.resolverPacket, conn.out_len, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
@@ -152,7 +179,10 @@ void Pipeline::H1::queueReadResolver(::H1::Gen::H1Connection &conn)
     if (!sqe)
         return;
 
-    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_READ_RESOLVER << 32) | (uint32_t)conn.fd;
+    uint64_t data = ((uint64_t)::H1::Gen::H1_STATE_READ_RESOLVER << 32) |
+                    (((uint64_t)conn.fd & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
+
     io_uring_prep_recv(sqe, conn.resolverFd, conn.in_raw_buffer, BUFFER_SIZE, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }

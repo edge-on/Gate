@@ -17,7 +17,7 @@ namespace Protocols
         int run(struct io_uring_cqe *cqe);
         int wakeup(int res);
 
-        std::string generateDcid();
+        void generateDcid(std::array<uint8_t, 18> &out);
 
     private:
         int thread;

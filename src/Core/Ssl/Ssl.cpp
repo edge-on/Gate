@@ -28,8 +28,26 @@ SSL_CTX *Ssl::initSSL()
 quiche_config *Ssl::initQuicheSSL()
 {
     quiche_config *conf = quiche_config_new(QUICHE_PROTOCOL_VERSION);
-    quiche_config_load_cert_chain_from_pem_file(conf, "SSL/localhost.pem");
-    quiche_config_load_priv_key_from_pem_file(conf, "SSL/localhost-key.pem");
+
+    if (quiche_config_load_cert_chain_from_pem_file(conf, "SSL/localhost.pem") < 0)
+        std::cout << "FAILED cert chain" << std::endl;
+    if (quiche_config_load_priv_key_from_pem_file(conf, "SSL/localhost-key.pem") < 0)
+        std::cout << "FAILED priv key" << std::endl;
+
+    quiche_config_set_application_protos(conf, (uint8_t *)"\x02h3", 3);
+
+    quiche_config_set_max_idle_timeout(conf, 30000);
+    quiche_config_set_max_recv_udp_payload_size(conf, 1350);
+    quiche_config_set_max_send_udp_payload_size(conf, 1350);
+
+    quiche_config_set_initial_max_data(conf, 10 * 1024 * 1024);
+    quiche_config_set_initial_max_stream_data_bidi_local(conf, 1 * 1024 * 1024);
+    quiche_config_set_initial_max_stream_data_bidi_remote(conf, 1 * 1024 * 1024);
+    quiche_config_set_initial_max_stream_data_uni(conf, 1 * 1024 * 1024);
+    quiche_config_set_initial_max_streams_bidi(conf, 100);
+    quiche_config_set_initial_max_streams_uni(conf, 100);
+
+    quiche_config_set_cc_algorithm(conf, QUICHE_CC_CUBIC);
 
     return conf;
 }
@@ -59,26 +77,22 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
 {
     SSL *ssl = client_hello->ssl;
 
-        std::cout << "HERE WORKS" << std::endl;
     auto *ctx = static_cast<Gen::IoContext *>(SSL_get_app_data(ssl));
     if (!ctx)
     {
         return ssl_select_cert_error;
     }
-        std::cout << "TWO WORKS" << std::endl;
 
     if (ctx->protocol == Gen::H1)
     {
-        auto *conn = ctx->h1conn;
-
-        std::cout << "H1" << std::endl;
+        auto &conn = Gen::activeThreads[ctx->thread].h1connections[ctx->fd];
 
         const unsigned char *extData = nullptr;
         size_t extLen = 0;
 
         if (!SSL_early_callback_ctx_extension_get(client_hello, TLSEXT_TYPE_server_name, &extData, &extLen) || extLen < 5)
         {
-            conn->missingSni = true;
+            conn.missingSni = true;
             return ssl_select_cert_success;
         }
 
@@ -89,13 +103,13 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
         }
 
         std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
-        conn->zone = Gen::zones.findOrCreate(domain);
+        conn.zone = Gen::zones.findOrCreate(domain);
 
         const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
         std::string rootDomain(root, domain.c_str() + domain.size() - root);
-        conn->domain = rootDomain;
-        conn->zone->domain = rootDomain;
-        conn->zone->host = domain;
+        conn.domain = rootDomain;
+        conn.zone->domain = rootDomain;
+        conn.zone->host = domain;
 
         Zone *zone = Gen::zones.find(rootDomain);
         if (zone)
@@ -108,13 +122,13 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
             }
         }
 
-        if (conn->protocolState == ::H1::Gen::TCP_PENDING_SSL)
+        if (conn.protocolState == ::H1::Gen::TCP_PENDING_SSL)
             return ssl_select_cert_retry;
 
-        conn->protocolState = ::H1::Gen::TCP_PENDING_SSL;
+        conn.protocolState = ::H1::Gen::TCP_PENDING_SSL;
 
-        int threadId = conn->thread;
-        int fd = conn->fd;
+        int threadId = conn.thread;
+        int fd = conn.fd;
 
         Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, fd](bool success)
                            { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });
@@ -123,7 +137,7 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
     }
     else
     {
-        auto *conn = ctx->h3conn;
+        auto &conn = Gen::activeThreads[ctx->thread].h3connections[ctx->key];
 
         std::cout << "H3" << std::endl;
 
@@ -132,7 +146,7 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
 
         if (!SSL_early_callback_ctx_extension_get(client_hello, TLSEXT_TYPE_server_name, &extData, &extLen) || extLen < 5)
         {
-            conn->missingSni = true;
+            conn.missingSni = true;
             return ssl_select_cert_success;
         }
 
@@ -146,13 +160,13 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
 
         std::cout << "H3: " << domain << std::endl;
 
-        conn->zone = Gen::zones.findOrCreate(domain);
+        conn.zone = Gen::zones.findOrCreate(domain);
 
         const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
         std::string rootDomain(root, domain.c_str() + domain.size() - root);
-        conn->domain = rootDomain;
-        conn->zone->domain = rootDomain;
-        conn->zone->host = domain;
+        conn.domain = rootDomain;
+        conn.zone->domain = rootDomain;
+        conn.zone->host = domain;
 
         Zone *zone = Gen::zones.find(rootDomain);
         if (zone)

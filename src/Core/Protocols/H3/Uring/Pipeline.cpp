@@ -14,13 +14,15 @@ Pipeline::H3::H3(struct io_uring *ring, int thread, int fd)
     pool->setup(this->ring, 1024 * 1024, 2048, 1, 32768);
 }
 
-void Pipeline::H3::queueReadClient(uint32_t dcid)
+void Pipeline::H3::queueReadClient()
 {
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
 
-    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_READ_CLIENT << 32) | (uint32_t)dcid;
+    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_READ_CLIENT << 32) |
+                    (((uint64_t)0 & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H3 & 0xF);
 
     ::H3::Gen::localUdpConfig.bufGroup = pool->pickGroup();
 
@@ -32,32 +34,43 @@ void Pipeline::H3::queueReadClient(uint32_t dcid)
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
-void Pipeline::H3::queueWriteClient()
+void Pipeline::H3::queueWriteClient(::H3::Gen::H3Connection &conn)
 {
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
 
-    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_WRITE_CLIENT << 32) | (uint32_t)fd;
+    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_WRITE_CLIENT << 32) |
+                    (((uint64_t)0 & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H3 & 0xF);
+
+    io_uring_prep_sendmsg(sqe, fd, &conn.msg, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
-void Pipeline::H3::queueReadOrigin()
+void Pipeline::H3::queueReadOrigin(::H3::Gen::H3Connection &conn)
 {
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
 
-    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_READ_ORIGIN << 32) | (uint32_t)fd;
+    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_READ_CLIENT << 32) |
+                    (((uint64_t)0 & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H3 & 0xF);
+
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
-void Pipeline::H3::queueWriteOrigin()
+void Pipeline::H3::queueWriteOrigin(::H3::Gen::H3Connection &conn)
 {
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
         return;
 
-    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_WRITE_ORIGIN << 32) | (uint32_t)fd;
+    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_WRITE_CLIENT << 32) |
+                    (((uint64_t)0 & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H3 & 0xF);
+
+    io_uring_prep_sendmsg(sqe, fd, &conn.msg, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }

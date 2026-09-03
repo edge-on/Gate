@@ -58,7 +58,7 @@ void Core::worker(int thread)
     Protocols::H1 *h1 = new Protocols::H1(ring, thread, pipelineH1, ctx);
     Protocols::H3 *h3 = new Protocols::H3(ring, thread, pipelineH3, quicheConf, quicheCtx);
 
-    pipelineH3->queueReadClient(0);
+    pipelineH3->queueReadClient();
 
     // Port inits
     for (int port : Main::listeners)
@@ -71,7 +71,9 @@ void Core::worker(int thread)
     Gen::activeThreads[thread].wakeup.init();
 
     auto *sqe = Utils::Uring::getSqe(ring);
-    uint64_t data = ((uint64_t)Gen::STATE_TLS_WAKEUP << 32) | (uint32_t)0;
+    uint64_t data = ((uint64_t)Gen::STATE_TLS_WAKEUP << 32) |
+                    (((uint64_t)0 & 0x0FFFFFFF) << 4) |
+                    ((uint64_t)Gen::H1 & 0xF);
     io_uring_prep_poll_multishot(sqe, Gen::activeThreads[thread].wakeup.eventFd, POLLIN);
     io_uring_sqe_set_data(sqe, (void *)data);
 
@@ -85,15 +87,17 @@ void Core::worker(int thread)
             break;
 
         uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
-        int fd = (int)(data & 0xFFFFFFFF);
         int opType = (int)(data >> 32);
+        int id = (int)((data >> 4) & 0x0FFFFFFF);
+        int protocol = (int)(data & 0xF);
+
         int res = cqe->res;
 
         int result = -1;
 
         if (opType == Gen::STATE_TLS_WAKEUP)
         {
-            if (fd == Gen::activeThreads[thread].udpFd)
+            if (protocol == Gen::H3)
                 h1->wakeup(res);
             else
                 h1->wakeup(res);
@@ -101,7 +105,7 @@ void Core::worker(int thread)
             continue;
         }
 
-        if (fd == Gen::activeThreads[thread].udpFd)
+        if (protocol == Gen::H3)
             result = h3->run(cqe);
         else
             result = h1->run(cqe);
