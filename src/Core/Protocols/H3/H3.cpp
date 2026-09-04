@@ -42,9 +42,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
         struct io_uring_recvmsg_out *hdr = io_uring_recvmsg_validate(raw, res, msgHdr);
         if (!hdr)
-        {
-            return Gen::CONTINUE;
-        }
+            break;
 
         uint8_t *quicPayload = reinterpret_cast<uint8_t *>(io_uring_recvmsg_payload(hdr, msgHdr));
         size_t quicPayloadLen = io_uring_recvmsg_payload_length(hdr, res, msgHdr);
@@ -75,38 +73,23 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
         std::cout << std::endl;
 
-        /*
-            TYPES
-               0x01 = HEADER INITIAL
-               0x02 = RETRY
-               0x03 = HANDSHAKE
-               0x04 = 0-RTT
-        */
-        std::cout << "TYPE: ";
-        printf("%d", type);
-        std::cout << std::endl;
-
-        if (rc == 0 && type == 0x01)
+        if (rc == 0 && type == quiche_pkt_type::QUICHE_PACKET_TYPE_INITIAL)
         {
+            std::cout << "I recv initial pack" << std::endl;
+
             if (hdr->namelen < sizeof(struct sockaddr_in))
-            {
-                return Gen::CONTINUE;
-            }
+                break;
 
             struct sockaddr *peerAddr = reinterpret_cast<struct sockaddr *>(io_uring_recvmsg_name(hdr));
             socklen_t peerLen = hdr->namelen;
 
             if (peerAddr->sa_family != AF_INET)
-            {
-                return Gen::CONTINUE;
-            }
+                break;
 
             struct sockaddr_in localAddr{};
             socklen_t localAddrLen = sizeof(localAddr);
             if (getsockname(Gen::activeThreads[thread].udpFd, reinterpret_cast<struct sockaddr *>(&localAddr), &localAddrLen) != 0)
-            {
-                return Gen::CONTINUE;
-            }
+                break;
 
             quiche_recv_info info = {
                 .from = peerAddr,
@@ -141,10 +124,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 conf);
 
             if (!quicConn)
-            {
-                std::cout << "conn is nullptr" << std::endl;
-                return Gen::CONTINUE;
-            }
+                break;
 
             SSL *ssl = (SSL *)quiche_conn_get_ssl(quicConn);
 
@@ -220,8 +200,8 @@ int Protocols::H3::wakeup(int res)
 
 void Protocols::H3::generateDcid(std::array<uint8_t, 18> &out)
 {
-    thread_local std::mt19937_64 rng(std::random_device{}());
-    std::uniform_int_distribution<uint16_t> dist(0, 255);
-    for (auto &b : out)
-        b = static_cast<uint8_t>(dist(rng));
+    if (RAND_bytes(out.data(), out.size()) != 1)
+    {
+        throw std::runtime_error("RAND_bytes failed");
+    }
 }

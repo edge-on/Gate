@@ -3,6 +3,7 @@
 #include <quiche.h>
 #include <liburing.h>
 #include <openssl/ssl.h>
+#include <openssl/rand.h>
 #include <string>
 #include <random>
 
@@ -18,6 +19,16 @@ namespace Protocols
         int wakeup(int res);
 
         void generateDcid(std::array<uint8_t, 18> &out);
+
+        enum quiche_pkt_type
+        {
+            QUICHE_PACKET_TYPE_INITIAL = 1,
+            QUICHE_PACKET_TYPE_RETRY = 2,
+            QUICHE_PACKET_TYPE_HANDSHAKE = 3,
+            QUICHE_PACKET_TYPE_ZERO_RTT = 4,
+            QUICHE_PACKET_TYPE_SHORT = 5,
+            QUICHE_PACKET_TYPE_VERSION_NEGOTIATION = 6,
+        };
 
     private:
         int thread;
