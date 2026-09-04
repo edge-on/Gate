@@ -18,6 +18,8 @@ void Core::start()
     quicheConf = Ssl::initQuicheSSL();
     quicheCtx = (SSL_CTX *)quiche_config_get_ssl_ctx(quicheConf);
 
+    quiche_config_set_max_send_udp_payload_size(quicheConf, BUFFER_SIZE);
+
     SSL_CTX_set_select_certificate_cb(quicheCtx, Ssl::client_hello_cb);
 
     Gen::zones.replaceCtx(Gen::zones.findOrCreate("localhost"), ctx);

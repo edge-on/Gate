@@ -5,12 +5,14 @@
 #include <queue>
 #include <sys/socket.h>
 
+#include <list>
+#include <array>
+
 #include <quiche.h>
 
 #include "Core/Gen/ZoneMap.hpp"
 
-#define LOCAL_CONN_ID_LEN 16
-#define MAX_DATAGRAM_SIZE 1350
+#include "Core/Gen/Defines.hpp"
 
 namespace H3
 {
@@ -61,6 +63,10 @@ namespace H3
             quiche_conn *conn;
 
             DCIDType dcidType;
+
+            // Buffer Pools
+            std::list<std::pair<std::array<char, DATAGRAM_SIZE>, int>> writeQueue;
+            std::list<std::pair<std::array<char, DATAGRAM_SIZE>, int>> readQueue;
         } H3Connection;
 
         typedef struct

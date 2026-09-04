@@ -66,7 +66,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         uint8_t token[256];
         size_t tokenLen = sizeof(token);
 
-        int rc = quiche_header_info(quicPayload, quicPayloadLen, LOCAL_CONN_ID_LEN,
+        int rc = quiche_header_info(quicPayload, quicPayloadLen, 18,
                                     &version, &type,
                                     scid, &scidLen,
                                     dcid, &dcidLen,
@@ -163,7 +163,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             if (conn.domain.empty())
                 break;
 
-            uint8_t out[MAX_DATAGRAM_SIZE];
+            uint8_t out[DATAGRAM_SIZE];
 
             std::cout << "here works" << std::endl;
 

@@ -1,0 +1,4 @@
+#define BUFFER_SIZE 16384
+#define DATAGRAM_SIZE 1500
+
+#define QUEUE_DEPTH 4096

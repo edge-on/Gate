@@ -23,8 +23,7 @@
 
 #include "Core/Gen/ZoneMap.hpp"
 
-#define BUFFER_SIZE 16384
-#define QUEUE_DEPTH 4096
+#include "Core/Gen/Defines.hpp"
 
 namespace H1
 {
