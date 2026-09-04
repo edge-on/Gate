@@ -131,15 +131,13 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
         int fd = conn.fd;
 
         Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, fd](bool success)
-                           { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });
+                           { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success, ""}); });
 
         return ssl_select_cert_retry;
     }
     else
     {
         auto &conn = Gen::activeThreads[ctx->thread].h3connections[ctx->key];
-
-        std::cout << "H3" << std::endl;
 
         const unsigned char *extData = nullptr;
         size_t extLen = 0;
@@ -158,9 +156,9 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
 
         std::string domain(reinterpret_cast<const char *>(extData + 5), nameLen);
 
-        std::cout << "H3: " << domain << std::endl;
-
         conn.zone = Gen::zones.findOrCreate(domain);
+
+        std::cout << "DOMAIN: " << domain << std::endl;
 
         const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
         std::string rootDomain(root, domain.c_str() + domain.size() - root);
@@ -179,16 +177,11 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
             }
         }
 
-        /*if (conn->protocolState == ::H1::Gen::TCP_PENDING_SSL)
-            return ssl_select_cert_retry;
+        int threadId = conn.threadId;
+        std::string key = conn.key;
 
-        conn->protocolState = ::H1::Gen::TCP_PENDING_SSL;
-
-        int threadId = conn->thread;
-        int fd = conn->fd;
-
-        Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, fd](bool success)
-                           { Gen::activeThreads[threadId].wakeup.push({threadId, fd, success}); });*/
+        Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, key](bool success)
+                           { Gen::activeThreads[threadId].wakeup.push({threadId, 0, success, key}); });
 
         return ssl_select_cert_retry;
     }

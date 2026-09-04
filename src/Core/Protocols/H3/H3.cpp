@@ -25,6 +25,13 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         return Gen::CONTINUE;
     }
 
+    if (opType == Gen::STATE_TLS_WAKEUP)
+    {
+        std::cout << "WAKE UP" << std::endl;
+        wakeup(res);
+        return 0;
+    }
+
     switch (opType)
     {
     case ::H3::Gen::H3_STATE_READ_CLIENT:
@@ -114,14 +121,18 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 Gen::activeThreads[thread].h3ssl[key].dcid = id;
                 Gen::activeThreads[thread].h3ssl[key].ssl = ssl;
 
-                Gen::activeThreads[thread].h3connections[key].state = Gen::STATE_TLS_WAKEUP;
-                Gen::activeThreads[thread].h3connections[key].streamId = 0;
-                Gen::activeThreads[thread].h3connections[key].conn = quicConn;
-                Gen::activeThreads[thread].h3connections[key].dcidType = ::H3::Gen::ASSIGNED;
-                Gen::activeThreads[thread].h3connections[key].peerDcid = fkey;
+                auto &tmpConn = Gen::activeThreads[thread].h3connections[key];
+                tmpConn.key = key;
+                tmpConn.peerDcid = fkey;
+                tmpConn.streamId = 0;
+                tmpConn.conn = quicConn;
+                tmpConn.dcidType = ::H3::Gen::ASSIGNED;
+                tmpConn.threadId = thread;
 
                 Gen::activeThreads[thread].h3connections[fkey].dcidType = ::H3::Gen::INGRESS;
+                Gen::activeThreads[thread].h3connections[fkey].key = fkey;
                 Gen::activeThreads[thread].h3connections[fkey].peerDcid = key;
+                Gen::activeThreads[thread].h3connections[fkey].threadId = thread;
 
                 Gen::activeThreads[thread].h3ssl[key].ioCtx.thread = thread;
                 Gen::activeThreads[thread].h3ssl[key].ioCtx.key = key;
@@ -149,10 +160,12 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             if (quiche_conn_is_established(conn.conn))
                 establisheConnection(conn.peerDcid, fkey);
 
-            if (isIngress)
+            if (conn.domain.empty())
                 break;
 
             uint8_t out[MAX_DATAGRAM_SIZE];
+
+            std::cout << "here works" << std::endl;
 
             while (true)
             {
@@ -179,6 +192,9 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 conn.msg.msg_iovlen = 1;
 
                 pipeline->queueWriteClient(conn);
+
+                // In here break will be removed, we should add an read buffer & write buffer pool for conn
+                break;
             }
         }
 
@@ -203,6 +219,12 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
 int Protocols::H3::wakeup(int res)
 {
+    auto items = Gen::activeThreads[thread].wakeup.drain();
+
+    for (auto &item : items)
+    {
+        std::cout << "ITEM: " << item.key << std::endl;
+    }
 }
 
 void Protocols::H3::generateDcid(std::array<uint8_t, 18> &out)

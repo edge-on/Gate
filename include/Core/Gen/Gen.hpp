@@ -72,6 +72,8 @@ public:
         int thread;
         int fd;
         bool success;
+
+        std::string key;
     };
 
     struct ThreadWakeup

@@ -41,8 +41,9 @@ namespace H3
         {
             uint32_t streamId;
 
-            int state;
+            int threadId;
 
+            std::string key;
             std::string peerDcid;
 
             bool missingSni = false;
