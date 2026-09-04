@@ -35,8 +35,10 @@ void Pipeline::H3::queueWriteClient(::H3::Gen::H3Connection &conn)
     if (!sqe)
         return;
 
+    auto &front = conn.writeQueue.front();
+
     uint64_t data = ::H3::Gen::H3_STATE_WRITE_CLIENT;
-    io_uring_prep_sendmsg(sqe, fd, &conn.msg, 0);
+    io_uring_prep_sendmsg(sqe, fd, &front.msg, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
@@ -57,6 +59,6 @@ void Pipeline::H3::queueWriteOrigin(::H3::Gen::H3Connection &conn)
         return;
 
     uint64_t data = ::H3::Gen::H3_STATE_WRITE_ORIGIN;
-    io_uring_prep_sendmsg(sqe, fd, &conn.msg, 0);
+    // io_uring_prep_sendmsg(sqe, fd, &conn.msg, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }

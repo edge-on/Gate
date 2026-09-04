@@ -148,6 +148,12 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                     ? Gen::activeThreads[thread].h3connections[Gen::activeThreads[thread].h3connections[fkey].peerDcid]
                     : Gen::activeThreads[thread].h3connections[fkey];
 
+            std::pair<std::array<char, DATAGRAM_SIZE>, int> chunk;
+            memcpy(chunk.first.data(), quicPayload, quicPayloadLen);
+            chunk.second = res;
+
+            conn.readQueue.push_back(std::move(chunk));
+
             quiche_recv_info info = {
                 .from = peerAddr,
                 .from_len = peerLen,
@@ -163,39 +169,39 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             if (conn.domain.empty())
                 break;
 
-            uint8_t out[DATAGRAM_SIZE];
-
-            std::cout << "here works" << std::endl;
-
+            bool isWriting = false;
             while (true)
             {
-                ssize_t written = quiche_conn_send(quicConn, out, sizeof(out), &conn.sendInfo);
+                ::H3::Gen::Response res;
 
-                if (written == QUICHE_ERR_DONE)
+                ssize_t written = quiche_conn_send(quicConn, res.out, sizeof(res.out), &res.sendInfo);
+
+                if (written == QUICHE_ERR_DONE || written < 0)
                 {
                     break;
                 }
 
-                if (written < 0)
-                {
-                    break;
-                }
+                isWriting = true;
 
-                std::cout << "WRITTEN: " << written << std::endl;
+                conn.writeQueue.push_back(std::move(res));
 
-                conn.iov.iov_base = out;
-                conn.iov.iov_len = written;
+                auto &back = conn.writeQueue.back();
 
-                conn.msg.msg_name = &conn.sendInfo.to;
-                conn.msg.msg_namelen = conn.sendInfo.to_len;
-                conn.msg.msg_iov = &conn.iov;
-                conn.msg.msg_iovlen = 1;
+                back.iov.iov_base = back.out;
+                back.iov.iov_len = written;
 
-                pipeline->queueWriteClient(conn);
+                back.msg.msg_name = &back.sendInfo.to;
+                back.msg.msg_namelen = back.sendInfo.to_len;
+                back.msg.msg_iov = &back.iov;
+                back.msg.msg_iovlen = 1;
 
-                // In here break will be removed, we should add an read buffer & write buffer pool for conn
-                break;
+                std::cout << written << std::endl;
             }
+
+            std::cout << "size: " << conn.writeQueue.size() << std::endl;
+
+            if (isWriting)
+                pipeline->queueWriteClient(conn);
         }
 
         if (!hasMore)
@@ -208,7 +214,8 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
     case ::H3::Gen::H3_STATE_WRITE_CLIENT:
     {
-        std::cout << "I WROTE SUCCESSFULLY FOR " << res << " BYTES " << std::endl;
+        // We will send dcid to uring data, and take connection
+        // So I need update Pipeline.cpp for H3, and Core.cpp, and here
         io_uring_submit(ring);
         break;
     }

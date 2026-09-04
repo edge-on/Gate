@@ -41,6 +41,15 @@ namespace H3
 
         typedef struct
         {
+            struct msghdr msg{};
+            struct iovec iov;
+            quiche_send_info sendInfo;
+
+            uint8_t out[DATAGRAM_SIZE];
+        } Response;
+
+        typedef struct
+        {
             uint32_t streamId;
 
             int threadId;
@@ -56,17 +65,13 @@ namespace H3
 
             Zone *zone = nullptr;
 
-            struct msghdr msg{};
-            struct iovec iov;
-
-            quiche_send_info sendInfo;
-            quiche_conn *conn;
-
             DCIDType dcidType;
 
+            quiche_conn *conn;
+
             // Buffer Pools
-            std::list<std::pair<std::array<char, DATAGRAM_SIZE>, int>> writeQueue;
             std::list<std::pair<std::array<char, DATAGRAM_SIZE>, int>> readQueue;
+            std::list<Response> writeQueue;
         } H3Connection;
 
         typedef struct
