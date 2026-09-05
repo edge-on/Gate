@@ -54,6 +54,8 @@ namespace H3
 
             int threadId;
 
+            uint32_t keyPeering;
+
             std::string key;
             std::string peerDcid;
 
@@ -73,6 +75,11 @@ namespace H3
             std::list<std::pair<std::array<char, DATAGRAM_SIZE>, int>> readQueue;
             std::list<Response> writeQueue;
         } H3Connection;
+
+        typedef struct
+        {
+            std::string key;
+        } H3KeyPeer;
 
         typedef struct
         {

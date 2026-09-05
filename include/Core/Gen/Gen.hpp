@@ -125,15 +125,21 @@ public:
 
         ThreadWakeup wakeup;
 
+        /* ============= H1 ============= */
         // FD -> Connection
         std::unordered_map<int, H1::Gen::H1Connection> h1connections;
-        // Conn Key -> Connection
-        std::unordered_map<std::string, H3::Gen::H3Connection> h3connections;
-
         // FD -> SSL
         std::unordered_map<int, SslStructure> h1ssl;
+        /* ============= H1 ============= */
+
+        /* ============= H3 ============= */
+        // Conn Key -> Connection
+        std::unordered_map<std::string, H3::Gen::H3Connection> h3connections;
         // Conn Key -> SSL
         std::unordered_map<std::string, SslStructure> h3ssl;
+        // Int -> Key
+        std::unordered_map<uint32_t, H3::Gen::H3KeyPeer> h3keys;
+        /* ============= H3 ============= */
 
         // FD -> Gen
         std::unordered_map<int, Generation> generations;

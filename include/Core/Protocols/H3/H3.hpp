@@ -21,6 +21,10 @@ namespace Protocols
         void generateDcid(std::array<uint8_t, 18> &out);
 
         void establisheConnection(std::string oldKey, std::string newKey);
+
+        uint32_t createKeyPeering(std::string key);
+        bool deleteKeyPeering(uint32_t keyPeering);
+
     private:
         int thread;
 

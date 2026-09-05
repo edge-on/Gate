@@ -149,7 +149,7 @@ void Core::workerH3(int thread)
     Gen::activeThreads[thread].wakeup.init();
 
     auto *sqe = Utils::Uring::getSqe(ring);
-    uint64_t data = Gen::STATE_TLS_WAKEUP;
+    uint64_t data = ((uint64_t)Gen::STATE_TLS_WAKEUP << 32) | (uint32_t)0;
     io_uring_prep_poll_multishot(sqe, Gen::activeThreads[thread].wakeup.eventFd, POLLIN);
     io_uring_sqe_set_data(sqe, (void *)data);
 
@@ -163,7 +163,8 @@ void Core::workerH3(int thread)
             break;
 
         uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
-        int opType = (int)data;
+        int dcidKey = (int)(data & 0xFFFFFFFF);
+        int opType = (int)(data >> 32);
 
         io_uring_cqe_seen(ring, cqe);
 

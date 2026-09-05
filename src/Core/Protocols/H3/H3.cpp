@@ -15,7 +15,8 @@ Protocols::H3::H3(struct io_uring *ring, int thread, Pipeline::H3 *pipeline, str
 int Protocols::H3::run(struct io_uring_cqe *cqe)
 {
     uint64_t data = (uint64_t)io_uring_cqe_get_data(cqe);
-    int opType = (int)data;
+    int dcidKey = (int)(data & 0xFFFFFFFF);
+    int opType = (int)(data >> 32);
 
     int res = cqe->res;
     bool hasMore = cqe->flags & IORING_CQE_F_MORE;
@@ -129,10 +130,14 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 tmpConn.dcidType = ::H3::Gen::ASSIGNED;
                 tmpConn.threadId = thread;
 
+                createKeyPeering(key);
+
                 Gen::activeThreads[thread].h3connections[fkey].dcidType = ::H3::Gen::INGRESS;
                 Gen::activeThreads[thread].h3connections[fkey].key = fkey;
                 Gen::activeThreads[thread].h3connections[fkey].peerDcid = key;
                 Gen::activeThreads[thread].h3connections[fkey].threadId = thread;
+
+                createKeyPeering(fkey);
 
                 Gen::activeThreads[thread].h3ssl[key].ioCtx.thread = thread;
                 Gen::activeThreads[thread].h3ssl[key].ioCtx.key = key;
@@ -214,8 +219,26 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
     case ::H3::Gen::H3_STATE_WRITE_CLIENT:
     {
-        // We will send dcid to uring data, and take connection
-        // So I need update Pipeline.cpp for H3, and Core.cpp, and here
+        std::cout << "I write " << res << " bytes" << std::endl;
+        
+        auto dcidKeyPeering = Gen::activeThreads[thread].h3keys.find(dcidKey);
+        if (dcidKeyPeering == Gen::activeThreads[thread].h3keys.end())
+            std::cout << "DCID Key Peering doesnt exist!" << std::endl;
+
+        std::string key = dcidKeyPeering->second.key;
+
+        auto connIt = Gen::activeThreads[thread].h3connections.find(key);
+        if (connIt == Gen::activeThreads[thread].h3connections.end())
+            std::cout << "Connection doesnt exist with this key!" << std::endl;
+
+        auto &conn = connIt->second;
+
+        if (!conn.writeQueue.empty())
+            conn.writeQueue.pop_front();
+
+        if (!conn.writeQueue.empty())
+            pipeline->queueWriteClient(conn);
+
         io_uring_submit(ring);
         break;
     }
@@ -245,4 +268,18 @@ void Protocols::H3::generateDcid(std::array<uint8_t, 18> &out)
 void Protocols::H3::establisheConnection(std::string oldKey, std::string newKey)
 {
     std::cout << "ESTABLISHED CONN" << std::endl;
+}
+
+uint32_t Protocols::H3::createKeyPeering(std::string key)
+{
+    uint32_t size = Gen::activeThreads[thread].h3keys.size();
+    Gen::activeThreads[thread].h3keys[size].key = key;
+    Gen::activeThreads[thread].h3connections[key].keyPeering = size;
+    return size;
+}
+
+bool Protocols::H3::deleteKeyPeering(uint32_t keyPeering)
+{
+    Gen::activeThreads[thread].h3keys.erase(keyPeering);
+    return true;
 }
