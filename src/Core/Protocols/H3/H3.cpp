@@ -120,8 +120,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             break;
         }
 
-        std::cout << "here works" << std::endl;
-
         std::string fkey(reinterpret_cast<char *>(dcid), dcidLen);
 
         bool isExist = false;
@@ -269,16 +267,16 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             back.msg.msg_name = &back.sendInfo.to;
 
             struct sockaddr_in *saddr = reinterpret_cast<struct sockaddr_in *>(&back.sendInfo.to);
-            std::cout << "Target IP: " << inet_ntoa(saddr->sin_addr) << " Port: " << ntohs(saddr->sin_port) << std::endl;
+            // std::cout << "Target IP: " << inet_ntoa(saddr->sin_addr) << " Port: " << ntohs(saddr->sin_port) << std::endl;
 
             struct sockaddr_in *paddr = reinterpret_cast<struct sockaddr_in *>(peerAddr);
-            std::cout << "Peer IP: " << inet_ntoa(paddr->sin_addr) << " Port: " << ntohs(paddr->sin_port) << std::endl;
+            // std::cout << "Peer IP: " << inet_ntoa(paddr->sin_addr) << " Port: " << ntohs(paddr->sin_port) << std::endl;
 
             back.msg.msg_namelen = back.sendInfo.to_len;
             back.msg.msg_iov = &back.iov;
             back.msg.msg_iovlen = 1;
 
-            std::cout << written << std::endl;
+            std::cout << "Written: " << written << std::endl;
         }
 
         std::cout << "size: " << conn.writeQueue.size() << std::endl;
@@ -356,6 +354,11 @@ void Protocols::H3::establisheConnection(::H3::Gen::H3Connection &conn)
 {
     if (conn.h3 != nullptr)
         return;
+
+    std::string oldKey = conn.peerDcid;
+    int oldPeeringKey = Gen::activeThreads[thread].h3connections[oldKey].keyPeering;
+    Gen::activeThreads[thread].h3connections.erase(oldKey);
+    Gen::activeThreads[thread].h3keys.erase(oldPeeringKey);
 
     quiche_h3_config *h3Config = quiche_h3_config_new();
     conn.h3 = quiche_h3_conn_new_with_transport(conn.conn, h3Config);
