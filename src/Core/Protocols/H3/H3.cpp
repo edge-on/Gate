@@ -39,6 +39,12 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
     {
         std::cout << "I RECV " << res << " BYTES" << std::endl;
 
+        if (!hasMore)
+        {
+            pipeline->queueReadClient();
+            io_uring_submit(ring);
+        }
+
         if (res <= 0)
             break;
 
@@ -73,17 +79,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                                     dcid, &dcidLen,
                                     token, &tokenLen);
 
-        std::string fkey = (char *)dcid;
-
-        bool isExist = false;
-
-        auto mconn = Gen::activeThreads[thread].h3connections.find(fkey);
-        if (mconn != Gen::activeThreads[thread].h3connections.end())
-            isExist = true;
-
-        if (hdr->namelen < sizeof(struct sockaddr_in))
-            break;
-
         struct sockaddr *peerAddr = reinterpret_cast<struct sockaddr *>(io_uring_recvmsg_name(hdr));
         socklen_t peerLen = hdr->namelen;
 
@@ -95,6 +90,45 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         if (getsockname(Gen::activeThreads[thread].udpFd, reinterpret_cast<struct sockaddr *>(&localAddr), &localAddrLen) != 0)
             break;
 
+        if (!quiche_version_is_supported(version))
+        {
+            ::H3::Gen::ConnectionlessH3Context h3ctx;
+
+            ssize_t writtenLen = quiche_negotiate_version(
+                scid, scidLen,
+                dcid, dcidLen,
+                h3ctx.out, sizeof(h3ctx.out));
+
+            if (writtenLen < 0)
+                break;
+
+            h3ctx.iov.iov_base = h3ctx.out;
+            h3ctx.iov.iov_len = writtenLen;
+
+            h3ctx.msg.msg_name = peerAddr;
+            h3ctx.msg.msg_namelen = peerLen;
+            h3ctx.msg.msg_iov = &h3ctx.iov;
+            h3ctx.msg.msg_iovlen = 1;
+
+            pipeline->queueWriteClientCtx();
+            io_uring_submit(ring);
+
+            break;
+        }
+
+        std::cout << "here works" << std::endl;
+
+        std::string fkey(reinterpret_cast<char *>(dcid), dcidLen);
+
+        bool isExist = false;
+
+        auto mconn = Gen::activeThreads[thread].h3connections.find(fkey);
+        if (mconn != Gen::activeThreads[thread].h3connections.end())
+            isExist = true;
+
+        if (hdr->namelen < sizeof(struct sockaddr_in))
+            break;
+
         quiche_conn *quicConn;
 
         if (rc == 0 && type == ::H3::Gen::quichePktType::QUICHE_PACKET_TYPE_INITIAL)
@@ -104,8 +138,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 std::array<uint8_t, 18> id;
                 generateDcid(id);
 
-                std::string key;
-                key.reserve(sizeof(sockaddr_in) + dcidLen);
+                std::string key(reinterpret_cast<char *>(id.data()), id.size());
 
                 quicConn = quiche_accept(
                     id.data(), id.size(),
@@ -145,72 +178,94 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
                 SSL_set_app_data(ssl, &Gen::activeThreads[thread].h3ssl[key].ioCtx);
             }
-
-            bool isIngress = Gen::activeThreads[thread].h3connections[fkey].dcidType == ::H3::Gen::INGRESS;
-
-            auto &conn =
-                isIngress
-                    ? Gen::activeThreads[thread].h3connections[Gen::activeThreads[thread].h3connections[fkey].peerDcid]
-                    : Gen::activeThreads[thread].h3connections[fkey];
-
-            std::pair<std::array<char, DATAGRAM_SIZE>, int> chunk;
-            memcpy(chunk.first.data(), quicPayload, quicPayloadLen);
-            chunk.second = res;
-
-            conn.readQueue.push_back(std::move(chunk));
-
-            quiche_recv_info info = {
-                .from = peerAddr,
-                .from_len = peerLen,
-                .to = reinterpret_cast<struct sockaddr *>(&localAddr),
-                .to_len = localAddrLen,
-            };
-
-            ssize_t recvLen = quiche_conn_recv(conn.conn, quicPayload, quicPayloadLen, &info);
-
-            if (quiche_conn_is_established(conn.conn))
-                establisheConnection(conn.peerDcid, fkey);
-
-            if (conn.domain.empty())
-                break;
-
-            bool isWriting = false;
-            while (true)
-            {
-                ::H3::Gen::Response res;
-
-                ssize_t written = quiche_conn_send(quicConn, res.out, sizeof(res.out), &res.sendInfo);
-
-                if (written == QUICHE_ERR_DONE || written < 0)
-                {
-                    break;
-                }
-
-                isWriting = true;
-
-                conn.writeQueue.push_back(std::move(res));
-
-                auto &back = conn.writeQueue.back();
-
-                back.iov.iov_base = back.out;
-                back.iov.iov_len = written;
-
-                back.msg.msg_name = &back.sendInfo.to;
-                back.msg.msg_namelen = back.sendInfo.to_len;
-                back.msg.msg_iov = &back.iov;
-                back.msg.msg_iovlen = 1;
-
-                std::cout << written << std::endl;
-            }
-
-            std::cout << "size: " << conn.writeQueue.size() << std::endl;
-
-            if (isWriting)
-                pipeline->queueWriteClient(conn);
         }
 
-        if (!hasMore)
-            pipeline->queueReadClient();
+        bool isIngress = Gen::activeThreads[thread].h3connections[fkey].dcidType == ::H3::Gen::INGRESS;
+
+        auto &conn =
+            isIngress
+                ? Gen::activeThreads[thread].h3connections[Gen::activeThreads[thread].h3connections[fkey].peerDcid]
+                : Gen::activeThreads[thread].h3connections[fkey];
+
+        std::pair<std::array<char, DATAGRAM_SIZE>, int> chunk;
+        memcpy(chunk.first.data(), quicPayload, quicPayloadLen);
+        chunk.second = res;
+
+        conn.readQueue.push_back(std::move(chunk));
+
+        quiche_recv_info info = {
+            .from = peerAddr,
+            .from_len = peerLen,
+            .to = reinterpret_cast<struct sockaddr *>(&localAddr),
+            .to_len = localAddrLen,
+        };
+
+        ssize_t recvLen = quiche_conn_recv(conn.conn, quicPayload, quicPayloadLen, &info);
+
+        std::cout << "Recv len: " << recvLen << std::endl;
+
+        if (quiche_conn_is_established(conn.conn))
+            establisheConnection(conn.peerDcid, fkey);
+
+        if (conn.domain.empty())
+            break;
+
+        bool isWriting = false;
+        while (true)
+        {
+            ::H3::Gen::Response res;
+
+            ssize_t written = quiche_conn_send(conn.conn, res.out, sizeof(res.out), &res.sendInfo);
+
+            if (written == QUICHE_ERR_DONE || written < 0)
+            {
+                break;
+            }
+
+            isWriting = true;
+
+            conn.writeQueue.push_back(std::move(res));
+
+            auto &back = conn.writeQueue.back();
+
+            back.iov.iov_base = back.out;
+            back.iov.iov_len = written;
+
+            back.msg.msg_name = &back.sendInfo.to;
+
+            struct sockaddr_in *saddr = reinterpret_cast<struct sockaddr_in *>(&back.sendInfo.to);
+            std::cout << "Target IP: " << inet_ntoa(saddr->sin_addr) << " Port: " << ntohs(saddr->sin_port) << std::endl;
+
+            struct sockaddr_in *paddr = reinterpret_cast<struct sockaddr_in *>(peerAddr);
+            std::cout << "Peer IP: " << inet_ntoa(paddr->sin_addr) << " Port: " << ntohs(paddr->sin_port) << std::endl;
+
+            back.msg.msg_namelen = back.sendInfo.to_len;
+            back.msg.msg_iov = &back.iov;
+            back.msg.msg_iovlen = 1;
+
+            std::cout << written << std::endl;
+        }
+
+        bool isApp = false;
+        uint64_t errCode = 0;
+        const uint8_t *reason = nullptr;
+        size_t reasonLen = 0;
+
+        if (quiche_conn_local_error(conn.conn, &isApp, &errCode, &reason, &reasonLen))
+        {
+            std::cout << "LOCAL ERROR! app=" << isApp << " code=" << errCode
+                      << " reason=" << std::string((const char *)reason, reasonLen) << std::endl;
+        }
+
+        if (quiche_conn_peer_error(conn.conn, &isApp, &errCode, &reason, &reasonLen))
+        {
+            std::cout << "PEER ERROR! app=" << isApp << " code=" << errCode << std::endl;
+        }
+
+        std::cout << "size: " << conn.writeQueue.size() << std::endl;
+
+        if (isWriting)
+            pipeline->queueWriteClient(conn);
 
         io_uring_submit(ring);
 
@@ -220,7 +275,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
     case ::H3::Gen::H3_STATE_WRITE_CLIENT:
     {
         std::cout << "I write " << res << " bytes" << std::endl;
-        
+
         auto dcidKeyPeering = Gen::activeThreads[thread].h3keys.find(dcidKey);
         if (dcidKeyPeering == Gen::activeThreads[thread].h3keys.end())
             std::cout << "DCID Key Peering doesnt exist!" << std::endl;
@@ -240,6 +295,19 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             pipeline->queueWriteClient(conn);
 
         io_uring_submit(ring);
+        break;
+    }
+
+    case ::H3::Gen::H3_STATE_WRITE_CLIENT_CONNECTIONLESS:
+    {
+        if (!Gen::activeThreads[thread].connectionlessh3ctx.empty())
+            Gen::activeThreads[thread].connectionlessh3ctx.pop();
+
+        if (!Gen::activeThreads[thread].connectionlessh3ctx.empty())
+            pipeline->queueWriteClientCtx();
+
+        io_uring_submit(ring);
+
         break;
     }
     }

@@ -23,13 +23,14 @@ namespace H3
         {
             /* ================ HTTP/3 ================ */
             // Client
-            H3_STATE_READ_CLIENT = 10,
-            H3_STATE_WRITE_CLIENT = 11,
+            H3_STATE_READ_CLIENT = 300,
+            H3_STATE_WRITE_CLIENT = 301,
+            H3_STATE_WRITE_CLIENT_CONNECTIONLESS = 302,
 
             // Origin
-            H3_STATE_ORIGIN_CONNECTING = 12,
-            H3_STATE_READ_ORIGIN = 13,
-            H3_STATE_WRITE_ORIGIN = 14
+            H3_STATE_ORIGIN_CONNECTING = 310,
+            H3_STATE_READ_ORIGIN = 311,
+            H3_STATE_WRITE_ORIGIN = 312
             /* ================ HTTP/3 ================ */
         } State;
 
@@ -75,6 +76,14 @@ namespace H3
             std::list<std::pair<std::array<char, DATAGRAM_SIZE>, int>> readQueue;
             std::list<Response> writeQueue;
         } H3Connection;
+
+        typedef struct
+        {
+            struct msghdr msg{};
+            struct iovec iov;
+
+            uint8_t out[DATAGRAM_SIZE];
+        } ConnectionlessH3Context;
 
         typedef struct
         {

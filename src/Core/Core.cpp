@@ -174,6 +174,7 @@ void Core::workerH3(int thread)
 
         if (opType == Gen::STATE_TLS_WAKEUP)
         {
+            std::cout << "TLS WAKE UP" << std::endl;
             continue;
         }
 

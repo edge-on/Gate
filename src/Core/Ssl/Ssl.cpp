@@ -49,7 +49,14 @@ quiche_config *Ssl::initQuicheSSL()
 
     quiche_config_set_cc_algorithm(conf, QUICHE_CC_CUBIC);
 
+    quiche_enable_debug_logging(debugLog, nullptr);
+
     return conf;
+}
+
+void Ssl::debugLog(const char *line, void *argp)
+{
+    std::cout << "[quiche] " << line << std::endl;
 }
 
 int Ssl::alpn_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg)

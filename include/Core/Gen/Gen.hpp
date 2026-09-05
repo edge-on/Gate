@@ -11,7 +11,7 @@ class Gen
 public:
     typedef enum
     {
-        STATE_TLS_WAKEUP = 15
+        STATE_TLS_WAKEUP = 999
     } State;
 
     typedef enum
@@ -139,6 +139,8 @@ public:
         std::unordered_map<std::string, SslStructure> h3ssl;
         // Int -> Key
         std::unordered_map<uint32_t, H3::Gen::H3KeyPeer> h3keys;
+
+        std::queue<H3::Gen::ConnectionlessH3Context> connectionlessh3ctx;
         /* ============= H3 ============= */
 
         // FD -> Gen

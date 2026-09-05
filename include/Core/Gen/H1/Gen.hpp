@@ -34,22 +34,22 @@ namespace H1
         {
             /* ================ HTTP/1.1 ================ */
             // Socket
-            H1_STATE_ACCEPT_MULTISHOT = 0,
+            H1_STATE_ACCEPT_MULTISHOT = 100,
 
             // Client
-            H1_STATE_TLS_CONNECTING = 1,
-            H1_STATE_READ_CLIENT = 2,
-            H1_STATE_WRITE_CLIENT = 3,
+            H1_STATE_TLS_CONNECTING = 110,
+            H1_STATE_READ_CLIENT = 111,
+            H1_STATE_WRITE_CLIENT = 112,
 
             // Origin
-            H1_STATE_ORIGIN_CONNECTING = 4,
-            H1_STATE_WRITE_ORIGIN = 5,
-            H1_STATE_READ_ORIGIN = 6,
+            H1_STATE_ORIGIN_CONNECTING = 121,
+            H1_STATE_WRITE_ORIGIN = 122,
+            H1_STATE_READ_ORIGIN = 123,
 
             // DNS
-            H1_STATE_CONNECT_RESOLVER = 7,
-            H1_STATE_WRITE_RESOLVER = 8,
-            H1_STATE_READ_RESOLVER = 9
+            H1_STATE_CONNECT_RESOLVER = 131,
+            H1_STATE_WRITE_RESOLVER = 132,
+            H1_STATE_READ_RESOLVER = 133
             /* ================ HTTP/1.1 ================ */
         } State;
 

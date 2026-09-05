@@ -17,6 +17,9 @@ Pipeline::H3::H3(struct io_uring *ring, int thread, int fd)
 void Pipeline::H3::queueReadClient()
 {
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    if (!sqe)
+        return;
+
     ::H3::Gen::localUdpConfig.bufGroup = pool->pickGroup();
 
     ::H3::Gen::localUdpConfig.msgHdr.msg_namelen = sizeof(struct sockaddr_in);
@@ -35,9 +38,27 @@ void Pipeline::H3::queueWriteClient(::H3::Gen::H3Connection &conn)
     if (!sqe)
         return;
 
+    if (conn.writeQueue.empty())
+        return;
+
     auto &front = conn.writeQueue.front();
 
     uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_WRITE_CLIENT << 32) | (uint32_t)conn.keyPeering;
+    io_uring_prep_sendmsg(sqe, fd, &front.msg, 0);
+    io_uring_sqe_set_data(sqe, (void *)data);
+}
+
+void Pipeline::H3::queueWriteClientCtx()
+{
+    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    if (!sqe)
+        return;
+
+    if (Gen::activeThreads[thread].connectionlessh3ctx.empty())
+        return;
+
+    auto &front = Gen::activeThreads[thread].connectionlessh3ctx.front();
+    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_WRITE_CLIENT_CONNECTIONLESS << 32) | (uint32_t)0;
     io_uring_prep_sendmsg(sqe, fd, &front.msg, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
