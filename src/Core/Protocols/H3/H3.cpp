@@ -110,6 +110,8 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             h3ctx.msg.msg_iov = &h3ctx.iov;
             h3ctx.msg.msg_iovlen = 1;
 
+            Gen::activeThreads[thread].connectionlessh3ctx.push(std::move(h3ctx));
+
             pipeline->queueWriteClientCtx();
             io_uring_submit(ring);
 

@@ -34,4 +34,6 @@ public:
     static std::string code;
 
     static Mmap::SSL *ssl;
+
+    static bool isQuicheLogging;
 };

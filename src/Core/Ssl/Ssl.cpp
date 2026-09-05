@@ -49,7 +49,8 @@ quiche_config *Ssl::initQuicheSSL()
 
     quiche_config_set_cc_algorithm(conf, QUICHE_CC_CUBIC);
 
-    quiche_enable_debug_logging(debugLog, nullptr);
+    if (Main::isQuicheLogging)
+        quiche_enable_debug_logging(debugLog, nullptr);
 
     return conf;
 }

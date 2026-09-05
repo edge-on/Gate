@@ -15,8 +15,12 @@ std::string Main::country;
 std::string Main::city;
 std::string Main::code;
 
+bool Main::isQuicheLogging;
+
 int main(int argc, char *argv[])
 {
+    Main::isQuicheLogging = false;
+    
     Main::dotenv = new Dotenv();
     Main::dotenv->config(".env");
 
@@ -25,6 +29,9 @@ int main(int argc, char *argv[])
     Main::code = Main::dotenv->map["code"];
 
     Maxmind::DB::init("./GeoDNS/GeoLite2-ASN.mmdb");
+
+    if (Main::dotenv->map["quiche_logs"] == "true")
+        Main::isQuicheLogging = true;
 
     std::cout << " ================ REDISDB ================ " << std::endl;
 
