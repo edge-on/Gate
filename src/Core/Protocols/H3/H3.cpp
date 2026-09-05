@@ -79,6 +79,8 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                                     dcid, &dcidLen,
                                     token, &tokenLen);
 
+        bool isLongHeader = (type != ::H3::Gen::quichePktType::QUICHE_PACKET_TYPE_SHORT);
+
         struct sockaddr *peerAddr = reinterpret_cast<struct sockaddr *>(io_uring_recvmsg_name(hdr));
         socklen_t peerLen = hdr->namelen;
 
@@ -90,7 +92,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         if (getsockname(Gen::activeThreads[thread].udpFd, reinterpret_cast<struct sockaddr *>(&localAddr), &localAddrLen) != 0)
             break;
 
-        if (!quiche_version_is_supported(version))
+        if (isLongHeader && !quiche_version_is_supported(version))
         {
             ::H3::Gen::ConnectionlessH3Context h3ctx;
 
@@ -207,10 +209,41 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         std::cout << "Recv len: " << recvLen << std::endl;
 
         if (quiche_conn_is_established(conn.conn))
-            establisheConnection(conn.peerDcid, fkey);
+            establisheConnection(conn);
 
-        if (conn.domain.empty())
-            break;
+        if (conn.established)
+        {
+            quiche_h3_event *ev;
+            int64_t streamId;
+
+            while ((streamId = quiche_h3_conn_poll(conn.h3, conn.conn, &ev)) >= 0)
+            {
+                switch (quiche_h3_event_type(ev))
+                {
+                case QUICHE_H3_EVENT_HEADERS:
+                {
+                    std::cout << "QUICHE_H3_EVENT_HEADERS" << std::endl;
+
+                    int rc = quiche_h3_event_for_each_header(ev, forEachHeaderCallback, nullptr);
+                    if (rc < 0)
+                        std::cout << "header parse error" << std::endl;
+
+                    break;
+                }
+                case QUICHE_H3_EVENT_DATA:
+                {
+                    std::cout << "QUICHE_H3_EVENT_DATA" << std::endl;
+                    break;
+                }
+                case QUICHE_H3_EVENT_FINISHED:
+                {
+                    std::cout << "QUICHE_H3_EVENT_FINISHED" << std::endl;
+                    break;
+                }
+                }
+                quiche_h3_event_free(ev);
+            }
+        }
 
         bool isWriting = false;
         while (true)
@@ -246,22 +279,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             back.msg.msg_iovlen = 1;
 
             std::cout << written << std::endl;
-        }
-
-        bool isApp = false;
-        uint64_t errCode = 0;
-        const uint8_t *reason = nullptr;
-        size_t reasonLen = 0;
-
-        if (quiche_conn_local_error(conn.conn, &isApp, &errCode, &reason, &reasonLen))
-        {
-            std::cout << "LOCAL ERROR! app=" << isApp << " code=" << errCode
-                      << " reason=" << std::string((const char *)reason, reasonLen) << std::endl;
-        }
-
-        if (quiche_conn_peer_error(conn.conn, &isApp, &errCode, &reason, &reasonLen))
-        {
-            std::cout << "PEER ERROR! app=" << isApp << " code=" << errCode << std::endl;
         }
 
         std::cout << "size: " << conn.writeQueue.size() << std::endl;
@@ -335,9 +352,18 @@ void Protocols::H3::generateDcid(std::array<uint8_t, 18> &out)
     }
 }
 
-void Protocols::H3::establisheConnection(std::string oldKey, std::string newKey)
+void Protocols::H3::establisheConnection(::H3::Gen::H3Connection &conn)
 {
-    std::cout << "ESTABLISHED CONN" << std::endl;
+    if (conn.h3 != nullptr)
+        return;
+
+    quiche_h3_config *h3Config = quiche_h3_config_new();
+    conn.h3 = quiche_h3_conn_new_with_transport(conn.conn, h3Config);
+    quiche_h3_config_free(h3Config);
+
+    conn.established = true;
+
+    std::cout << "ESTABLISHED CONN, h3 layer ready" << std::endl;
 }
 
 uint32_t Protocols::H3::createKeyPeering(std::string key)

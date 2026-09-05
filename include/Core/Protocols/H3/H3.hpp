@@ -20,10 +20,20 @@ namespace Protocols
 
         void generateDcid(std::array<uint8_t, 18> &out);
 
-        void establisheConnection(std::string oldKey, std::string newKey);
+        void establisheConnection(::H3::Gen::H3Connection &conn);
 
         uint32_t createKeyPeering(std::string key);
         bool deleteKeyPeering(uint32_t keyPeering);
+
+        static int forEachHeaderCallback(uint8_t *name, size_t nameLen, uint8_t *value, size_t valueLen, void *argp)
+        {
+            std::string headerName(reinterpret_cast<char *>(name), nameLen);
+            std::string headerValue(reinterpret_cast<char *>(value), valueLen);
+
+            std::cout << headerName << ": " << headerValue << std::endl;
+
+            return 0;
+        }
 
     private:
         int thread;

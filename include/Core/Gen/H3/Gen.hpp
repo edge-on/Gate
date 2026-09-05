@@ -61,6 +61,7 @@ namespace H3
             std::string peerDcid;
 
             bool missingSni = false;
+            bool established = false;
             char resolverPacket[512];
 
             std::string host;
@@ -71,6 +72,7 @@ namespace H3
             DCIDType dcidType;
 
             quiche_conn *conn;
+            quiche_h3_conn *h3;
 
             // Buffer Pools
             std::list<std::pair<std::array<char, DATAGRAM_SIZE>, int>> readQueue;
