@@ -86,6 +86,8 @@ namespace H3
             struct msghdr msg{};
             struct iovec iov;
 
+            struct sockaddr_storage peerAddrStorage;
+
             uint8_t out[DATAGRAM_SIZE];
         } ConnectionlessH3Context;
 

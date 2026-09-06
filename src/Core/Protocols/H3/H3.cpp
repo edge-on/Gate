@@ -36,10 +36,15 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
     {
     case ::H3::Gen::H3_STATE_READ_CLIENT:
     {
+        std::cout << "i recv " << res << " bytes." << std::endl;
+
         bool isExist = false;
 
         if (!hasMore)
+        {
+            fprintf(stderr, "[thread %d] multishot ended, re-arming\n", thread);
             pipeline->queueReadClient();
+        }
 
         if (res <= 0)
         {
@@ -115,21 +120,23 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
                     std::string key(reinterpret_cast<char *>(id.data()), id.size());
 
-                    quiche_conn *quicConn;
-                    quicConn = quiche_accept(
+                    quiche_conn *quicConn = quiche_accept(
                         id.data(), id.size(),
-                        infoCtx.dcid, infoCtx.dcidLen,
+                        infoCtx.tokenLen > 0 ? infoCtx.dcid : nullptr,
+                        infoCtx.tokenLen > 0 ? infoCtx.dcidLen : 0,
                         reinterpret_cast<struct sockaddr *>(&localAddr), localAddrLen,
                         peerAddr, peerLen,
                         conf);
+
+                    SSL *ssl = (SSL *)quiche_conn_get_ssl(quicConn);
+                    const char *sni = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+                    fprintf(stderr, "SNI: %s\n", sni ? sni : "(none)");
 
                     if (!quicConn)
                     {
                         io_uring_submit(ring);
                         break;
                     }
-
-                    SSL *ssl = (SSL *)quiche_conn_get_ssl(quicConn);
 
                     Gen::activeThreads[thread].h3ssl[key].dcid = id;
                     Gen::activeThreads[thread].h3ssl[key].ssl = ssl;
@@ -241,6 +248,15 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 break;
             }
 
+            std::cout << "Send " << written << " bytes" << std::endl;
+            for (int i = 0; i < written; ++i)
+            {
+                printf("%d", res.out[i]);
+                std::cout << " ";
+            }
+
+            std::cout << std::endl;
+
             conn.writeQueue.push_back(std::move(res));
 
             auto &back = conn.writeQueue.back();
@@ -268,6 +284,8 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
     case ::H3::Gen::H3_STATE_WRITE_CLIENT:
     {
+        std::cout << "i write " << res << " bytes." << std::endl;
+
         auto dcidKeyPeering = Gen::activeThreads[thread].h3keys.find(dcidKey);
         if (dcidKeyPeering == Gen::activeThreads[thread].h3keys.end())
             break;
@@ -328,6 +346,7 @@ void Protocols::H3::generateDcid(std::array<uint8_t, 18> &out)
 
 void Protocols::H3::establisheConnection(::H3::Gen::H3Connection &conn)
 {
+    std::cout << "Established Connection" << std::endl;
     if (conn.h3 != nullptr)
         return;
 
@@ -360,28 +379,30 @@ bool Protocols::H3::versionMismatch(::H3::Gen::HdrInfoCtx infoCtx, struct sockad
     bool isLongHeader = (infoCtx.type != ::H3::Gen::quichePktType::QUICHE_PACKET_TYPE_SHORT);
     if (isLongHeader && !quiche_version_is_supported(infoCtx.version))
     {
-        ::H3::Gen::ConnectionlessH3Context h3ctx;
+        Gen::activeThreads[thread].connectionlessh3ctx.push(::H3::Gen::ConnectionlessH3Context{});
+        auto &ctx = Gen::activeThreads[thread].connectionlessh3ctx.back();
 
         ssize_t writtenLen = quiche_negotiate_version(
             infoCtx.scid, infoCtx.scidLen,
             infoCtx.dcid, infoCtx.dcidLen,
-            h3ctx.out, sizeof(h3ctx.out));
+            ctx.out, sizeof(ctx.out));
 
         if (writtenLen < 0)
         {
+            Gen::activeThreads[thread].connectionlessh3ctx.pop();
             io_uring_submit(ring);
             return true;
         }
 
-        h3ctx.iov.iov_base = h3ctx.out;
-        h3ctx.iov.iov_len = writtenLen;
+        memcpy(&ctx.peerAddrStorage, peerAddr, peerLen);
 
-        h3ctx.msg.msg_name = peerAddr;
-        h3ctx.msg.msg_namelen = peerLen;
-        h3ctx.msg.msg_iov = &h3ctx.iov;
-        h3ctx.msg.msg_iovlen = 1;
+        ctx.iov.iov_base = ctx.out;
+        ctx.iov.iov_len = writtenLen;
 
-        Gen::activeThreads[thread].connectionlessh3ctx.push(std::move(h3ctx));
+        ctx.msg.msg_name = &ctx.peerAddrStorage;
+        ctx.msg.msg_namelen = peerLen;
+        ctx.msg.msg_iov = &ctx.iov;
+        ctx.msg.msg_iovlen = 1;
 
         pipeline->queueWriteClientCtx();
         io_uring_submit(ring);
