@@ -20,7 +20,7 @@ void Core::start()
 
     quiche_config_set_max_send_udp_payload_size(quicheConf, DATAGRAM_SIZE);
 
-    // SSL_CTX_set_select_certificate_cb(quicheCtx, Ssl::client_hello_cb);
+    SSL_CTX_set_select_certificate_cb(quicheCtx, Ssl::client_hello_cb);
 
     Gen::zones.replaceCtx(Gen::zones.findOrCreate("localhost"), ctx);
 
@@ -174,7 +174,7 @@ void Core::workerH3(int thread)
 
         if (opType == Gen::STATE_TLS_WAKEUP)
         {
-            std::cout << "TLS WAKE UP" << std::endl;
+            h3->wakeup(res);
             continue;
         }
 

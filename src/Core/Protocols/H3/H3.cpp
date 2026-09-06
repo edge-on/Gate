@@ -36,8 +36,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
     {
     case ::H3::Gen::H3_STATE_READ_CLIENT:
     {
-        std::cout << "i recv " << res << " bytes." << std::endl;
-
         bool isExist = false;
 
         if (!hasMore)
@@ -248,15 +246,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 break;
             }
 
-            std::cout << "Send " << written << " bytes" << std::endl;
-            for (int i = 0; i < written; ++i)
-            {
-                printf("%d", res.out[i]);
-                std::cout << " ";
-            }
-
-            std::cout << std::endl;
-
             conn.writeQueue.push_back(std::move(res));
 
             auto &back = conn.writeQueue.back();
@@ -284,8 +273,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
     case ::H3::Gen::H3_STATE_WRITE_CLIENT:
     {
-        std::cout << "i write " << res << " bytes." << std::endl;
-
         auto dcidKeyPeering = Gen::activeThreads[thread].h3keys.find(dcidKey);
         if (dcidKeyPeering == Gen::activeThreads[thread].h3keys.end())
             break;
@@ -333,7 +320,10 @@ int Protocols::H3::wakeup(int res)
 
     for (auto &item : items)
     {
+        std::cout << "Item: " << Gen::activeThreads[thread].h3connections[item.key].domain << std::endl;
     }
+
+    return 0;
 }
 
 void Protocols::H3::generateDcid(std::array<uint8_t, 18> &out)
@@ -346,7 +336,6 @@ void Protocols::H3::generateDcid(std::array<uint8_t, 18> &out)
 
 void Protocols::H3::establisheConnection(::H3::Gen::H3Connection &conn)
 {
-    std::cout << "Established Connection" << std::endl;
     if (conn.h3 != nullptr)
         return;
 
