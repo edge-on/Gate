@@ -36,10 +36,16 @@ void Pipeline::H3::queueWriteClient(::H3::Gen::H3Connection &conn)
 {
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
     if (!sqe)
+    {
+        conn.writeInFlight = false;
         return;
+    }
 
     if (conn.writeQueue.empty())
+    {
+        conn.writeInFlight = false;
         return;
+    }
 
     auto &front = conn.writeQueue.front();
 

@@ -25,6 +25,8 @@ namespace Protocols
         uint32_t createKeyPeering(std::string key);
         bool deleteKeyPeering(uint32_t keyPeering);
 
+        bool versionMismatch(::H3::Gen::HdrInfoCtx infoCtx, struct sockaddr *peerAddr, ssize_t peerLen);
+
         static int forEachHeaderCallback(uint8_t *name, size_t nameLen, uint8_t *value, size_t valueLen, void *argp)
         {
             std::string headerName(reinterpret_cast<char *>(name), nameLen);

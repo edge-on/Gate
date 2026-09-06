@@ -64,6 +64,8 @@ namespace H3
             bool established = false;
             char resolverPacket[512];
 
+            bool writeInFlight = false;
+
             std::string host;
             std::string domain;
 
@@ -109,5 +111,20 @@ namespace H3
             QUICHE_PACKET_TYPE_SHORT = 5,
             QUICHE_PACKET_TYPE_VERSION_NEGOTIATION = 6,
         };
+
+        typedef struct
+        {
+            uint32_t version = 0;
+            uint8_t type = 0;
+
+            uint8_t scid[QUICHE_MAX_CONN_ID_LEN];
+            size_t scidLen = sizeof(scid);
+
+            uint8_t dcid[QUICHE_MAX_CONN_ID_LEN];
+            size_t dcidLen = sizeof(dcid);
+
+            uint8_t token[256];
+            size_t tokenLen = sizeof(token);
+        } HdrInfoCtx;
     };
 } // namespace Gen
