@@ -32,8 +32,6 @@ namespace Protocols
             std::string headerName(reinterpret_cast<char *>(name), nameLen);
             std::string headerValue(reinterpret_cast<char *>(value), valueLen);
 
-            std::cout << headerName << ": " << headerValue << std::endl;
-
             return 0;
         }
 

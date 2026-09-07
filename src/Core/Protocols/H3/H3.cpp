@@ -128,7 +128,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
                     SSL *ssl = (SSL *)quiche_conn_get_ssl(quicConn);
                     const char *sni = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
-                    fprintf(stderr, "SNI: %s\n", sni ? sni : "(none)");
 
                     if (!quicConn)
                     {
@@ -320,7 +319,6 @@ int Protocols::H3::wakeup(int res)
 
     for (auto &item : items)
     {
-        std::cout << "Item: " << Gen::activeThreads[thread].h3connections[item.key].domain << std::endl;
     }
 
     return 0;

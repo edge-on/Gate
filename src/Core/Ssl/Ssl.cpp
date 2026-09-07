@@ -166,8 +166,6 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
 
         conn.zone = Gen::zones.findOrCreate(domain);
 
-        std::cout << "DOMAIN: " << domain << std::endl;
-
         const char *root = Utils::Http::getRootDomainPtr(domain.c_str(), domain.size());
         std::string rootDomain(root, domain.c_str() + domain.size() - root);
         conn.domain = rootDomain;
@@ -180,8 +178,6 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
             SSL_CTX *zoneCtx = zone->ctx.load(std::memory_order_acquire);
             if (zoneCtx)
             {
-                std::cout << "SSL set CTX worked" << std::endl;
-
                 X509 *cert = SSL_CTX_get0_certificate(zoneCtx);
                 EVP_PKEY *pkey = SSL_CTX_get0_privatekey(zoneCtx);
 
@@ -205,9 +201,7 @@ enum ssl_select_cert_result_t Ssl::client_hello_cb(const SSL_CLIENT_HELLO *clien
         std::string key = conn.key;
 
         Origin::getSSLCert(rootDomain.c_str(), domain.c_str(), [threadId, key, rootDomain](bool success)
-                           {
-                            std::cout << "I got ssl for " << rootDomain << std::endl; 
-                            Gen::activeThreads[threadId].wakeup.push({threadId, 0, success, key}); });
+                           { Gen::activeThreads[threadId].wakeup.push({threadId, 0, success, key}); });
 
         return ssl_select_cert_retry;
     }
