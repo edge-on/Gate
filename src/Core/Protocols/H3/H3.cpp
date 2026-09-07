@@ -210,7 +210,25 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 {
                 case QUICHE_H3_EVENT_HEADERS:
                 {
-                    int hrc = quiche_h3_event_for_each_header(ev, forEachHeaderCallback, nullptr);
+                    ::H3::Gen::RecvIOCtx ioCtx;
+                    int hrc = quiche_h3_event_for_each_header(ev, forEachHeaderCallback, &ioCtx);
+
+                    std::string h1;
+                    h1.append(ioCtx.method);
+                    h1.append(" ");
+                    h1.append(ioCtx.path);
+                    h1.append(" HTTP/1.1\r\n");
+                    h1.append("Host: ");
+                    h1.append(ioCtx.host);
+                    h1.append("\r\n");
+
+                    for (auto header : ioCtx.headers)
+                    {
+                        h1.append(header);
+                        h1.append("\r\n");
+                    }
+
+                    std::cout << "H1: \n" << h1 << std::endl;
 
                     const char *body = "Hello, HTTP/3!";
                     std::string bodyLen = std::to_string(strlen(body));

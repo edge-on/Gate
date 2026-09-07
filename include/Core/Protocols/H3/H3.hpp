@@ -29,8 +29,42 @@ namespace Protocols
 
         static int forEachHeaderCallback(uint8_t *name, size_t nameLen, uint8_t *value, size_t valueLen, void *argp)
         {
+            auto *ioCtx = static_cast<::H3::Gen::RecvIOCtx *>(argp);
+
             std::string headerName(reinterpret_cast<char *>(name), nameLen);
             std::string headerValue(reinterpret_cast<char *>(value), valueLen);
+
+            /*
+            [METHOD VALUE] [PATH VALUE] HTTP/1.1
+            Host: [AUTHORITY VALUE]
+            for()
+            {
+                [HEADER NAME]: [HEADER VALUE]
+            }
+            */
+
+            if (headerName == ":method")
+            {
+                ioCtx->method = headerValue.data(); // [METHOD VALUE]
+                return 0;
+            }
+
+            if (headerName == ":path")
+            {
+                ioCtx->path = headerValue.data(); // [PATH VALUE]
+                return 0;
+            }
+
+            if (headerName == ":authority")
+            {
+                ioCtx->host = headerValue.data(); // [AUTHORITY VALUE]
+                return 0;
+            }
+
+            if (headerName == ":scheme")
+                return 0;
+
+            ioCtx->headers.push_back(headerName + ": " + headerValue);
 
             return 0;
         }

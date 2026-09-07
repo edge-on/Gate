@@ -128,5 +128,13 @@ namespace H3
             uint8_t token[256];
             size_t tokenLen = sizeof(token);
         } HdrInfoCtx;
+
+        typedef struct {
+            std::string method;
+            std::string host;
+            std::string path;
+
+            std::vector<std::string> headers;
+        } RecvIOCtx;
     };
 } // namespace Gen
