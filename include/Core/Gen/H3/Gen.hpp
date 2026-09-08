@@ -33,9 +33,9 @@ namespace H3
             H3_STATE_WRITE_ORIGIN = 312,
 
             // Resolver
-            H3_STATE_CONNECT_RESOLVER = 410,
-            H3_STATE_READ_RESOLVER = 410,
-            H3_STATE_WRITE_RESOLVER = 410
+            H3_STATE_CONNECT_RESOLVER = 320,
+            H3_STATE_WRITE_RESOLVER = 321,
+            H3_STATE_READ_RESOLVER = 322
             /* ================ HTTP/3 ================ */
         } State;
 

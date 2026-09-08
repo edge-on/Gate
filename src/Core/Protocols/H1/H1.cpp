@@ -720,19 +720,10 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
     // ===========================================
     case ::H1::Gen::H1_STATE_CONNECT_RESOLVER:
     {
-        conn.resolverPacket[0] = 0x12;
-        conn.resolverPacket[1] = 0x34;
-        conn.resolverPacket[2] = 0x01;
-        conn.resolverPacket[3] = 0x00;
-        conn.resolverPacket[5] = 1;
-
-        char *qname = &conn.resolverPacket[12];
-        DNSClient::formatName(qname, conn.host);
-        int qlen = strlen((char *)qname) + 1;
-        conn.resolverPacket[12 + qlen + 1] = 1;
-        conn.resolverPacket[12 + qlen + 3] = 1;
-
-        conn.out_len = 12 + qlen + 4;
+        auto rp = Transports::Resolver::getResolverPacket(conn.host.data());
+        conn.out_len = rp.outLen;
+        
+        memcpy(conn.resolverPacket, rp.resolverPacket, rp.outLen);
 
         pipeline->queueWriteResolver(conn);
         io_uring_submit(ring);

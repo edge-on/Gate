@@ -337,6 +337,23 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
         break;
     }
+
+    /* ============== RESOLVER ============== */
+    case ::H3::Gen::H3_STATE_CONNECT_RESOLVER:
+    {
+        break;
+    }
+
+    case ::H3::Gen::H3_STATE_READ_RESOLVER:
+    {
+        break;
+    }
+
+    case ::H3::Gen::H3_STATE_WRITE_ORIGIN:
+    {
+        break;
+    }
+        /* ============== RESOLVER ============== */
     }
 
     return 0;
