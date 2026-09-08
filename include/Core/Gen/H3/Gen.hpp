@@ -55,6 +55,9 @@ namespace H3
 
             int threadId;
 
+            int originFd = -1;
+            int resolverFd = -1;
+
             uint32_t keyPeering;
 
             std::string key;
@@ -77,7 +80,7 @@ namespace H3
             quiche_h3_conn *h3;
 
             // Buffer Pools
-            std::list<std::pair<std::array<char, DATAGRAM_SIZE>, int>> readQueue;
+            std::list<std::string> readQueue;
             std::list<Response> writeQueue;
         } H3Connection;
 
@@ -129,7 +132,8 @@ namespace H3
             size_t tokenLen = sizeof(token);
         } HdrInfoCtx;
 
-        typedef struct {
+        typedef struct
+        {
             std::string method;
             std::string host;
             std::string path;

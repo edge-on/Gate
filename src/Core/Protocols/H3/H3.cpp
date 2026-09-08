@@ -181,12 +181,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 ? Gen::activeThreads[thread].h3connections[Gen::activeThreads[thread].h3connections[fkey].peerDcid]
                 : Gen::activeThreads[thread].h3connections[fkey];
 
-        std::pair<std::array<char, DATAGRAM_SIZE>, int> chunk;
-        memcpy(chunk.first.data(), quicPayload, quicPayloadLen);
-        chunk.second = res;
-
-        conn.readQueue.push_back(std::move(chunk));
-
         quiche_recv_info info = {
             .from = peerAddr,
             .from_len = peerLen,
@@ -228,9 +222,9 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                         h1.append("\r\n");
                     }
 
-                    std::cout << "H1: \n" << h1 << std::endl;
+                    conn.readQueue.push_back(std::move(h1));
 
-                    const char *body = "Hello, HTTP/3!";
+                    /*const char *body = "Hello, HTTP/3!";
                     std::string bodyLen = std::to_string(strlen(body));
                     quiche_h3_header headers[] = {
                         {.name = (uint8_t *)":status", .name_len = 7, .value = (uint8_t *)"200", .value_len = 3},
@@ -239,7 +233,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                     };
 
                     quiche_h3_send_response(conn.h3, conn.conn, streamId, headers, 3, false);
-                    quiche_h3_send_body(conn.h3, conn.conn, streamId, (uint8_t *)body, strlen(body), true);
+                    quiche_h3_send_body(conn.h3, conn.conn, streamId, (uint8_t *)body, strlen(body), true);*/
 
                     break;
                 }
@@ -250,6 +244,23 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 }
                 quiche_h3_event_free(ev);
             }
+        }
+
+        if (!conn.readQueue.empty())
+        {
+            if (conn.resolverFd == -1)
+            {
+                std::cout << "Resolver fd is invalid" << std::endl;
+                break;
+            }
+
+            if (conn.originFd == -1)
+            {
+                std::cout << "Origin fd is invalid" << std::endl;
+                break;
+            }
+
+            break;
         }
 
         while (true)
@@ -416,4 +427,46 @@ bool Protocols::H3::versionMismatch(::H3::Gen::HdrInfoCtx infoCtx, struct sockad
     }
 
     return false;
+}
+
+int Protocols::H3::forEachHeaderCallback(uint8_t *name, size_t nameLen, uint8_t *value, size_t valueLen, void *argp)
+{
+    auto *ioCtx = static_cast<::H3::Gen::RecvIOCtx *>(argp);
+
+    std::string headerName(reinterpret_cast<char *>(name), nameLen);
+    std::string headerValue(reinterpret_cast<char *>(value), valueLen);
+
+    /*
+    [METHOD VALUE] [PATH VALUE] HTTP/1.1
+    Host: [AUTHORITY VALUE]
+    for()
+    {
+        [HEADER NAME]: [HEADER VALUE]
+    }
+    */
+
+    if (headerName == ":method")
+    {
+        ioCtx->method = headerValue.data(); // [METHOD VALUE]
+        return 0;
+    }
+
+    if (headerName == ":path")
+    {
+        ioCtx->path = headerValue.data(); // [PATH VALUE]
+        return 0;
+    }
+
+    if (headerName == ":authority")
+    {
+        ioCtx->host = headerValue.data(); // [AUTHORITY VALUE]
+        return 0;
+    }
+
+    if (headerName == ":scheme")
+        return 0;
+
+    ioCtx->headers.push_back(headerName + ": " + headerValue);
+
+    return 0;
 }
