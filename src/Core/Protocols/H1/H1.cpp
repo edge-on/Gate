@@ -300,7 +300,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
         {
             if (conn.resolverFd == -1)
             {
-                int resolverFd = Proxy::createResolverSocket();
+                int resolverFd = Transports::Proxy::createResolverSocket();
                 if (resolverFd == -1)
                 {
                     conn.backendIsUnreachable = true;
@@ -465,7 +465,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
 
         if (conn.resolverFd == -1)
         {
-            int resolverFd = Proxy::createResolverSocket();
+            int resolverFd = Transports::Proxy::createResolverSocket();
             if (resolverFd == -1)
             {
                 conn.backendIsUnreachable = true;
@@ -877,7 +877,7 @@ int Protocols::H1::run(struct io_uring_cqe *cqe)
             int peerFd = -1;
 
             if (!ip.empty())
-                peerFd = Proxy::createOriginSocket((char *)ip.data(), 80, originAddr);
+                peerFd = Transports::Proxy::createOriginSocket((char *)ip.data(), 80, originAddr);
 
             if (peerFd == -1)
             {
@@ -1050,7 +1050,7 @@ int Protocols::H1::wakeup(int res)
         {
             if (conn.resolverFd == -1)
             {
-                int resolverFd = Proxy::createResolverSocket();
+                int resolverFd = Transports::Proxy::createResolverSocket();
                 if (resolverFd == -1)
                 {
                     conn.backendIsUnreachable = true;

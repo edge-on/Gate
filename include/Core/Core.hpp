@@ -15,7 +15,7 @@
 #include "Core/Gen/H1/Gen.hpp"
 #include "Core/Gen/Gen.hpp"
 
-#include "Core/Proxy/Proxy.hpp"
+#include "Core/Transports/Proxy/Proxy.hpp"
 
 #include "Cassandra/Scylla/Origin.hpp"
 

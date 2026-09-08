@@ -30,7 +30,12 @@ namespace H3
             // Origin
             H3_STATE_ORIGIN_CONNECTING = 310,
             H3_STATE_READ_ORIGIN = 311,
-            H3_STATE_WRITE_ORIGIN = 312
+            H3_STATE_WRITE_ORIGIN = 312,
+
+            // Resolver
+            H3_STATE_CONNECT_RESOLVER = 410,
+            H3_STATE_READ_RESOLVER = 410,
+            H3_STATE_WRITE_RESOLVER = 410
             /* ================ HTTP/3 ================ */
         } State;
 

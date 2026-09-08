@@ -85,7 +85,7 @@ void Core::workerH1(int thread)
     // Port inits
     for (int port : Main::listeners)
     {
-        int fd = Proxy::initServer(port);
+        int fd = Transports::Proxy::initServer(port);
         Gen::activeThreads[thread].listeners.emplace(port, fd);
         pipelineH1->queueMultishotAccept(fd);
     }
@@ -138,7 +138,7 @@ void Core::workerH3(int thread)
         return;
     }
 
-    int udpFd = Proxy::initUdpServer(443);
+    int udpFd = Transports::Proxy::initUdpServer(443);
     Gen::activeThreads[thread].udpFd = udpFd;
 
     Pipeline::H3 *pipelineH3 = new Pipeline::H3(ring, thread, Gen::activeThreads[thread].udpFd);

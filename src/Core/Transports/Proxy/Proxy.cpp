@@ -1,6 +1,6 @@
-#include "Core/Proxy/Proxy.hpp"
+#include "Core/Transports/Proxy/Proxy.hpp"
 
-int Proxy::initServer(int port)
+int Transports::Proxy::initServer(int port)
 {
     int sockFd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -31,7 +31,7 @@ int Proxy::initServer(int port)
     return sockFd;
 }
 
-int Proxy::initUdpServer(int port)
+int Transports::Proxy::initUdpServer(int port)
 {
     int sockFd = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -53,7 +53,7 @@ int Proxy::initUdpServer(int port)
     return sockFd;
 }
 
-int Proxy::createOriginSocket(char *ip, int port, sockaddr_in &outAddr)
+int Transports::Proxy::createOriginSocket(char *ip, int port, sockaddr_in &outAddr)
 {
     int sockFd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockFd < 0)
@@ -69,7 +69,7 @@ int Proxy::createOriginSocket(char *ip, int port, sockaddr_in &outAddr)
     return sockFd;
 }
 
-int Proxy::createResolverSocket()
+int Transports::Proxy::createResolverSocket()
 {
     int sockFd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockFd < 0)

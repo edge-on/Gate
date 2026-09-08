@@ -7,7 +7,7 @@
 
 #include "Core/Gen/H1/Gen.hpp"
 
-#include "Core/Proxy/Proxy.hpp"
+#include "Core/Transports/Proxy/Proxy.hpp"
 #include "Core/Security/Headers.hpp"
 
 #include "Utils/Http.hpp"
