@@ -26,8 +26,8 @@ namespace Pipeline
         void queueWriteOrigin(::H3::Gen::H3Connection &conn);
 
         void queueConnectResolver(::H3::Gen::H3Connection &conn, char *ip);
-        void queueWriteResolver();
-        void queueReadResolver();
+        void queueWriteResolver(::H3::Gen::H3Connection &conn);
+        void queueReadResolver(::H3::Gen::H3Connection &conn);
 
         Uring::BufferPool *pool;
 

@@ -87,6 +87,8 @@ namespace H3
             // Buffer Pools
             std::list<std::string> readQueue;
             std::list<Response> writeQueue;
+
+            uint64_t outLen;
         } H3Connection;
 
         typedef struct

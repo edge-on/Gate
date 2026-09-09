@@ -11,6 +11,7 @@
 #include "Main.hpp"
 
 #include "Core/Transports/Proxy/Proxy.hpp"
+#include "Core/Transports/Resolver/Resolver.hpp"
 
 namespace Protocols
 {

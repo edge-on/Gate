@@ -345,16 +345,49 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
     /* ============== RESOLVER ============== */
     case ::H3::Gen::H3_STATE_CONNECT_RESOLVER:
     {
+        auto keyIt = Gen::activeThreads[thread].h3keys.find(dcidKey);
+        if (keyIt == Gen::activeThreads[thread].h3keys.end())
+            break;
+
+        auto key = keyIt->second.key;
+
+        auto connIt = Gen::activeThreads[thread].h3connections.find(key);
+        if (connIt == Gen::activeThreads[thread].h3connections.end())
+            break;
+
+        auto &conn = connIt->second;
+
+        auto packet = Transports::Resolver::getResolverPacket("edgeon.io");
+        memcpy(conn.resolverPacket, packet.resolverPacket, packet.outLen);
+        conn.outLen = packet.outLen;
+
         std::cout << "I connected to resolver successfully" << std::endl;
+
+        pipeline->queueWriteResolver(conn);
+        io_uring_submit(ring);
+
+        break;
+    }
+
+    case ::H3::Gen::H3_STATE_WRITE_RESOLVER:
+    {
+        auto keyIt = Gen::activeThreads[thread].h3keys.find(dcidKey);
+        if (keyIt == Gen::activeThreads[thread].h3keys.end())
+            break;
+
+        auto key = keyIt->second.key;
+        auto connIt = Gen::activeThreads[thread].h3connections.find(key);
+        if (connIt == Gen::activeThreads[thread].h3connections.end())
+            break;
+
+        auto &conn = connIt->second;
+        pipeline->queueReadResolver(conn);
+
+        std::cout << "Successfully i write to resolver " << res << " bytes." << std::endl;
         break;
     }
 
     case ::H3::Gen::H3_STATE_READ_RESOLVER:
-    {
-        break;
-    }
-
-    case ::H3::Gen::H3_STATE_WRITE_ORIGIN:
     {
         break;
     }
