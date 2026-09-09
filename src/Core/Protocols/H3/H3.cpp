@@ -359,20 +359,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
         auto packet = Transports::Resolver::getResolverPacket("edgeon.io");
 
-        std::cout << "SEND" << std::endl;
-        int a = 0;
-        for (auto c : packet.resolverPacket)
-        {
-            a++;
-            printf("%d", c);
-            std::cout << " ";
-
-            if (a > packet.outLen)
-                break;
-        }
-
-        std::cout << std::endl;
-
         memcpy(conn.outResolverPacket.resolverPacket, packet.resolverPacket, packet.outLen);
         conn.outResolverPacket.outLen = packet.outLen;
 
@@ -510,13 +496,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         }
 
         std::cout << "IP size: " << ips.size() << " - RES: " << res << std::endl;
-        for (auto c : conn.inResolverPacket.resolverPacket)
-        {
-            printf("%d", c);
-            std::cout << " ";
-        }
-
-        std::cout << std::endl;
+        std::string ip = DNSClient::getRandomIP(ips);
 
         break;
     }
