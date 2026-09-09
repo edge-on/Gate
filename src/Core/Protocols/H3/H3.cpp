@@ -250,6 +250,10 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         {
             if (conn.resolverFd == -1)
             {
+                conn.resolverFd = Transports::Proxy::createResolverSocket();
+
+                pipeline->queueConnectResolver(conn, Main::resolverIp);
+                io_uring_submit(ring);
                 std::cout << "Resolver fd is invalid" << std::endl;
                 break;
             }
@@ -341,6 +345,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
     /* ============== RESOLVER ============== */
     case ::H3::Gen::H3_STATE_CONNECT_RESOLVER:
     {
+        std::cout << "I connected to resolver successfully" << std::endl;
         break;
     }
 

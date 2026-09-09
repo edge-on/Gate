@@ -25,7 +25,7 @@ namespace Pipeline
         void queueReadOrigin(::H3::Gen::H3Connection &conn);
         void queueWriteOrigin(::H3::Gen::H3Connection &conn);
 
-        void queueConnectResolver();
+        void queueConnectResolver(::H3::Gen::H3Connection &conn, char *ip);
         void queueWriteResolver();
         void queueReadResolver();
 
