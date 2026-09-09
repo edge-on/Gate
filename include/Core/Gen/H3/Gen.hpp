@@ -14,6 +14,8 @@
 
 #include "Core/Gen/Defines.hpp"
 
+#include "Core/Transports/Resolver/Resolver.hpp"
+
 namespace H3
 {
     class Gen
@@ -70,7 +72,6 @@ namespace H3
 
             bool missingSni = false;
             bool established = false;
-            char resolverPacket[512];
 
             bool writeInFlight = false;
 
@@ -88,7 +89,8 @@ namespace H3
             std::list<std::string> readQueue;
             std::list<Response> writeQueue;
 
-            uint64_t outLen;
+            Transports::Resolver::ResolverPacket inResolverPacket;
+            Transports::Resolver::ResolverPacket outResolverPacket;
         } H3Connection;
 
         typedef struct

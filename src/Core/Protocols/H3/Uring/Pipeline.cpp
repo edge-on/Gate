@@ -113,7 +113,7 @@ void Pipeline::H3::queueConnectResolver(::H3::Gen::H3Connection &conn, char *ip)
 
 void Pipeline::H3::queueWriteResolver(::H3::Gen::H3Connection &conn)
 {
-    if (conn.outLen <= 0)
+    if (conn.outResolverPacket.outLen <= 0)
         return;
 
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
@@ -121,10 +121,17 @@ void Pipeline::H3::queueWriteResolver(::H3::Gen::H3Connection &conn)
         return;
 
     uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_WRITE_RESOLVER << 32) | (uint32_t)conn.keyPeering;
-    io_uring_prep_write(sqe, conn.resolverFd, conn.resolverPacket, conn.outLen, 0);
+    io_uring_prep_write(sqe, conn.resolverFd, conn.outResolverPacket.resolverPacket, 512, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 
 void Pipeline::H3::queueReadResolver(::H3::Gen::H3Connection &conn)
 {
+    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    if (!sqe)
+        return;
+
+    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_READ_RESOLVER << 32) | (uint32_t)conn.keyPeering;
+    io_uring_prep_recv(sqe, conn.resolverFd, &conn.inResolverPacket.resolverPacket, 512, 0);
+    io_uring_sqe_set_data(sqe, (void *)data);
 }

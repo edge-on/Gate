@@ -358,8 +358,23 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         auto &conn = connIt->second;
 
         auto packet = Transports::Resolver::getResolverPacket("edgeon.io");
-        memcpy(conn.resolverPacket, packet.resolverPacket, packet.outLen);
-        conn.outLen = packet.outLen;
+
+        std::cout << "SEND" << std::endl;
+        int a = 0;
+        for (auto c : packet.resolverPacket)
+        {
+            a++;
+            printf("%d", c);
+            std::cout << " ";
+
+            if (a > packet.outLen)
+                break;
+        }
+
+        std::cout << std::endl;
+
+        memcpy(conn.outResolverPacket.resolverPacket, packet.resolverPacket, packet.outLen);
+        conn.outResolverPacket.outLen = packet.outLen;
 
         std::cout << "I connected to resolver successfully" << std::endl;
 
@@ -389,6 +404,120 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
     case ::H3::Gen::H3_STATE_READ_RESOLVER:
     {
+        auto keyIt = Gen::activeThreads[thread].h3keys.find(dcidKey);
+        if (keyIt == Gen::activeThreads[thread].h3keys.end())
+            break;
+
+        auto key = keyIt->second.key;
+        auto connIt = Gen::activeThreads[thread].h3connections.find(key);
+        if (connIt == Gen::activeThreads[thread].h3connections.end())
+            break;
+
+        auto &conn = connIt->second;
+
+        if (res == 0 && conn.resolverFd != -1)
+            close(conn.resolverFd);
+
+        char qname[256];
+        DNSClient::formatName(qname, "edgeon.io");
+        int qlen = strlen((char *)qname) + 1;
+
+        char *buf_start = conn.inResolverPacket.resolverPacket;
+        char *buf_end = conn.inResolverPacket.resolverPacket + res;
+
+        if (res < 12 + qlen + 4)
+        {
+            // fail_resolver();
+            break;
+        }
+
+        std::vector<std::string> ips;
+        int count = ntohs(*(uint16_t *)&conn.inResolverPacket.resolverPacket[6]);
+        char *p = &conn.inResolverPacket.resolverPacket[12 + qlen + 4];
+
+        auto remaining = [&](char *ptr) -> long
+        {
+            return buf_end - ptr;
+        };
+
+        auto skip_name = [&](char *&ptr) -> bool
+        {
+            while (ptr < buf_end)
+            {
+                uint8_t label_len = (uint8_t)*ptr;
+                if ((label_len & 0xC0) == 0xC0)
+                {
+                    ptr += 2;
+                    return ptr <= buf_end;
+                }
+                else if (label_len == 0)
+                {
+                    ptr += 1;
+                    return ptr <= buf_end;
+                }
+                else
+                {
+                    ptr += 1 + label_len;
+                    if (ptr > buf_end)
+                        return false;
+                }
+            }
+            return false;
+        };
+
+        bool parse_ok = true;
+
+        for (int i = 0; i < count; i++)
+        {
+            if (!skip_name(p))
+            {
+                parse_ok = false;
+                break;
+            }
+
+            if (remaining(p) < 10)
+            {
+                parse_ok = false;
+                break;
+            }
+
+            uint16_t type = ntohs(*(uint16_t *)p);
+            p += 8;
+
+            uint16_t len = ntohs(*(uint16_t *)p);
+            p += 2;
+
+            if (remaining(p) < (long)len)
+            {
+                parse_ok = false;
+                break;
+            }
+
+            if (type == 1 && len == 4) // A record
+            {
+                char ip_str[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, p, ip_str, INET_ADDRSTRLEN);
+                ips.push_back(std::string(ip_str));
+            }
+
+            p += len;
+        }
+
+        if (!parse_ok)
+        {
+            // fail_resolver();
+            break;
+        }
+
+        std::cout << "IP size: " << ips.size() << " - RES: " << res << std::endl;
+        for (auto c : conn.inResolverPacket.resolverPacket)
+        {
+            printf("%d", c);
+            std::cout << " ";
+        }
+
+        std::cout << std::endl;
+
         break;
     }
         /* ============== RESOLVER ============== */
