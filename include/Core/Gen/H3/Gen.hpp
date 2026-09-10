@@ -30,7 +30,7 @@ namespace H3
             H3_STATE_WRITE_CLIENT_CONNECTIONLESS = 302,
 
             // Origin
-            H3_STATE_ORIGIN_CONNECTING = 310,
+            H3_STATE_CONNECT_ORIGIN = 310,
             H3_STATE_READ_ORIGIN = 311,
             H3_STATE_WRITE_ORIGIN = 312,
 
@@ -64,6 +64,8 @@ namespace H3
 
             int originFd = -1;
             int resolverFd = -1;
+
+            sockaddr_in originAddr{};
 
             uint32_t keyPeering;
 

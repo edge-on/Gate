@@ -34,6 +34,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
     switch (opType)
     {
+    /* ============== CLIENT ============== */
     case ::H3::Gen::H3_STATE_READ_CLIENT:
     {
         bool isExist = false;
@@ -224,6 +225,8 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
                     conn.readQueue.push_back(std::move(h1));
 
+                    conn.host = ioCtx.host;
+
                     /*const char *body = "Hello, HTTP/3!";
                     std::string bodyLen = std::to_string(strlen(body));
                     quiche_h3_header headers[] = {
@@ -250,17 +253,17 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         {
             if (conn.resolverFd == -1)
             {
+                // Resolver FD Is Invalid
                 conn.resolverFd = Transports::Proxy::createResolverSocket();
 
                 pipeline->queueConnectResolver(conn, Main::resolverIp);
                 io_uring_submit(ring);
-                std::cout << "Resolver fd is invalid" << std::endl;
                 break;
             }
 
             if (conn.originFd == -1)
             {
-                std::cout << "Origin fd is invalid" << std::endl;
+                // Origin FD Is Invalid
                 break;
             }
 
@@ -341,6 +344,15 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
         break;
     }
+    /* ============== CLIENT ============== */
+
+    /* ============== ORIGIN ============== */
+    case ::H3::Gen::H3_STATE_CONNECT_ORIGIN:
+    {
+        std::cout << "I connected to origin successfully" << std::endl;
+        break;
+    }
+    /* ============== ORIGIN ============== */
 
     /* ============== RESOLVER ============== */
     case ::H3::Gen::H3_STATE_CONNECT_RESOLVER:
@@ -357,12 +369,10 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
         auto &conn = connIt->second;
 
-        auto packet = Transports::Resolver::getResolverPacket("edgeon.io");
+        auto packet = Transports::Resolver::getResolverPacket(conn.host.data());
 
         memcpy(conn.outResolverPacket.resolverPacket, packet.resolverPacket, packet.outLen);
         conn.outResolverPacket.outLen = packet.outLen;
-
-        std::cout << "I connected to resolver successfully" << std::endl;
 
         pipeline->queueWriteResolver(conn);
         io_uring_submit(ring);
@@ -383,8 +393,6 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
         auto &conn = connIt->second;
         pipeline->queueReadResolver(conn);
-
-        std::cout << "Successfully i write to resolver " << res << " bytes." << std::endl;
         break;
     }
 
@@ -405,7 +413,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             close(conn.resolverFd);
 
         char qname[256];
-        DNSClient::formatName(qname, "edgeon.io");
+        DNSClient::formatName(qname, conn.host);
         int qlen = strlen((char *)qname) + 1;
 
         char *buf_start = conn.inResolverPacket.resolverPacket;
@@ -495,9 +503,19 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             break;
         }
 
-        std::cout << "IP size: " << ips.size() << " - RES: " << res << std::endl;
         std::string ip = DNSClient::getRandomIP(ips);
 
+        sockaddr_in originAddr;
+
+        if (conn.originFd == -1)
+        {
+            conn.originFd = Transports::Proxy::createOriginSocket(ip.data(), 80, originAddr);
+            conn.originAddr = originAddr;
+
+            pipeline->queueConnectOrigin(conn);
+        }
+
+        io_uring_submit(ring);
         break;
     }
         /* ============== RESOLVER ============== */

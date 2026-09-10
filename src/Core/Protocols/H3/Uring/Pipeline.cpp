@@ -14,6 +14,7 @@ Pipeline::H3::H3(struct io_uring *ring, int thread, int fd)
     pool->setup(this->ring, 1024 * 1024, 2048, 1, 32768);
 }
 
+/* ============== CLIENT ============== */
 void Pipeline::H3::queueReadClient()
 {
     struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
@@ -68,6 +69,22 @@ void Pipeline::H3::queueWriteClientCtx()
     io_uring_prep_sendmsg(sqe, fd, &front.msg, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
+/* ============== CLIENT ============== */
+
+/* ============== ORIGIN ============== */
+void Pipeline::H3::queueConnectOrigin(::H3::Gen::H3Connection &conn)
+{
+    if (conn.originFd == -1)
+        return;
+
+    struct io_uring_sqe *sqe = Utils::Uring::getSqe(ring);
+    if (!sqe)
+        return;
+
+    uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_CONNECT_ORIGIN << 32) | (uint32_t)conn.keyPeering;
+    io_uring_prep_connect(sqe, conn.originFd, (sockaddr *)&conn.originAddr, sizeof(conn.originAddr));
+    io_uring_sqe_set_data(sqe, (void *)data);
+}
 
 void Pipeline::H3::queueReadOrigin(::H3::Gen::H3Connection &conn)
 {
@@ -89,7 +106,9 @@ void Pipeline::H3::queueWriteOrigin(::H3::Gen::H3Connection &conn)
     // io_uring_prep_sendmsg(sqe, fd, &conn.msg, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
+/* ============== ORIGIN ============== */
 
+/* ============== RESOLVER ============== */
 void Pipeline::H3::queueConnectResolver(::H3::Gen::H3Connection &conn, char *ip)
 {
     if (conn.resolverFd == -1)
@@ -103,8 +122,6 @@ void Pipeline::H3::queueConnectResolver(::H3::Gen::H3Connection &conn, char *ip)
     addr.sin_addr.s_addr = inet_addr(ip);
     addr.sin_port = htons(53);
     addr.sin_family = AF_INET;
-
-    std::cout << "I am trying to connect resolver for " << ip << " and port 53" << std::endl;
 
     uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_CONNECT_RESOLVER << 32) | (uint32_t)conn.keyPeering;
     io_uring_prep_connect(sqe, conn.resolverFd, (sockaddr *)&addr, sizeof(addr));
@@ -135,3 +152,4 @@ void Pipeline::H3::queueReadResolver(::H3::Gen::H3Connection &conn)
     io_uring_prep_recv(sqe, conn.resolverFd, &conn.inResolverPacket.resolverPacket, 512, 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
+/* ============== RESOLVER ============== */

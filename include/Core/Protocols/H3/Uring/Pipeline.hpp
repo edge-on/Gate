@@ -21,7 +21,7 @@ namespace Pipeline
         void queueWriteClient(::H3::Gen::H3Connection &conn);
         void queueWriteClientCtx();
 
-        void queueConnectOrigin();
+        void queueConnectOrigin(::H3::Gen::H3Connection &conn);
         void queueReadOrigin(::H3::Gen::H3Connection &conn);
         void queueWriteOrigin(::H3::Gen::H3Connection &conn);
 
