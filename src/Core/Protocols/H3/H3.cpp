@@ -349,7 +349,45 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
     /* ============== ORIGIN ============== */
     case ::H3::Gen::H3_STATE_CONNECT_ORIGIN:
     {
-        std::cout << "I connected to origin successfully" << std::endl;
+        auto keyIt = Gen::activeThreads[thread].h3keys.find(dcidKey);
+        if (keyIt == Gen::activeThreads[thread].h3keys.end())
+            break;
+
+        auto connIt = Gen::activeThreads[thread].h3connections.find(keyIt->second.key);
+        if (connIt == Gen::activeThreads[thread].h3connections.end())
+            break;
+
+        auto &conn = connIt->second;
+
+        pipeline->queueReadOrigin(conn);
+        pipeline->queueWriteOrigin(conn);
+        io_uring_submit(ring);
+        break;
+    }
+
+    case ::H3::Gen::H3_STATE_WRITE_ORIGIN:
+    {
+        break;
+    }
+
+    case ::H3::Gen::H3_STATE_READ_ORIGIN:
+    {
+        // I will break for MVP, but in the future i should close the connection file descriptor.
+        if (res == 0)
+            break;
+
+        auto keyIt = Gen::activeThreads[thread].h3keys.find(dcidKey);
+        if (keyIt == Gen::activeThreads[thread].h3keys.end())
+            break;
+
+        auto connIt = Gen::activeThreads[thread].h3connections.find(keyIt->second.key);
+        if (connIt == Gen::activeThreads[thread].h3connections.end())
+            break;
+
+        auto &conn = connIt->second;
+
+        pipeline->queueReadOrigin(conn);
+        io_uring_submit(ring);
         break;
     }
     /* ============== ORIGIN ============== */
@@ -503,7 +541,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
             break;
         }
 
-        std::string ip = DNSClient::getRandomIP(ips);
+        std::string ip = "13.140.157.112"; // DNSClient::getRandomIP(ips);
 
         sockaddr_in originAddr;
 

@@ -93,6 +93,9 @@ namespace H3
 
             Transports::Resolver::ResolverPacket inResolverPacket;
             Transports::Resolver::ResolverPacket outResolverPacket;
+
+            // Origin
+            std::list<std::string> originQueue;
         } H3Connection;
 
         typedef struct
