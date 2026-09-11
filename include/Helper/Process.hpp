@@ -12,6 +12,6 @@ namespace Helper
     class Process
     {
     public:
-        static std::string execCommand(const char *command);
+        static std::string execCommand(const char *command /* in */);
     };
 } // namespace Helper

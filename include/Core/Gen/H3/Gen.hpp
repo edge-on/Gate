@@ -154,5 +154,12 @@ namespace H3
 
             std::vector<std::string> headers;
         } RecvIOCtx;
+
+        typedef struct
+        {
+            std::string status;
+
+            std::vector<std::string> headers;
+        } ReqIOCtx;
     };
 } // namespace Gen

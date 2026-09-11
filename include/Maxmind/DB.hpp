@@ -17,8 +17,8 @@ namespace Maxmind
     class DB
     {
     public:
-        static void init(const char *path);
-        static uint32_t getVal(const char *val);
+        static void init(const char *path /* in */);
+        static uint32_t getVal(const char *val /* in */);
 
         static inline const std::unordered_set<uint32_t> blockedAsns = {
             1442, 3223, 3561, 3722, 3842, 4250, 4323, 4694, 4851, 5435, 5577, 6188, 6698, 6718, 6724, 6764,

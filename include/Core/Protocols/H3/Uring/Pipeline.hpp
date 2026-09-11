@@ -15,19 +15,19 @@ namespace Pipeline
     class H3
     {
     public:
-        H3(struct io_uring *ring, int thread, int fd);
+        H3(struct io_uring *ring /* in */, int thread /* in */, int fd /* in */);
 
         void queueReadClient();
-        void queueWriteClient(::H3::Gen::H3Connection &conn);
+        void queueWriteClient(::H3::Gen::H3Connection &conn /* in */);
         void queueWriteClientCtx();
 
-        void queueConnectOrigin(::H3::Gen::H3Connection &conn);
-        void queueReadOrigin(::H3::Gen::H3Connection &conn);
-        void queueWriteOrigin(::H3::Gen::H3Connection &conn);
+        void queueConnectOrigin(::H3::Gen::H3Connection &conn /* in */);
+        void queueReadOrigin(::H3::Gen::H3Connection &conn /* in */);
+        void queueWriteOrigin(::H3::Gen::H3Connection &conn /* in */);
 
-        void queueConnectResolver(::H3::Gen::H3Connection &conn, char *ip);
-        void queueWriteResolver(::H3::Gen::H3Connection &conn);
-        void queueReadResolver(::H3::Gen::H3Connection &conn);
+        void queueConnectResolver(::H3::Gen::H3Connection &conn /* in */, char *ip /* in */);
+        void queueWriteResolver(::H3::Gen::H3Connection &conn /* in */);
+        void queueReadResolver(::H3::Gen::H3Connection &conn /* in */);
 
         Uring::BufferPool *pool;
 

@@ -16,10 +16,10 @@ namespace Transports
     class Proxy
     {
     public:
-        static int initServer(int port);
-        static int initUdpServer(int port);
+        static int initServer(int port /* in */);
+        static int initUdpServer(int port /* in */);
 
-        static int createOriginSocket(char *ip, int port, sockaddr_in &outAddr);
+        static int createOriginSocket(char *ip /* in */, int port /* in */, sockaddr_in &outAddr /* in */);
         static int createResolverSocket();
     };
 }

@@ -17,8 +17,8 @@ private:
     int port;
 
 public:
-    DNSClient(std::string ip, int p);
+    DNSClient(std::string ip, int p /* in */);
 
-    static void formatName(char *dns, const std::string &host);
-    static std::string getRandomIP(std::vector<std::string> ips);
+    static void formatName(char *dns /* in */, const std::string &host /* in */);
+    static std::string getRandomIP(std::vector<std::string> ips /* in */);
 };

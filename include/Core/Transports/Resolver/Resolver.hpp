@@ -15,6 +15,6 @@ namespace Transports
             ssize_t outLen;
         };
 
-        static ResolverPacket getResolverPacket(char *host);
+        static ResolverPacket getResolverPacket(char *host /* in */);
     };
 } // namespace Transports

@@ -50,6 +50,6 @@ private:
     SSL_CTX *quicheCtx;
     quiche_config *quicheConf;
 
-    void workerH1(int thread);
-    void workerH3(int thread);
+    void workerH1(int thread /* in */);
+    void workerH3(int thread /* in */);
 };

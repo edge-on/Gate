@@ -16,21 +16,21 @@ namespace Pipeline
     public:
         H1(struct io_uring *ring, int thread);
 
-        void queueMultishotAccept(int serverFd);
+        void queueMultishotAccept(int serverFd /* in */);
 
-        void queueTlsConnecting(::H1::Gen::H1Connection &conn);
-        void queueReadClient(::H1::Gen::H1Connection &conn);
-        void queueWriteClient(::H1::Gen::H1Connection &conn);
+        void queueTlsConnecting(::H1::Gen::H1Connection &conn /* in */);
+        void queueReadClient(::H1::Gen::H1Connection &conn /* in */);
+        void queueWriteClient(::H1::Gen::H1Connection &conn /* in */);
 
-        void queueConnectOrigin(::H1::Gen::H1Connection &originConn);
-        void queueWriteOrigin(::H1::Gen::H1Connection &conn);
-        void queueReadOrigin(::H1::Gen::H1Connection &conn);
+        void queueConnectOrigin(::H1::Gen::H1Connection &originConn /* in */);
+        void queueWriteOrigin(::H1::Gen::H1Connection &conn /* in */);
+        void queueReadOrigin(::H1::Gen::H1Connection &conn /* in */);
 
-        void queueConnectResolver(::H1::Gen::H1Connection &conn, char* ip);
-        void queueWriteResolver(::H1::Gen::H1Connection &conn);
-        void queueReadResolver(::H1::Gen::H1Connection &conn);
+        void queueConnectResolver(::H1::Gen::H1Connection &conn /* in */, char* ip /* in */);
+        void queueWriteResolver(::H1::Gen::H1Connection &conn /* in */);
+        void queueReadResolver(::H1::Gen::H1Connection &conn /* in */);
 
-        void writePage(::H1::Gen::H1Connection &conn, std::string page);
+        void writePage(::H1::Gen::H1Connection &conn /* in */, std::string page /* in */);
 
     private:
         struct io_uring *ring;

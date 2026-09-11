@@ -23,9 +23,9 @@ namespace Protocols
     class H1
     {
     public:
-        H1(struct io_uring *ring, int thread, Pipeline::H1 *pipeline, SSL_CTX *ctx);
-        int run(struct io_uring_cqe *cqe);
-        int wakeup(int res);
+        H1(struct io_uring *ring /* in */, int thread /* in */, Pipeline::H1 *pipeline /* in */, SSL_CTX *ctx /* in */);
+        int run(struct io_uring_cqe *cqe /* in */);
+        int wakeup(int res /* in */);
 
     private:
         struct io_uring *ring;
