@@ -8,10 +8,13 @@
 #include <random>
 
 #include "Core/Protocols/H3/Uring/Pipeline.hpp"
-#include "Main.hpp"
 
 #include "Core/Transports/Proxy/Proxy.hpp"
 #include "Core/Transports/Resolver/Resolver.hpp"
+
+#include "Core/Transports/HTTP/HTTP.hpp"
+
+#include "Main.hpp"
 
 namespace Protocols
 {

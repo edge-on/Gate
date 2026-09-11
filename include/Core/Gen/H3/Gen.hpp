@@ -148,18 +148,18 @@ namespace H3
 
         typedef struct
         {
-            std::string method;
-            std::string host;
-            std::string path;
+            char *method;
+            char *host;
+            char *path;
 
-            std::vector<std::string> headers;
+            std::vector<std::string_view> headers;
         } RecvIOCtx;
 
         typedef struct
         {
-            std::string status;
+            char *status;
 
-            std::vector<std::string> headers;
+            std::vector<std::string_view> headers;
         } ReqIOCtx;
     };
 } // namespace Gen

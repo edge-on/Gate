@@ -386,6 +386,11 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
         auto &conn = connIt->second;
 
+        auto &front = conn.originQueue.front();
+
+        ::H3::Gen::ReqIOCtx req;
+        Transports::HTTP::parseHttp(front.data(), front.size(), req);
+
         pipeline->queueReadOrigin(conn);
         io_uring_submit(ring);
         break;
