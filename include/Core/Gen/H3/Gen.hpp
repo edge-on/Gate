@@ -157,7 +157,10 @@ namespace H3
 
         typedef struct
         {
+            bool haveHeaders = false;
+
             char *status;
+            char *body;
 
             std::vector<std::string_view> headers;
         } ReqIOCtx;
