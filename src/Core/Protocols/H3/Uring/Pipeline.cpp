@@ -112,7 +112,7 @@ void Pipeline::H3::queueWriteOrigin(::H3::Gen::H3Connection &conn)
     auto front = conn.readQueue.front();
 
     uint64_t data = ((uint64_t)::H3::Gen::H3_STATE_WRITE_ORIGIN << 32) | (uint32_t)conn.keyPeering;
-    io_uring_prep_write(sqe, conn.originFd, front.data(), front.size(), 0);
+    io_uring_prep_write(sqe, conn.originFd, front.data.data(), front.data.size(), 0);
     io_uring_sqe_set_data(sqe, (void *)data);
 }
 /* ============== ORIGIN ============== */

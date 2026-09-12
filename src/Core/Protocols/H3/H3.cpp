@@ -223,7 +223,11 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                         h1.append("\r\n");
                     }
 
-                    conn.readQueue.push_back(std::move(h1));
+                    ::H3::Gen::StreamIOCtx ictx;
+                    ictx.data = std::move(h1);
+                    ictx.streamId = streamId;
+
+                    conn.readQueue.push_back(std::move(ictx));
 
                     conn.host = ioCtx.host;
 
@@ -367,6 +371,24 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
     case ::H3::Gen::H3_STATE_WRITE_ORIGIN:
     {
+        auto keyIt = Gen::activeThreads[thread].h3keys.find(dcidKey);
+        if (keyIt == Gen::activeThreads[thread].h3keys.end())
+            break;
+
+        auto connIt = Gen::activeThreads[thread].h3connections.find(keyIt->second.key);
+        if (connIt == Gen::activeThreads[thread].h3connections.end())
+            break;
+
+        auto &conn = connIt->second;
+
+        if (conn.readQueue.empty())
+            break;
+
+        Gen::activeThreads[thread].streamFdPeering[conn.originFd] = conn.readQueue.front().streamId;
+        conn.readQueue.pop_front();
+
+        io_uring_submit(ring);
+
         break;
     }
 
@@ -390,6 +412,27 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
         ::H3::Gen::ReqIOCtx req;
         Transports::HTTP::parseHttp(front.data(), front.size(), req);
+        
+        std::vector<quiche_h3_header> headers(req.headers.size());
+
+        size_t incremental = 0;
+        for (auto const &header : req.headers)
+        {
+            headers[incremental].name = (uint8_t *)header.first.data();
+            headers[incremental].name_len = header.first.size();
+
+            headers[incremental].value = (uint8_t *)header.second.data();
+            headers[incremental].value_len = header.second.size();
+
+            incremental++;
+        }
+
+        size_t bodyLen = req.body ? strlen(req.body) : 0;
+
+        std::cout << req.body << " - " << bodyLen << std::endl;
+        
+        quiche_h3_send_response(conn.h3, conn.conn, Gen::activeThreads[thread].streamFdPeering[conn.originFd], headers.data(), headers.size(), false);
+        quiche_h3_send_body(conn.h3, conn.conn, Gen::activeThreads[thread].streamFdPeering[conn.originFd], (uint8_t *)req.body, bodyLen, true);
 
         while (true)
         {

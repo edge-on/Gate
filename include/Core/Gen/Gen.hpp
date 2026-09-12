@@ -141,6 +141,9 @@ public:
         std::unordered_map<uint32_t, H3::Gen::H3KeyPeer> h3keys;
 
         std::queue<H3::Gen::ConnectionlessH3Context> connectionlessh3ctx;
+
+        // Origin FD -> Stream ID
+        std::unordered_map<uint64_t, uint64_t> streamFdPeering;
         /* ============= H3 ============= */
 
         // FD -> Gen

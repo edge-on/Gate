@@ -28,6 +28,12 @@ void Transports::HTTP::parseHttp(char *b, ssize_t length, ::H3::Gen::ReqIOCtx &r
         if (results.size() <= 1)
             return;
 
+        /*
+        Indis 0 = Protocol
+        Indis 1 = Status
+        Indis 2 = Message
+        Indis 3-4-5-6.... = Message Continue (If it exist)
+        */
         req.status = strndup(results[1].data(), results[1].size()); // Status = Indis 1
 
         // For headers
@@ -60,6 +66,7 @@ void Transports::HTTP::parseHttp(char *b, ssize_t length, ::H3::Gen::ReqIOCtx &r
     }
     else
     {
+        std::cout << "AA WORKS" << std::endl;
         req.body = b;
     }
 }

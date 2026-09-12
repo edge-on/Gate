@@ -127,6 +127,13 @@ namespace H3
 
         typedef struct
         {
+            std::string_view data;
+
+            uint64_t streamId;
+        } StreamIOCtx;
+
+        typedef struct
+        {
             uint32_t streamId;
 
             int threadId;
@@ -157,7 +164,7 @@ namespace H3
             quiche_h3_conn *h3;
 
             // Buffer Pools
-            std::list<std::string> readQueue;
+            std::list<StreamIOCtx> readQueue;
             std::list<Response> writeQueue;
 
             Transports::Resolver::ResolverPacket inResolverPacket;
