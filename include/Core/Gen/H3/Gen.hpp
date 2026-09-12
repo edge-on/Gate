@@ -58,48 +58,6 @@ namespace H3
 
         typedef struct
         {
-            uint32_t streamId;
-
-            int threadId;
-
-            int originFd = -1;
-            int resolverFd = -1;
-
-            sockaddr_in originAddr{};
-
-            uint32_t keyPeering;
-
-            std::string key;
-            std::string peerDcid;
-
-            bool missingSni = false;
-            bool established = false;
-
-            bool writeInFlight = false;
-
-            std::string host;
-            std::string domain;
-
-            Zone *zone = nullptr;
-
-            DCIDType dcidType;
-
-            quiche_conn *conn;
-            quiche_h3_conn *h3;
-
-            // Buffer Pools
-            std::list<std::string> readQueue;
-            std::list<Response> writeQueue;
-
-            Transports::Resolver::ResolverPacket inResolverPacket;
-            Transports::Resolver::ResolverPacket outResolverPacket;
-
-            // Origin
-            std::list<std::string> originQueue;
-        } H3Connection;
-
-        typedef struct
-        {
             struct msghdr msg{};
             struct iovec iov;
 
@@ -162,7 +120,51 @@ namespace H3
             char *status;
             char *body;
 
-            std::vector<std::string_view> headers;
+            // List |
+            //    > Key -> Value
+            std::unordered_map<std::string_view, std::string_view> headers;
         } ReqIOCtx;
+
+        typedef struct
+        {
+            uint32_t streamId;
+
+            int threadId;
+
+            int originFd = -1;
+            int resolverFd = -1;
+
+            sockaddr_in originAddr{};
+
+            uint32_t keyPeering;
+
+            std::string key;
+            std::string peerDcid;
+
+            bool missingSni = false;
+            bool established = false;
+
+            bool writeInFlight = false;
+
+            std::string host;
+            std::string domain;
+
+            Zone *zone = nullptr;
+
+            DCIDType dcidType;
+
+            quiche_conn *conn;
+            quiche_h3_conn *h3;
+
+            // Buffer Pools
+            std::list<std::string> readQueue;
+            std::list<Response> writeQueue;
+
+            Transports::Resolver::ResolverPacket inResolverPacket;
+            Transports::Resolver::ResolverPacket outResolverPacket;
+
+            // Origin
+            std::list<std::string> originQueue;
+        } H3Connection;
     };
 } // namespace Gen

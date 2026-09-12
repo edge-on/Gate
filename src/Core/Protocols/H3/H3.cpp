@@ -391,6 +391,32 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         ::H3::Gen::ReqIOCtx req;
         Transports::HTTP::parseHttp(front.data(), front.size(), req);
 
+        while (true)
+        {
+            ::H3::Gen::Response res;
+
+            ssize_t written = quiche_conn_send(conn.conn, res.out, sizeof(res.out), &res.sendInfo);
+
+            if (written == QUICHE_ERR_DONE || written < 0)
+            {
+                break;
+            }
+
+            conn.writeQueue.push_back(std::move(res));
+
+            auto &back = conn.writeQueue.back();
+
+            back.iov.iov_base = back.out;
+            back.iov.iov_len = written;
+
+            back.msg.msg_name = &back.sendInfo.to;
+
+            back.msg.msg_namelen = back.sendInfo.to_len;
+            back.msg.msg_iov = &back.iov;
+            back.msg.msg_iovlen = 1;
+        }
+
+        pipeline->queueWriteClient(conn);
         pipeline->queueReadOrigin(conn);
         io_uring_submit(ring);
         break;

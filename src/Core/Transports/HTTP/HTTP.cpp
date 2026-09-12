@@ -38,12 +38,20 @@ void Transports::HTTP::parseHttp(char *b, ssize_t length, ::H3::Gen::ReqIOCtx &r
 
         while (end != std::string::npos)
         {
-            req.headers.push_back(headers.substr(start, end - start));
+            auto header = headers.substr(start, end - start);
+            auto key = header.substr(0, header.find(":"));
+            auto value = header.substr(header.find(":") + 2, header.size() - 2);
+
+            req.headers.insert({key, value});
             start = end + 2;
             end = headers.find("\r\n", start);
         }
 
-        req.headers.push_back(headers.substr(start));
+        auto header = headers.substr(start);
+        auto key = header.substr(0, header.find(":"));
+        auto value = header.substr(header.find(":") + 2, header.size() - 2);
+
+        req.headers.insert({key, value});
 
         // For body
         auto body = data.substr(data.find("\r\n\r\n") + 4, data.size() - data.find("\r\n\r\n") - 4);
