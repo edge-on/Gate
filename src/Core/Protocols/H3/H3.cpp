@@ -394,6 +394,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
     case ::H3::Gen::H3_STATE_READ_ORIGIN:
     {
+        std::cout << "I receive " << res << " bytes from origin." << std::endl;
         // I will break for MVP, but in the future i should close the connection file descriptor.
         if (res == 0)
             break;
@@ -409,6 +410,8 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         auto &conn = connIt->second;
 
         auto &front = conn.originQueue.front();
+        std::cout << front << std::endl;
+
 
         ::H3::Gen::ReqIOCtx req{};
         Transports::HTTP::parseHttp(front.data(), front.size(), req);

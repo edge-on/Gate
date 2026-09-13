@@ -16,7 +16,8 @@ BORINGSSL_LIBS := $(BORINGSSL_ROOT)/build/libssl.a $(BORINGSSL_ROOT)/build/libcr
 # =========================
 CXXFLAGS := -std=c++20 -O0 -g3 -g -Wall -Wextra -I$(BORINGSSL_INC) -Iinclude -I/usr/include/cassandra
 CFLAGS   := -Wall -Wextra -I$(BORINGSSL_INC) -Iinclude
-LDFLAGS  := -fsanitize=address -lxxhash -lcassandra -lDotenv -luring -loqs -lhiredis -lz -lmaxminddb -lquiche $(BORINGSSL_LIBS)
+LDFLAGS  := -lxxhash -lcassandra -lDotenv -luring -loqs -lhiredis -lz -lmaxminddb -lquiche $(BORINGSSL_LIBS)
+# Add "-fsanitize=address" to LDFLAGS for memory errors
 
 # =========================
 # DIRECTORIES
