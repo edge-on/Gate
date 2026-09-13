@@ -2,7 +2,7 @@
 
 void Transports::HTTP::parseHttp(char *b, ssize_t length, ::H3::Gen::ReqIOCtx &req)
 {
-    std::string_view data = std::string_view(b);
+    std::string_view data(b, static_cast<size_t>(length));
 
     if (data.find("\r\n\r\n") != std::string::npos)
         req.haveHeaders = true;
@@ -34,8 +34,7 @@ void Transports::HTTP::parseHttp(char *b, ssize_t length, ::H3::Gen::ReqIOCtx &r
         Indis 2 = Message
         Indis 3-4-5-6.... = Message Continue (If it exist)
         */
-        req.status = strndup(results[1].data(), results[1].size()); // Status = Indis 1
-
+        memcpy(req.status, results[1].data(), results[1].size()); // Status = Indis 1
         // For headers
         auto headers = data.substr(data.find("\n") + 1, data.find("\r\n\r\n") - data.find("\n") - 1);
 
@@ -61,12 +60,10 @@ void Transports::HTTP::parseHttp(char *b, ssize_t length, ::H3::Gen::ReqIOCtx &r
 
         // For body
         auto body = data.substr(data.find("\r\n\r\n") + 4, data.size() - data.find("\r\n\r\n") - 4);
-
-        req.body = strndup(body.data(), body.size());
+        memcpy(req.body, body.data(), body.size());
     }
     else
     {
-        std::cout << "AA WORKS" << std::endl;
-        req.body = b;
+        memcpy(req.body, data.data(), data.size());
     }
 }

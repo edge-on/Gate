@@ -104,21 +104,21 @@ namespace H3
             size_t tokenLen = sizeof(token);
         } HdrInfoCtx;
 
-        typedef struct
+        struct RecvIOCtx
         {
-            char *method;
-            char *host;
-            char *path;
+            char method[16] = {0};
+            char path[2048] = {0};
+            char host[256] = {0};
 
-            std::vector<std::string_view> headers;
-        } RecvIOCtx;
+            std::vector<std::string> headers;
+        };
 
         typedef struct
         {
             bool haveHeaders = false;
 
-            char *status;
-            char *body;
+            char status[16] = {0};
+            char body[BUFFER_SIZE] = {0};
 
             // List |
             //    > Key -> Value

@@ -205,7 +205,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
                 {
                 case QUICHE_H3_EVENT_HEADERS:
                 {
-                    ::H3::Gen::RecvIOCtx ioCtx;
+                    ::H3::Gen::RecvIOCtx ioCtx{};
                     int hrc = quiche_h3_event_for_each_header(ev, forEachHeaderCallback, &ioCtx);
 
                     std::string h1;
@@ -410,9 +410,9 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
 
         auto &front = conn.originQueue.front();
 
-        ::H3::Gen::ReqIOCtx req;
+        ::H3::Gen::ReqIOCtx req{};
         Transports::HTTP::parseHttp(front.data(), front.size(), req);
-        
+
         std::vector<quiche_h3_header> headers(req.headers.size());
 
         size_t incremental = 0;
@@ -430,7 +430,7 @@ int Protocols::H3::run(struct io_uring_cqe *cqe)
         size_t bodyLen = req.body ? strlen(req.body) : 0;
 
         std::cout << req.body << " - " << bodyLen << std::endl;
-        
+
         quiche_h3_send_response(conn.h3, conn.conn, Gen::activeThreads[thread].streamFdPeering[conn.originFd], headers.data(), headers.size(), false);
         quiche_h3_send_body(conn.h3, conn.conn, Gen::activeThreads[thread].streamFdPeering[conn.originFd], (uint8_t *)req.body, bodyLen, true);
 
@@ -726,34 +726,33 @@ bool Protocols::H3::versionMismatch(::H3::Gen::HdrInfoCtx infoCtx, struct sockad
 int Protocols::H3::forEachHeaderCallback(uint8_t *name, size_t nameLen, uint8_t *value, size_t valueLen, void *argp)
 {
     auto *ioCtx = static_cast<::H3::Gen::RecvIOCtx *>(argp);
+    if (ioCtx == nullptr || name == nullptr || value == nullptr)
+        return 0;
 
     std::string headerName(reinterpret_cast<char *>(name), nameLen);
     std::string headerValue(reinterpret_cast<char *>(value), valueLen);
 
-    /*
-    [METHOD VALUE] [PATH VALUE] HTTP/1.1
-    Host: [AUTHORITY VALUE]
-    for()
-    {
-        [HEADER NAME]: [HEADER VALUE]
-    }
-    */
-
     if (headerName == ":method")
     {
-        ioCtx->method = headerValue.data(); // [METHOD VALUE]
+        size_t n = std::min(headerValue.size(), sizeof(ioCtx->method) - 1);
+        memcpy(ioCtx->method, headerValue.c_str(), n);
+        ioCtx->method[n] = '\0';
         return 0;
     }
 
     if (headerName == ":path")
     {
-        ioCtx->path = headerValue.data(); // [PATH VALUE]
+        size_t n = std::min(headerValue.size(), sizeof(ioCtx->path) - 1);
+        memcpy(ioCtx->path, headerValue.c_str(), n);
+        ioCtx->path[n] = '\0';
         return 0;
     }
 
     if (headerName == ":authority")
     {
-        ioCtx->host = headerValue.data(); // [AUTHORITY VALUE]
+        size_t n = std::min(headerValue.size(), sizeof(ioCtx->host) - 1);
+        memcpy(ioCtx->host, headerValue.c_str(), n);
+        ioCtx->host[n] = '\0';
         return 0;
     }
 
@@ -761,6 +760,5 @@ int Protocols::H3::forEachHeaderCallback(uint8_t *name, size_t nameLen, uint8_t 
         return 0;
 
     ioCtx->headers.push_back(headerName + ": " + headerValue);
-
     return 0;
 }
